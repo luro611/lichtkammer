@@ -326,8 +326,11 @@ trait MediaPages
                     }
                 }
                 try {
-                    $n = $fields === [] ? 0 : $this->s->catalog->bulkUpdate($ids, $fields);
                     $gal = (int) $req->input('galerie_add');
+                    if ($gal > 0 && $this->s->galleries->get($gal) === null) { // vor jeder Änderung prüfen
+                        throw new MediaException('Die gewählte Galerie gibt es nicht (mehr).');
+                    }
+                    $n = $fields === [] ? 0 : $this->s->catalog->bulkUpdate($ids, $fields);
                     if ($gal > 0) {
                         $n = max($n, $this->s->galleries->addPhotos($gal, $ids));
                     }

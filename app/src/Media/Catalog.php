@@ -271,8 +271,9 @@ final class Catalog
             $this->removeVariants($id);
             $this->db->run('UPDATE galleries SET cover_photo_id = NULL WHERE cover_photo_id = ?', [$id]);
             $this->db->run('DELETE FROM photos WHERE id = ? AND deleted_at IS NOT NULL', [$id]);
-            $orig = $this->originalsDir . '/' . $p['original_path'];
-            if (is_file($orig)) {
+            $rel = (string) $p['original_path'];
+            $orig = $this->originalsDir . '/' . $rel;
+            if (!str_contains($rel, '..') && $rel[0] !== '/' && is_file($orig)) { // nie außerhalb des Originale-Ordners löschen
                 @unlink($orig);
             }
             $n++;

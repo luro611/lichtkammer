@@ -232,15 +232,24 @@ final class Galleries
     /** Ein Foto um eine Stelle verschieben (Ersatz für Ziehen, ohne Skript und per Tastatur). */
     public function movePhoto(int $id, int $photoId, string $direction): void
     {
-        $ids = array_map(static fn (array $r): int => (int) $r['photo_id'], $this->db->all('SELECT photo_id FROM gallery_photos WHERE gallery_id = ? ORDER BY position, photo_id', [$id]));
-        $i = array_search($photoId, $ids, true);
-        if ($i === false) {
+        $rows = $this->db->all('SELECT gp.photo_id, (p.deleted_at IS NULL) AS visible FROM gallery_photos gp JOIN photos p ON p.id = gp.photo_id WHERE gp.gallery_id = ? ORDER BY gp.position, gp.photo_id', [$id]);
+        $ids = array_map(static fn (array $r): int => (int) $r['photo_id'], $rows);
+        // Nachbar ist das nächste sichtbare Foto; Fotos im Papierkorb behalten ihren Platz.
+        $visible = [];
+        foreach ($rows as $k => $r) {
+            if ((int) $r['visible'] === 1) {
+                $visible[] = $k;
+            }
+        }
+        $a = array_search($photoId, array_map(static fn (int $k): int => $ids[$k], $visible), true);
+        if ($a === false) {
             return;
         }
-        $j = $direction === 'hoch' ? $i - 1 : $i + 1;
-        if ($j < 0 || $j >= count($ids)) {
+        $b = $direction === 'hoch' ? $a - 1 : $a + 1;
+        if ($b < 0 || $b >= count($visible)) {
             return;
         }
+        [$i, $j] = [$visible[$a], $visible[$b]];
         [$ids[$i], $ids[$j]] = [$ids[$j], $ids[$i]];
         $this->db->tx(fn () => $this->writePositions($id, $ids));
     }

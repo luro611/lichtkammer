@@ -100,19 +100,23 @@ final class Library
         }
         $now = $this->clock->now();
         try {
-            $this->db->run(
-                'INSERT INTO photos(token, original_name, original_path, sha256, bytes, mime, status, uploaded_by, created_at, updated_at)
-                 VALUES(?,?,?,?,?,?,\'pending\',?,?,?)',
-                [$token, self::cleanName($originalName), $rel, $sha, $size, $mime, $userId, $now, $now],
-            );
-            $photoId = $this->db->lastId();
-            if ($galleryId !== null) { // seit Schema 3: Verknüpfung mit eigener Position, ans Ende
+            // Foto und Galerie-Verknüpfung zusammen: schlägt das zweite fehl, bleibt keine Zeile ohne Original zurück.
+            $photoId = $this->db->tx(function () use ($token, $originalName, $rel, $sha, $size, $mime, $userId, $now, $galleryId): int {
                 $this->db->run(
-                    'INSERT OR IGNORE INTO gallery_photos(gallery_id, photo_id, position, added_at)
-                     VALUES(?, ?, (SELECT COALESCE(MAX(position),0)+1 FROM gallery_photos WHERE gallery_id = ?), ?)',
-                    [$galleryId, $photoId, $galleryId, $now],
+                    'INSERT INTO photos(token, original_name, original_path, sha256, bytes, mime, status, uploaded_by, created_at, updated_at)
+                     VALUES(?,?,?,?,?,?,\'pending\',?,?,?)',
+                    [$token, self::cleanName($originalName), $rel, $sha, $size, $mime, $userId, $now, $now],
                 );
-            }
+                $id = $this->db->lastId();
+                if ($galleryId !== null) { // seit Schema 3: Verknüpfung mit eigener Position, ans Ende
+                    $this->db->run(
+                        'INSERT OR IGNORE INTO gallery_photos(gallery_id, photo_id, position, added_at)
+                         VALUES(?, ?, (SELECT COALESCE(MAX(position),0)+1 FROM gallery_photos WHERE gallery_id = ?), ?)',
+                        [$galleryId, $id, $galleryId, $now],
+                    );
+                }
+                return $id;
+            });
         } catch (\PDOException $e) {
             @unlink($abs);
             $dup = $this->db->one('SELECT id, deleted_at FROM photos WHERE sha256 = ?', [$sha]);

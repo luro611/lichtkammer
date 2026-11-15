@@ -43,9 +43,19 @@ final class Database
         if (!$isNew && $file !== ':memory:' && $before > 0 && $before < count(Schema::migrations())) {
             $backup = $file . '.vor-schema-' . $before . '.bak';
             if (!is_file($backup)) {
+                // Erst unter eigenem Namen schreiben, dann umbenennen: eine abgebrochene Sicherung gilt nie als vorhanden.
+                // Scheitert sie (z. B. Platte voll), wird nicht migriert.
+                $tmp = $backup . '.' . getmypid() . '.tmp';
+                @unlink($tmp);
                 $old = umask(0077);
                 try {
-                    $pdo->exec('VACUUM INTO ' . $pdo->quote($backup));
+                    $pdo->exec('VACUUM INTO ' . $pdo->quote($tmp));
+                    if (!@rename($tmp, $backup)) {
+                        throw new \RuntimeException('Die Sicherung vor der Migration konnte nicht abgelegt werden.');
+                    }
+                } catch (\Throwable $t) {
+                    @unlink($tmp);
+                    throw $t;
                 } finally {
                     umask($old);
                 }

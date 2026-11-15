@@ -42,6 +42,7 @@ unset($migrated);
 $again = Database::open($dbFile);
 check('Migration 3: zweites Öffnen ändert nichts und legt keine zweite Sicherung an', Schema::version($again) === 3 && (int) $again->value('SELECT COUNT(*) FROM gallery_photos') === 2 && count(glob($f4 . '/mig/*.bak')) === 1);
 unset($again);
+check('Migration 3: keine halbfertigen Sicherungsdateien (.tmp) übrig', glob($f4 . '/mig/*.tmp') === []);
 
 // --- Umgebung ---
 $m = lk_make($f4 . '/a');
@@ -297,6 +298,37 @@ $b2->request('POST', '/admin/upload/' . $st['id'] . '/chunk?offset=0', [], ['HTT
 $fin = json_decode($b2->request('POST', '/admin/upload/' . $st['id'] . '/finish', [], ['HTTP_X_CSRF_TOKEN' => $csrf2])->body, true);
 check('Upload in Galerie: Foto liegt ans Ende der Galerie', $pos($g4) === [(int) $fin['photo_id']]);
 check('Upload in Galerie: Galerieseite hat den Upload-Bereich mit Galerie-Nummer', str_contains($b2->get("/admin/galerien/$g4")->body, 'data-gallery="' . $g4 . '"'));
+
+// --- Nachprüfung Opus: Atomarität, Papierkorb-Nachbarn, Pfad-Schutz, Sicherung ---
+$tmpJ = $f4 . '/unique.jpg';
+file_put_contents($tmpJ, lk_jpeg(700, 500));
+$before = (int) $db->value('SELECT COUNT(*) FROM photos');
+try {
+    $svc->library->ingest(1, $tmpJ, 'x.jpg', 987654);
+    $threw = false;
+} catch (\Throwable) {
+    $threw = true;
+}
+check('Ingest in unbekannte Galerie: Fehler, keine Foto-Zeile ohne Original zurück', $threw && (int) $db->value('SELECT COUNT(*) FROM photos') === $before);
+
+$gm = $svc->galleries->create('Nachbarn');
+$ids3 = [];
+foreach ([1, 2, 3] as $k) {
+    $db->run("INSERT INTO photos(token, original_path, sha256, bytes, mime, status, alt_text, created_at, updated_at) VALUES(?,?,?,1,'image/jpeg','ready','a',1,1)", ["nb$k", "nb/$k.jpg", "nbsha$k"]);
+    $ids3[$k] = $db->lastId();
+}
+$svc->galleries->addPhotos($gm, [$ids3[1], $ids3[2], $ids3[3]]);
+$svc->catalog->trash([$ids3[2]]);
+$svc->galleries->movePhoto($gm, $ids3[3], 'hoch');
+check('Foto verschieben: überspringt Foto im Papierkorb, sichtbare Reihenfolge ändert sich', array_map(static fn (array $r): int => (int) $r['id'], $svc->galleries->photos($gm)) === [$ids3[3], $ids3[1]]);
+$svc->catalog->restore([$ids3[2]]);
+
+$outside = $f4 . '/outside.txt';
+file_put_contents($outside, 'bleibt');
+$db->run("INSERT INTO photos(token, original_path, sha256, bytes, mime, deleted_at, created_at, updated_at) VALUES('evil', ?, 'evilsha', 1, 'image/jpeg', 1, 1, 1)", ['../../outside.txt']);
+$evil = $db->lastId();
+$svc->catalog->purge([$evil]);
+check('Endgültig löschen: Pfad mit .. löscht nichts außerhalb der Originale', is_file($outside) && $db->value('SELECT 1 FROM photos WHERE id = ?', [$evil]) === null);
 
 // --- Fehlerfälle und Sicherheit ---
 check('Flash: nur feste Meldungen, kein freier Text aus der Adresse', !str_contains($b2->get('/admin/galerien?m=%3Cscript%3E')->body, '<script>') && !str_contains($b2->get('/admin/galerien?m=Hallo')->body, 'Hallo') && str_contains($b2->get('/admin/galerien?m=created')->body, 'Galerie angelegt'));
