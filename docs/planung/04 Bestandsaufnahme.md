@@ -12,16 +12,17 @@ Stand: 15.11.2026. **Teil A (WordPress) ist fertig, Teil B (all-inkl-Server) war
 
 ## B. Server all-inkl (Konto A)
 
+Testinstallation unter **`lichtkammer.br-foto.com`** (statt `neu.br-foto.com` aus Plan 03). Zugangsdaten stehen nur in `.env` und im Schlüsselbund, nicht im Repo.
+
 | Punkt | Ergebnis |
 |---|---|
-| Domain `br-foto.com` | Apache, löst auf 85.13.150.49 auf, antwortet (HTTP/2) |
-| Subdomain `neu.br-foto.com` | löst auf dieselbe IP auf und antwortet mit **301** (Ziel nicht ausgewertet). Ob sie im KAS als eigene Subdomain mit eigenem Ordner angelegt ist, ist **noch offen**. |
-| FTP-Zugang | **fehlt.** Im Schlüsselbund gibt es keinen Eintrag `web-ftp-br-foto.com`; im Repo `br-foto` gibt es keine `.env`. |
-| PHP-Version, Imagick/GD, AVIF, HEIC, pdo_sqlite | offen (braucht Testdatei) |
-| upload_max_filesize, post_max_size, memory_limit, max_execution_time | offen |
-| Schreibrechte oberhalb des Webroots | offen (per FTPS prüfbar) |
+| FTPS-Zugang | funktioniert (TLS erzwungen, Zertifikat geprüft), nur lesend getestet |
+| Ordner über dem Webroot | **nicht erreichbar.** Der FTP-Benutzer ist auf den Ordner der Subdomain beschränkt: Die FTP-Wurzel ist zugleich der Webroot (enthält nur eine `index.htm`, 85 KB, Platzhalter von all-inkl). `app/`, `data/` und `originals/` können deshalb nicht außerhalb liegen. |
+| Folgerung | Diese Ordner liegen **im** Webroot und müssen per `.htaccess` (`Require all denied`) gesperrt werden; das ist zu testen (Zugriff von außen muss 403 liefern). Alternative: im KAS die Subdomain auf einen Unterordner (z. B. `public/`) zeigen lassen, dann liegen die übrigen Ordner daneben. Empfehlung: das im KAS einstellen, falls der Ziel-Ordner frei wählbar ist. Gilt später ebenso für `br-foto.com`. |
+| Subdomain | `neu.br-foto.com` wird nicht verwendet; es gilt `lichtkammer.br-foto.com` |
+| PHP-Version, Imagick/GD, AVIF, HEIC, pdo_sqlite | offen, braucht Testdatei |
+| upload_max_filesize, post_max_size, memory_limit, max_execution_time | offen, braucht Testdatei |
+| Schreibrechte | offen, braucht Schreibtest (Testdatei) |
 
-### Nötig von Lutz
-1. FTP-Benutzer nur für br-foto.com im KAS anlegen, Host und Benutzer nennen und das Passwort selbst in den Schlüsselbund legen: `security add-generic-password -U -a <FTP_USER> -s web-ftp-br-foto.com -w`
-2. Ausdrückliche Freigabe, eine `phpinfo`-Datei auf `neu.br-foto.com` hochzuladen (wird sofort nach dem Auslesen wieder gelöscht).
-3. Subdomain `neu.br-foto.com` im KAS mit eigenem Ordner anlegen bzw. bestätigen, falls noch nicht geschehen.
+### Noch nötig
+Ausdrückliche Freigabe von Lutz, eine `phpinfo`-Testdatei (plus einen kurzen Schreibtest und AVIF/HEIC-Prüfung) auf `lichtkammer.br-foto.com` hochzuladen. Die Dateien werden direkt nach dem Auslesen gelöscht. Zusätzlich im KAS prüfen, ob der Ziel-Ordner der Subdomain frei wählbar ist.

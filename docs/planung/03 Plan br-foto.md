@@ -130,7 +130,7 @@ Grundlage ist die Designsprache von rothe.it und lurohome.de (`Webseiten/lurohom
 2. **Inhalte über die REST-API einlesen:** Ein lokales Skript lädt Galerien, Seiten, Texte und alle Bilder in größter verfügbarer Auflösung und erzeugt daraus ein Importpaket.
 3. **Import im neuen Admin:** Das Paket wird per FTPS in einen Importordner gelegt, der Admin verarbeitet es Bild für Bild. Danach sehen wir alles durch, ergänzen Alt-Texte und den Fotografen.
 4. **Weiterleitungen:** Alte Adressen (`/featured-content/island-2022/`, `/portfolio/…`, `/ueber-uns/` usw.) leiten mit 301 auf die neuen um, damit Links und Suchmaschinen weiter funktionieren.
-5. **Testbetrieb auf `neu.br-foto.com`:** mit Passwort und `noindex`. Beide Fotografen probieren den Admin dort aus.
+5. **Testbetrieb auf `lichtkammer.br-foto.com`:** mit Passwort und `noindex`. Beide Fotografen probieren den Admin dort aus.
 6. **Umschalten im KAS:** Die Domain zeigt danach auf den neuen Ordner. WordPress bleibt noch einige Wochen unverändert im alten Ordner liegen, damit wir mit einem Klick zurück können, und wird erst nach Freigabe entfernt.
 
 ## 9. Sicherung und Betrieb
@@ -157,13 +157,13 @@ Jeder Schritt wird einzeln beauftragt, in einer eigenen, kurzen Sitzung (bauen m
 | Nr. | Schritt | Ergebnis | Risiko |
 |---|---|---|---|
 | 0 | **Bestandsaufnahme all-inkl** | PHP-Version, Imagick/GD (AVIF? HEIC?), pdo_sqlite, Limits, Ordner über dem Webroot, Subdomain `neu.` angelegt. Dazu eine Testdatei hochladen und wieder löschen. Größte vorhandene Bildauflösung bei WordPress. | niedrig |
-| 1 | **Projektgerüst** | Ordnerstruktur, Router, Templates, Design-Grundlage (Farben, Schriften, Apple-Rahmen), `.env.example`, Lizenz, erster Test, `deploy.sh` für `neu.br-foto.com` | niedrig |
+| 1 | **Projektgerüst** | Ordnerstruktur, Router, Templates, Design-Grundlage (Farben, Schriften, Apple-Rahmen), `.env.example`, Lizenz, erster Test, `deploy.sh` für `lichtkammer.br-foto.com` | niedrig |
 | 2 | **Anmeldung** | Konten, Passwort, TOTP, Wiederherstellungscodes, Sperren, Protokoll. Vorher Detailentwurf mit Fable-Prüfung. | **hoch** |
 | 3 | **Datenmodell und Bildpipeline** | SQLite-Schema mit Migrationen, Upload in Stücken, Varianten, EXIF, GPS-Entfernung, Dublettenprüfung | mittel |
 | 4 | **Bildverwaltung** | Galerien, Sortieren, Titelbild, Mehrfachbearbeitung, Alt-Text-Pflicht, Papierkorb, Suche | mittel |
 | 5 | **Öffentliche Seite** | Start, Galerien, Justified-Raster, Lightbox, Seiten, hell/dunkel, Vorschau, Veröffentlichen mit Rückgängig | mittel |
 | 6 | **Passkey** | WebAuthn zusätzlich zu TOTP, mit Fable-Prüfung | **hoch** |
-| 7 | **Umzug** | Importskript, Import, Weiterleitungen, Durchsicht mit beiden Fotografen auf `neu.` | mittel |
+| 7 | **Umzug** | Importskript, Import, Weiterleitungen, Durchsicht mit beiden Fotografen auf `lichtkammer.` | mittel |
 | 8 | **Härtung und Livegang** | Sicherheitsprüfung, Lighthouse, Sicherung vom Homeserver eingerichtet, Umschalten im KAS, WordPress noch als Rückweg aufbewahrt | **hoch** |
 | 9 | **Phase 2** | Ausstellungen, Schlagworte, Galerie mit Passwort usw. nach Wunsch | – |
 
