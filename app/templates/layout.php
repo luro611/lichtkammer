@@ -12,6 +12,7 @@ $csrf = $csrf ?? '';
 <?php if ($config->noindex()): ?><meta name="robots" content="noindex,nofollow">
 <?php endif; ?>
 <link rel="stylesheet" href="/assets/css/app.css">
+<script src="/assets/js/design.js"></script>
 </head>
 <body>
 <header class="bar"><div class="shell">
@@ -24,6 +25,12 @@ $csrf = $csrf ?? '';
     <a href="/admin/log">Protokoll</a>
     <a href="/admin/account">Mein Konto</a>
   </nav>
+<?php endif; ?>
+  <div class="tools">
+    <div class="pill" role="group" aria-label="Design"><button type="button" data-design-set="lurohome" aria-pressed="true">luro</button><button type="button" data-design-set="rothe" aria-pressed="false">rothe.it</button></div>
+    <div class="pill" role="group" aria-label="Farbschema"><button type="button" data-theme-set="light" aria-label="Hell" aria-pressed="true">☀</button><button type="button" data-theme-set="dark" aria-label="Dunkel" aria-pressed="false">☾</button></div>
+  </div>
+<?php if ($user !== null): ?>
   <form class="logout" method="post" action="/admin/logout"><input type="hidden" name="_csrf" value="<?= $e($csrf) ?>"><button class="btn ghost" type="submit">Abmelden</button></form>
 <?php endif; ?>
 </div></header>

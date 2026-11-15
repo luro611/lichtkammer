@@ -39,7 +39,7 @@ Liegt unter `docs/planung/`:
 
 ## Designsprache
 
-Designsprache von lurohome.de und rothe.it (`/Users/luro/Documents/Projekte/Webseiten/lurohome/src/style.css`), Schriften lokal. Ausnahme nur für das öffentliche Theme von br-foto: runde Rahmen im Apple-Stil statt 2 px (Entscheidung von Lutz, 15.11.2026). Marke luro (Wortmarke, Siegel kompakt) wie in der globalen CLAUDE.md. BR-Foto-Logo: Variante B3 (offener Fokusrahmen, Terrakotta-Punkt, Wortmarke br.foto) gewählt von Lutz am 15.11.2026. SVG-Dateien (hell, dunkel, farbvariabel, App-Symbol für Favicon) in `~/Nextcloud/Documents/BR-FOTO/Logo-neu/`, Entwürfe als `BR-Foto-Logo-Muster.pdf` daneben. Gehört zur Installation br-foto, nicht in dieses Repo.
+Designsprache von lurohome.de und rothe.it (`/Users/luro/Documents/Projekte/Webseiten/lurohome/src/style.css`), Schriften lokal. Die Verwaltung hat einen Umschalter für zwei Designs (lurohome mit 2 px, rothe.it neutral und rund) und hell/dunkel (`public/assets/js/design.js`, `data-design`/`data-theme` am `<html>`, gemerkt in localStorage). Ausnahme nur für das öffentliche Theme von br-foto: runde Rahmen im Apple-Stil statt 2 px (Entscheidung von Lutz, 15.11.2026). Marke luro (Wortmarke, Siegel kompakt) wie in der globalen CLAUDE.md. BR-Foto-Logo: Variante B3 (offener Fokusrahmen, Terrakotta-Punkt, Wortmarke br.foto) gewählt von Lutz am 15.11.2026. SVG-Dateien (hell, dunkel, farbvariabel, App-Symbol für Favicon) in `~/Nextcloud/Documents/BR-FOTO/Logo-neu/`, Entwürfe als `BR-Foto-Logo-Muster.pdf` daneben. Gehört zur Installation br-foto, nicht in dieses Repo.
 
 ## Regeln
 
