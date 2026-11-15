@@ -145,3 +145,28 @@ Besonders: Sitzungsablauf und Fixierung, Rennen bei TOTP und Wiederherstellungsc
 6. **(Prüfung) Aufbewahrung:** Das Protokoll wird vorerst nie gekürzt (kleine Datenmenge). Passt das, oder soll es nach z. B. 12 Monaten gekürzt werden (dann mit Kettenabschluss)?
 7. **(Gutachten) Globale Bremse:** 20 begonnene Hash-Prüfungen in 10 s als Schwelle (Vorschlag), danach „bitte später“ für alle. Ein Angreifer kann damit die Anmeldung zeitweise für euch beide blockieren, nicht aber eindringen. Alternative wäre, nur je Adresse zu bremsen und das Speicherrisiko auf all-inkl in Kauf zu nehmen. Einverstanden mit der Schwelle?
 8. **(Gutachten) WordPress auf demselben Konto:** Solange br-foto.com als WordPress unter Konto A läuft, kann es Schlüssel und Datenbank von Lichtkammer lesen (gleicher Systembenutzer). Vorschlag: nach dem Umschalten (Plan 03, Schritt 8) WordPress höchstens 14 Tage als Rückweg behalten, dann entfernen. Einverstanden?
+
+## 14. Umsetzung (gebaut am 15.11.2026, Sonnet)
+
+Gebaut nach diesem Entwurf einschließlich aller **(Prüfung)**- und **(Gutachten)**-Stellen. Lutz hat am 15.11.2026 die Empfehlungen aus Abschnitt 4 des Gutachtens angenommen:
+
+1. **Globale Bremse:** 20 Hash-Prüfungen in 10 s, konfigurierbar (`LK_GLOBAL_BRAKE_LIMIT`, `LK_GLOBAL_BRAKE_WINDOW`). Auf dem Testserver noch zu messen.
+2. **WordPress** nach dem Umschalten höchstens 14 Tage; eingetragen in `03 Plan br-foto.md`, Schritt 8.
+3. **Datenordner:** Admin startet nur mit `LK_DATA_DIR` außerhalb von `public/`/Webroot; Ausnahme `LK_ALLOW_DATA_IN_WEBROOT=1` mit dauerhafter Warnung. FTPS-Prüfung (nur lesend) in `04 Bestandsaufnahme.md`: oberhalb des Domain-Ordners ist per FTPS nichts erreichbar; die App legt den Ordner beim ersten Start selbst an.
+4. **Docker-Port: OFFEN.** Standard ist `127.0.0.1:8080:80` (`compose.yaml`); Lutz bestätigt die Form (lokal gebunden oder Proxy im selben Docker-Netz ohne Port) nach dem Test auf pve10.
+
+Offen aus Abschnitt 12 (Standardwerte gebaut, Änderung jederzeit per `.env`): Sitzungsdauer (Standard Leerlauf 30 min, absolut 12 h; `LK_SESSION_IDLE`, `LK_SESSION_ABSOLUTE`), Aufbewahrung des Protokolls (nie gekürzt).
+
+### Abweichungen und Festlegungen beim Bauen
+
+- **Sperre ohne eigene Zeilen:** `login_attempts` hat nur `kind`, `key_hash`, `at`. Wartezeit und Sperre ergeben sich aus der Zahl der Versuche im 15-Minuten-Fenster und dem letzten Versuch. Während einer Sperre wird nichts gebucht, die Sperre verlängert sich also nicht. Sie endet 15 Minuten nach dem **letzten** gebuchten Fehlversuch (nicht nach dem ersten, wie der Wortlaut nahelegt).
+- **Adresse allein:** Sperre erst ab 30 Fehlversuchen je Adresse in 15 Minuten (Name+Adresse: 10), weil mehrere Namen und Mobilfunk-NAT dahinterstecken können; ohne Wartezeit. Je Name allein: ab 100 nur 30 s Wartezeit, nie Sperre.
+- **Zusätzliche Zähler:** `tok` (je Adresse, für Einrichtungs-, Einladungs- und Rücksetz-Formulare, gleiche Regeln wie Name+Adresse), `user2fa` auch für Passwortänderung und Neuerzeugen der Codes.
+- **`users.webauthn_handle`** wird als Hex-Text (64 Zeichen = 32 Zufallsbytes) gespeichert, nicht als BLOB.
+- **Gemeinsame TOTP-Seite:** `/admin/enroll` für Ersteinrichtung, Einladung und Rücksetzung (statt je einer Seite); ohne gültige, nicht abgelaufene Zwischenzeile 404. Fünf falsche Codes verwerfen die Zwischenzeile.
+- **Notfallroute:** Der Link wird bei bekanntem und unbekanntem Namen angezeigt (beim unbekannten Namen ohne Einladung dahinter), damit die Seite gleich aussieht. Das Token wird nur bei bekanntem Konto verbraucht.
+- **Warnband** nur für Angemeldete (sonst verriete die Anmeldeseite die Konfiguration).
+- **Liste häufiger Passwörter:** `app/resources/common-passwords.txt` enthält vorerst nur rund 150 Grundwörter (deutsch/englisch); geprüft wird auch nach Entfernen aller Ziffern und Zeichen, dazu Folgen und Wiederholungen. Eine größere Liste (z. B. die 10.000 häufigsten) lässt sich ohne Codeänderung anhängen, Zeile je Eintrag.
+- **Protokoll:** Ereignisse stehen als `Audit::EVENTS` fest; `new_environment` entsteht, wenn ein Konto sich aus einem bisher nicht gesehenen Netz (IP-Präfix) anmeldet. Das Protokoll zeigt die Kettenprüfung (`ok`, Anzahl, Zeit des letzten Eintrags) für Administratoren.
+- **Docker:** `docker/entrypoint.sh` schreibt `RemoteIPHeader`/`RemoteIPInternalProxy` nur bei gesetzter `LK_TRUSTED_PROXIES`. Das Image wurde zusammen mit Schritt 2 auf Start und Healthcheck geprüft (siehe Bericht).
+- **Tests:** `tests/Dockerfile` (PHP 8.5 CLI mit `intl`); der Wettlauftest startet zwei echte PHP-Prozesse (`tests/helpers/race_child.php`). Der QR-Erzeuger (`app/src/Auth/Qr.php`, Version 1 bis 10, Fehlerkorrektur M) wurde mit `zbarimg` gegen zehn Texte unterschiedlicher Länge entschlüsselt und im Browser angesehen.

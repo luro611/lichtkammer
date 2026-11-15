@@ -4,10 +4,11 @@ Schlankes Open-Source-Foto-CMS für ausschließlich eigene Bilder (früherer Arb
 
 ## Stand
 
-- **Phase:** Schritt 0 (Bestandsaufnahme) ist erledigt, siehe `docs/planung/04 Bestandsaufnahme.md`. Schritt 1 (Projektgerüst) ist gebaut, noch nicht freigegeben.
+- **Phase:** Schritt 0 (Bestandsaufnahme) ist erledigt, siehe `docs/planung/04 Bestandsaufnahme.md`. Schritt 1 (Projektgerüst) ist gebaut und geprüft. Schritt 2 (Anmeldung, Entwurf `05`, Gutachten `07`) ist gebaut (Version 0.1.0-dev), Fable-Prüfung des Codes (`/code-review max`) steht aus; erst danach Upload auf den Testserver.
 - **Jeder Schritt aus dem Plan wird einzeln beauftragt**, danach berichten und auf Freigabe warten.
 - **Testserver:** `lichtkammer.br-foto.com` (all-inkl Konto A, HTTPS aktiv). Zugang nur in `deploy/.env` und im Schlüsselbund (Dienst `web-ftp-lichtkammer.br-foto.com`). Hochladen nur nach Probelauf und Freigabe von Lutz. Docker zuerst auf pve10.
-- **Tests:** `docker run --rm -v "$PWD":/app -w /app php:8.5-cli php tests/run.php` (kein lokales PHP).
+- **Tests (kein lokales PHP):** einmal `docker build -t lichtkammer-test -f tests/Dockerfile tests`, dann `docker run --rm -v "$PWD":/app -w /app lichtkammer-test php tests/run.php` (PHP 8.5 CLI mit `intl`, das `php:8.5-cli` allein nicht hat).
+- **Admin-Konfiguration:** ohne `LK_APP_KEY` (`openssl rand -base64 32`), `LK_BASE_URL` und `LK_DATA_DIR` außerhalb des Webroots startet der Admin nicht. Beschreibung in `.env.example`.
 
 ## Planung
 

@@ -3,14 +3,29 @@ declare(strict_types=1);
 
 namespace Lichtkammer;
 
+/**
+ * Einfacher Router. Pfade mit {name} liefern den Wert als zweites Argument an den Handler.
+ * Bekannte Pfade mit falscher Methode liefern 404 statt 405 (405 würde gesperrte Routen verraten).
+ */
 final class Router
 {
-    /** @var array<string,callable> */
+    /** @var list<array{method:string,pattern:string,regex:string,handler:callable}> */
     private array $routes = [];
 
     public function get(string $path, callable $handler): void
     {
-        $this->routes['GET ' . $path] = $handler;
+        $this->add('GET', $path, $handler);
+    }
+
+    public function post(string $path, callable $handler): void
+    {
+        $this->add('POST', $path, $handler);
+    }
+
+    private function add(string $method, string $path, callable $handler): void
+    {
+        $regex = '#^' . preg_replace('#\\\{([a-z]+)\\\}#', '(?P<$1>[^/]+)', preg_quote($path, '#')) . '$#';
+        $this->routes[] = ['method' => $method, 'pattern' => $path, 'regex' => $regex, 'handler' => $handler];
     }
 
     public function dispatch(Request $request): Response
@@ -20,13 +35,13 @@ final class Router
         if ($path !== '/' && str_ends_with($path, '/')) {
             $path = rtrim($path, '/');
         }
-        $handler = $this->routes[$method . ' ' . $path] ?? null;
-        if ($handler === null) {
-            $known = array_filter(array_keys($this->routes), static fn (string $k): bool => str_ends_with($k, ' ' . $path));
-            return $known !== []
-                ? new Response('Methode nicht erlaubt', 405, ['Allow' => 'GET, HEAD'])
-                : Response::notFound();
+        foreach ($this->routes as $r) {
+            if ($r['method'] !== $method || preg_match($r['regex'], $path, $m) !== 1) {
+                continue;
+            }
+            $params = array_filter($m, 'is_string', ARRAY_FILTER_USE_KEY);
+            return ($r['handler'])($request, $params);
         }
-        return $handler($request);
+        return Response::notFound();
     }
 }

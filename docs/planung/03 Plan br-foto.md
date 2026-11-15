@@ -145,7 +145,7 @@ Grundlage ist die Designsprache von rothe.it und lurohome.de (`Webseiten/lurohom
 3. **Import im neuen Admin:** Das Paket wird per FTPS in einen Importordner gelegt, der Admin verarbeitet es Bild für Bild. Danach sehen wir alles durch, ergänzen Alt-Texte und den Fotografen.
 4. **Weiterleitungen:** Alte Adressen (`/featured-content/island-2022/`, `/portfolio/…`, `/ueber-uns/` usw.) leiten mit 301 auf die neuen um, damit Links und Suchmaschinen weiter funktionieren.
 5. **Testbetrieb auf `lichtkammer.br-foto.com`:** mit Passwort und `noindex`. Beide Fotografen probieren den Admin dort aus.
-6. **Umschalten im KAS:** Die Domain zeigt danach auf den neuen Ordner. WordPress bleibt noch einige Wochen unverändert im alten Ordner liegen, damit wir mit einem Klick zurück können, und wird erst nach Freigabe entfernt.
+6. **Umschalten im KAS:** Die Domain zeigt danach auf den neuen Ordner. WordPress bleibt **höchstens 14 Tage** unverändert im alten Ordner liegen, damit wir mit einem Klick zurück können, und wird dann entfernt (Entscheidung von Lutz, 15.11.2026). Grund: Alle Domains des Kontos A laufen unter demselben Systembenutzer und `open_basedir` ist leer; ein WordPress mit einer Lücke könnte den Schlüssel (`app/.env`) und die Datenbank von Lichtkammer lesen (Gutachten `07`, Befund M8). Bis zum Entfernen Plugins und Themes aktuell halten und XML-RPC sowie die REST-Schnittstelle einschränken.
 
 ## 9. Sicherung und Betrieb
 

@@ -84,7 +84,7 @@ check('Router: Start', $r->dispatch($rq('GET', '/'))->body === 'start');
 check('Router: HEAD wie GET', $r->dispatch($rq('HEAD', '/x'))->status === 200);
 check('Router: Schrägstrich am Ende', $r->dispatch($rq('GET', '/x/'))->status === 200);
 check('Router: 404', $r->dispatch($rq('GET', '/nope'))->status === 404);
-check('Router: 405', $r->dispatch($rq('POST', '/x'))->status === 405);
+check('Router: falsche Methode liefert 404 (nicht 405)', $r->dispatch($rq('POST', '/x'))->status === 404);
 
 // --- Sicherheitsköpfe ---
 $h = SecurityHeaders::for(new Request(['HTTPS' => 'on'], $plain), $plain);
@@ -93,6 +93,13 @@ check('Kein HSTS ohne HTTPS', !isset(SecurityHeaders::for(new Request([], $plain
 check('CSP ohne externe Quellen', !str_contains($h['Content-Security-Policy'], 'http'));
 $ni = Config::load($tmp . '/webroot/app', $tmp . '/webroot', []);
 check('noindex setzt X-Robots-Tag', isset(SecurityHeaders::for(new Request([], $ni), $ni)['X-Robots-Tag']));
+
+// --- Anmeldung (Schritt 2) ---
+foreach (['auth_unit.php', 'auth_flow.php', 'auth_race.php'] as $file) {
+    if (is_file(__DIR__ . '/' . $file)) {
+        require __DIR__ . '/' . $file;
+    }
+}
 
 // --- Aufräumen und Ergebnis ---
 exec('rm -rf ' . escapeshellarg($tmp));

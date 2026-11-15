@@ -11,6 +11,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY docker/php.ini /usr/local/etc/php/conf.d/lichtkammer.ini
 COPY docker/apache.conf /etc/apache2/sites-available/000-default.conf
+COPY docker/entrypoint.sh /usr/local/bin/lk-entrypoint
+RUN chmod +x /usr/local/bin/lk-entrypoint
 
 WORKDIR /var/www/html
 COPY app ./app
@@ -23,5 +25,8 @@ ENV LK_DATA_DIR=/var/lib/lichtkammer/data \
 RUN mkdir -p /var/lib/lichtkammer/data /var/lib/lichtkammer/originals /var/www/html/public/media \
     && chown -R www-data:www-data /var/lib/lichtkammer /var/www/html/public/media
 VOLUME ["/var/lib/lichtkammer/data", "/var/lib/lichtkammer/originals", "/var/www/html/public/media"]
+
+ENTRYPOINT ["lk-entrypoint"]
+CMD ["apache2-foreground"]
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD php -r 'exit(str_starts_with((string)@file_get_contents("http://127.0.0.1/health"),"ok ")?0:1);'

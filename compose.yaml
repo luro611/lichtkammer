@@ -1,12 +1,16 @@
 # Lichtkammer im eigenen LXC: docker compose up -d --build
-# TLS beendet der Reverse-Proxy davor; LK_TRUST_PROXY=1 lässt X-Forwarded-Proto gelten.
+# TLS beendet der Reverse-Proxy davor; LK_TRUST_PROXY=1 lässt X-Forwarded-Proto gelten und braucht
+# LK_TRUSTED_PROXIES (Adresse des Proxys), sonst startet der Admin nicht.
 services:
   lichtkammer:
     build: .
     # später: image: ghcr.io/luro611/lichtkammer:<Version>
     restart: unless-stopped
+    # Nur lokal erreichbar (Proxy auf demselben Host). Läuft der Proxy im selben Docker-Netz, die Zeilen
+    # "ports" ganz weglassen. Nie auf allen Schnittstellen veröffentlichen: sonst kann jeder im Netz
+    # X-Forwarded-For/-Proto fälschen. OFFEN: Lutz bestätigt die Form nach dem Test auf pve10.
     ports:
-      - "8080:80"
+      - "127.0.0.1:8080:80"
     env_file:
       - .env
     volumes:

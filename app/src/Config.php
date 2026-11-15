@@ -17,6 +17,7 @@ final class Config
         private readonly array $values,
         public readonly string $appDir,
         public readonly string $publicDir,
+        public readonly bool $webrootEnvFound = false,
     ) {
     }
 
@@ -26,7 +27,17 @@ final class Config
     public static function load(string $appDir, string $publicDir, array $env): self
     {
         $values = [];
+        // Liegt app/ im Webroot (all-inkl), wird nur app/.env gelesen: eine .env im Webroot wäre
+        // (bei fehlender Sperre) abrufbar und wird deshalb nicht benutzt, der Admin meldet sie.
+        $appReal = realpath($appDir);
+        $publicReal = realpath($publicDir);
+        $parentIsWebroot = $appReal !== false && $publicReal !== false && dirname($appReal) === $publicReal;
+        $webrootEnvFound = false;
         foreach ([$appDir . '/../.env', $appDir . '/.env'] as $file) { // app/.env gewinnt
+            if ($parentIsWebroot && $file === $appDir . '/../.env') {
+                $webrootEnvFound = is_file($file);
+                continue;
+            }
             if (is_file($file) && is_readable($file)) {
                 $values = array_replace($values, self::parseEnvFile((string) file_get_contents($file)));
             }
@@ -36,7 +47,7 @@ final class Config
                 $values[$key] = $value;
             }
         }
-        return new self($values, rtrim($appDir, '/'), rtrim($publicDir, '/'));
+        return new self($values, rtrim($appDir, '/'), rtrim($publicDir, '/'), $webrootEnvFound);
     }
 
     /** @return array<string,string> */
@@ -121,6 +132,73 @@ final class Config
     public function noindex(): bool
     {
         return $this->bool('LK_NOINDEX');
+    }
+
+    public function int(string $key, int $default): int
+    {
+        $v = $this->get($key, '');
+        return $v !== '' && ctype_digit($v) ? (int) $v : $default;
+    }
+
+    /** Geheimschlüssel (Base64, 32 Byte). Wird nie ausgegeben. */
+    public function appKey(): string
+    {
+        return $this->get('LK_APP_KEY');
+    }
+
+    /** Alter Schlüssel, nur zum Entschlüsseln nach einer Rotation. */
+    public function appKeyPrevious(): string
+    {
+        return $this->get('LK_APP_KEY_PREVIOUS');
+    }
+
+    public function setupToken(): string
+    {
+        return $this->get('LK_SETUP_TOKEN');
+    }
+
+    public function resetToken(): string
+    {
+        return $this->get('LK_RESET_TOKEN');
+    }
+
+    /** @return list<string> Adressen/Netze der Reverse-Proxys (nur Hinweis für Apache, siehe docker/). */
+    public function trustedProxies(): array
+    {
+        return array_values(array_filter(array_map('trim', preg_split('/[\s,]+/', $this->get('LK_TRUSTED_PROXIES')) ?: [])));
+    }
+
+    /** Ausnahme: Datenordner darf im Webroot liegen (Warnung im Admin). */
+    public function allowDataInWebroot(): bool
+    {
+        return $this->bool('LK_ALLOW_DATA_IN_WEBROOT');
+    }
+
+    public function sessionIdleSeconds(): int
+    {
+        return max(60, $this->int('LK_SESSION_IDLE', 1800));
+    }
+
+    public function sessionAbsoluteSeconds(): int
+    {
+        return max(300, $this->int('LK_SESSION_ABSOLUTE', 43200));
+    }
+
+    /** Globale Bremse: so viele Hash-Prüfungen im Fenster, danach „bitte später“. */
+    public function globalBrakeLimit(): int
+    {
+        return max(1, $this->int('LK_GLOBAL_BRAKE_LIMIT', 20));
+    }
+
+    public function globalBrakeWindow(): int
+    {
+        return max(1, $this->int('LK_GLOBAL_BRAKE_WINDOW', 10));
+    }
+
+    /** WAL nur auf ausdrücklichen Wunsch (auf dem Ziel prüfen). */
+    public function sqliteWal(): bool
+    {
+        return $this->bool('LK_SQLITE_WAL');
     }
 
     private function path(string $key, string $default): string

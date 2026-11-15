@@ -35,5 +35,11 @@ Testinstallation unter **`lichtkammer.br-foto.com`** (statt `neu.br-foto.com` au
 4. **Daten außerhalb des Webroots:** FTP kann dort nichts ablegen, PHP aber schon. Vorschlag: `data/` (SQLite, Sitzungen, Protokolle) und `originals/` legt die Anwendung beim ersten Start selbst oberhalb des Webroots an. Dafür ist ein eigener Unterordner nötig (z. B. `/www/htdocs/v119013/lichtkammer-data/`), weil im Elternordner auch die Ordner anderer Domains des Kontos liegen. Zusätzlich sperrt eine `.htaccess` `app/` und alles Nichtöffentliche im Webroot. Das Deployment des Codes geht weiter per FTPS in den Webroot; der Datenordner wird nie deployt. Alternative im KAS: Zielordner der Subdomain auf `public/` setzen, falls frei wählbar (noch nicht geprüft).
 5. **Wichtig:** Backups vom Homeserver per FTPS erreichen den Datenordner über dem Webroot **nicht**. Entweder ein Export in den Webroot (geschützt) oder ein Abruf über einen geschützten Admin-Endpunkt. Das ist in Schritt 3 und 8 zu entscheiden.
 
+### Nachtrag 15.11.2026: Ordner über dem Webroot per FTPS (nur lesend geprüft)
+
+Geprüft mit `lftp` (FTPS, nur `pwd`, `ls`, `cd ..`; nichts angelegt, nichts verändert): Die Wurzel des FTP-Benutzers ist der Ordner der Subdomain (`ls` zeigt `app`, `assets`, `.htaccess`, `index.php`, `index.htm`); `cd ..` bleibt in derselben Wurzel, `ls` danach zeigt denselben Inhalt. **Per FTPS lässt sich oberhalb des Subdomain-Ordners nichts anlegen oder ablegen.** Das bestätigt die Messung oben (Punkt „Ordner über dem Webroot“).
+
+Folgerung (Entscheidung von Lutz, 15.11.2026): Der Admin startet nur, wenn `LK_DATA_DIR` außerhalb von `public/` bzw. des Webroots liegt. Auf all-inkl **legt die App den Datenordner beim ersten Start selbst an** (PHP darf oberhalb schreiben, siehe oben), also `LK_DATA_DIR=/www/htdocs/v119013/lichtkammer-data` in `app/.env` setzen (die Datei selbst legt Lutz per FTPS in `app/` ab). Nur wenn das nicht gehen sollte: Ausnahme `LK_ALLOW_DATA_IN_WEBROOT=1` mit dauerhafter Warnung im Admin. Ob PHP auf dem Testserver den Ordner wirklich anlegen kann, zeigt erst der erste Start nach dem Hochladen (Freigabe von Lutz nötig).
+
 ### Noch offen von Lutz
 - Optional: im KAS prüfen, ob der Zielordner der Subdomain frei wählbar ist (z. B. `public/`).

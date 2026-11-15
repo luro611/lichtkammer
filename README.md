@@ -2,7 +2,7 @@
 
 Schlankes Open-Source-Foto-CMS für ausschließlich eigene Bilder. PHP 8.3+ und SQLite, keine Datenbank, kein Composer und kein SSH auf dem Server nötig. Öffentliche Seiten werden als fertiges HTML ausgeliefert.
 
-**Stand:** Version 0.1.0-dev, Projektgerüst (Schritt 1). Noch keine Anmeldung, keine Bildverwaltung.
+**Stand:** Version 0.1.0-dev, Projektgerüst und Anmeldung (Schritt 1 und 2: Passwort, TOTP, Wiederherstellungscodes, Einladung, Protokoll). Noch keine Bildverwaltung.
 
 Lizenz: AGPL-3.0-or-later (siehe `LICENSE`). Plan: `docs/planung/03 Plan br-foto.md`.
 
@@ -20,11 +20,12 @@ Alle Pfade stehen in `app/src/Config.php`, sonst nirgends.
 ## Entwicklung
 
 ```bash
-# Tests (PHP 8.5 im Container, kein lokales PHP nötig)
-docker run --rm -v "$PWD":/app -w /app php:8.5-cli php tests/run.php
+# Tests (PHP 8.5 mit intl im Container, kein lokales PHP nötig)
+docker build -t lichtkammer-test -f tests/Dockerfile tests
+docker run --rm -v "$PWD":/app -w /app lichtkammer-test php tests/run.php
 
-# Lokal starten
-docker compose up --build        # http://localhost:8080
+# Lokal starten (.env aus .env.example; LK_APP_KEY und LK_SETUP_TOKEN erzeugen, LK_BASE_URL=http://localhost:8080)
+docker compose up --build        # http://localhost:8080, Einrichtung unter /admin/setup
 ```
 
 ## Schriften und Design
