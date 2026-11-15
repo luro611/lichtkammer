@@ -214,6 +214,9 @@ final class Library
             if ($w0 < 1 || $h0 < 1) {
                 throw new MediaException('Das Bild hat keine gültige Größe.');
             }
+            if ($w0 * $h0 > self::MAX_PIXELS) { // fängt auch HEIC ab, dessen Größe ingest() nicht vorab kennt
+                throw new MediaException('Das Bild ist zu groß (mehr als 100 Megapixel).');
+            }
             $created = 0;
             $wanted = [];
             foreach (self::plan($w0) as $w) {
