@@ -1,6 +1,6 @@
 # Entwurf: Seiten-Editor mit Blöcken
 
-Stand: 16.11.2026, **zur Freigabe durch Lutz**. Gebaut wird erst nach Freigabe. Grundlage: Schritt 5 (`11`), Bildverwaltung (`10`). Auslöser: Lutz reicht ein Textfeld mit Markdown nicht; er will Seiten mit Bildern und Struktur bauen, bedienbar für die nicht-technische zweite Person.
+Stand: 16.11.2026. B1 bis B5 von Lutz wie empfohlen freigegeben, gebaut. Abweichungen: Blocktypen werden in einer Klasse (`Blocks::render`) statt in einer Vorlagendatei je Typ ausgegeben; „Block hinzufügen“ steht am Ende jeder Liste (Reihenfolge per Pfeilen oder Ziehen); Alt-Text-Pflicht sperrt nur das Veröffentlichen, nicht das Speichern. Grundlage: Schritt 5 (`11`), Bildverwaltung (`10`). Auslöser: Lutz reicht ein Textfeld mit Markdown nicht; er will Seiten mit Bildern und Struktur bauen, bedienbar für die nicht-technische zweite Person.
 
 ## 1. Ziel und Grenzen
 

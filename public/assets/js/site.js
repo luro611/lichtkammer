@@ -52,9 +52,7 @@
   }
 
   // --- Lightbox ---
-  var grid = document.querySelector('[data-lightbox]');
-  if (!grid) { return; }
-  var links = Array.prototype.slice.call(grid.querySelectorAll('a[data-srcset]'));
+  var links = Array.prototype.slice.call(document.querySelectorAll('[data-lightbox] a[data-srcset]'));
   if (!links.length) { return; }
   var lb = null, idx = 0, opener = null, startX = 0, startY = 0, tracking = false, infoOn = true;
   var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;

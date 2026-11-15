@@ -3,7 +3,9 @@ declare(strict_types=1);
 
 namespace Lichtkammer\Admin;
 
+use Lichtkammer\Media\Galleries;
 use Lichtkammer\Media\MediaException;
+use Lichtkammer\Site\Blocks;
 use Lichtkammer\Request;
 use Lichtkammer\Response;
 
@@ -50,7 +52,40 @@ trait SitePages
         if ($pg === null) {
             return $this->missing($sess);
         }
-        return $this->page('admin/page_edit', ['title' => (string) $pg['title'], 'pg' => $draft !== null ? $draft + $pg : $pg, 'error' => $error], $status, $sess);
+        $raw = isset($draft['blocks']) && $draft['blocks'] !== '' ? (string) $draft['blocks']
+            : ($pg['blocks'] !== '' ? (string) $pg['blocks'] : Blocks::encode(Blocks::fromMarkdown((string) $pg['body'])));
+        $data = json_decode($raw, true);
+        if (!is_array($data) || !isset($data['blocks']) || !is_array($data['blocks'])) {
+            $data = ['blocks' => []];
+        }
+        $ids = [];
+        array_walk_recursive($data, static function ($v, $k) use (&$ids): void {
+            if ($k === 'photo' && (is_int($v) || (is_string($v) && ctype_digit($v) && strlen($v) < 10))) {
+                $ids[(int) $v] = (int) $v;
+            }
+        });
+        $photos = [];
+        foreach ($ids as $pid) {
+            $row = $this->s->db->one('SELECT p.id, p.title, p.alt_text, p.caption, p.deleted_at, ' . Galleries::THUMB . ' AS thumb FROM photos p WHERE p.id = ?', [$pid]);
+            $photos[$pid] = $row === null || $row['deleted_at'] !== null
+                ? ['t' => '', 'a' => '', 'c' => '', 'u' => '', 'x' => 1]
+                : ['t' => (string) $row['title'], 'a' => (string) $row['alt_text'], 'c' => (string) $row['caption'], 'u' => $row['thumb'] ? '/media/' . $row['thumb'] : '', 'x' => 0];
+        }
+        $editor = json_encode(['blocks' => $data['blocks'], 'photos' => (object) $photos], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_PARTIAL_OUTPUT_ON_ERROR);
+        return $this->page('admin/page_edit', ['title' => (string) $pg['title'], 'pg' => $draft !== null ? $draft + $pg : $pg, 'error' => $error, 'editor' => $editor, 'blocksField' => Blocks::encode($data['blocks'])], $status, $sess);
+    }
+
+    /** Fotoauswahl für den Seiten-Editor (JSON). */
+    public function photoPick(Request $req, array $p, ?array $sess): Response
+    {
+        $r = $this->s->catalog->pick($req->query('q'), (int) $req->query('seite'));
+        $rows = [];
+        foreach ($r['rows'] as $row) {
+            if ($row['thumb']) {
+                $rows[] = ['id' => (int) $row['id'], 't' => (string) ($row['title'] !== '' ? $row['title'] : $row['original_name']), 'a' => (string) $row['alt_text'], 'c' => (string) $row['caption'], 'u' => '/media/' . $row['thumb']];
+            }
+        }
+        return Response::json(['rows' => $rows, 'more' => $r['more'], 'page' => $r['page']]);
     }
 
     public function pageEdit(Request $req, array $p, ?array $sess): Response
@@ -62,6 +97,22 @@ trait SitePages
     {
         $id = (int) $p['id'];
         $f = ['title' => $req->input('title'), 'body' => $req->input('body'), 'status' => $req->input('status'), 'nav' => $req->input('nav'), 'slug' => $req->input('slug')];
+        $raw = $req->input('blocks');
+        if ($raw !== '') {
+            $f['blocks'] = $raw;
+            if ($req->input('modus') === 'text') {
+                try {
+                    $md = Blocks::toMarkdown(Blocks::parse($raw, $this->s->db));
+                } catch (MediaException $e) {
+                    return $this->pageForm($id, $sess, $e->getMessage(), 400, $f);
+                }
+                if ($md === null) {
+                    return $this->pageForm($id, $sess, 'Diese Seite enthält Bilder, Knöpfe oder Spalten und lässt sich nicht als einfacher Text speichern.', 400, $f);
+                }
+                $f['body'] = $md;
+                $f['blocks'] = '';
+            }
+        }
         try {
             $this->s->pages->save($id, $f);
         } catch (MediaException $e) {

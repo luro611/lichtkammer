@@ -65,6 +65,7 @@ final class AdminController
         $r('GET', '/admin/log', 'log');
         $r('GET', '/admin/fotos', 'library');
         $r('POST', '/admin/fotos/mehrfach', 'photosBulk');
+        $r('GET', '/admin/fotos/auswahl', 'photoPick');
         $r('GET', '/admin/fotos/{id}', 'photo');
         $r('POST', '/admin/fotos/{id}/speichern', 'photoSave');
         $r('GET', '/admin/galerien', 'galleries');

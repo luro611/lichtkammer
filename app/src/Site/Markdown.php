@@ -9,7 +9,7 @@ namespace Lichtkammer\Site;
  */
 final class Markdown
 {
-    public static function render(string $text): string
+    public static function render(string $text, bool $headings = true): string
     {
         $lines = preg_split('/\R/', str_replace("\0", '', $text)) ?: [];
         $out = [];
@@ -34,7 +34,7 @@ final class Markdown
             $t = rtrim($line);
             if (trim($t) === '') {
                 $flush();
-            } elseif (preg_match('/^(#{1,3})\s+(.+)$/', $t, $m) === 1) {
+            } elseif ($headings && preg_match('/^(#{1,3})\s+(.+)$/', $t, $m) === 1) {
                 $flush();
                 $level = strlen($m[1]) === 3 ? 3 : 2;
                 $out[] = "<h$level>" . self::inline($m[2]) . "</h$level>";

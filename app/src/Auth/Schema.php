@@ -213,6 +213,10 @@ CREATE TABLE site_settings (
     v TEXT NOT NULL
 );
 SQL,
+            // 5: Seiten aus Blöcken (Entwurf 12). Nur additiv: body bleibt unverändert erhalten, leer = einfacher Text (Markdown).
+            <<<'SQL'
+ALTER TABLE pages ADD COLUMN blocks TEXT NOT NULL DEFAULT '';
+SQL,
         ];
     }
 

@@ -6,6 +6,7 @@ namespace Lichtkammer\Site;
 use Lichtkammer\Auth\Database;
 use Lichtkammer\Config;
 use Lichtkammer\Media\Galleries;
+use Lichtkammer\Media\MediaException;
 use Lichtkammer\View;
 
 /**
@@ -127,11 +128,34 @@ final class Renderer
             $out[] = $g;
         }
         $pages = $this->db->all('SELECT * FROM pages ' . ($this->preview ? '' : "WHERE status = 'published' ") . 'ORDER BY sort_order, id');
-        foreach ($pages as $pg) {
-            if (trim((string) $pg['body']) === '') {
-                $this->issue('Seite „' . $pg['title'] . '“ hat keinen Text.', $pg['status'] === 'published');
+        foreach ($pages as &$pg) {
+            $hard = $pg['status'] === 'published';
+            $label = 'Seite „' . $pg['title'] . '“';
+            $pg['block_list'] = null;
+            if (trim((string) $pg['blocks']) !== '') {
+                try {
+                    $list = Blocks::decode((string) $pg['blocks']);
+                } catch (MediaException $e) {
+                    $this->issue("$label: " . $e->getMessage(), $hard);
+                    $list = [];
+                }
+                $pg['block_list'] = $list;
+                if ($list === []) {
+                    $this->issue("$label hat keinen Inhalt.", $hard);
+                }
+                if (($n = Blocks::missingAlt($list)) > 0) {
+                    $this->issue("$label: $n Bild(er) ohne Alt-Text.", $hard);
+                }
+                foreach (Blocks::photoIds($list) as $pid) {
+                    if ($this->blockPhoto($pid) === null) {
+                        $this->issue("$label: Foto $pid ist nicht mehr verfügbar (gelöscht oder nicht fertig).", $hard);
+                    }
+                }
+            } elseif (trim((string) $pg['body']) === '') {
+                $this->issue("$label hat keinen Text.", $hard);
             }
         }
+        unset($pg);
         // Hero: gewähltes Foto, wenn es in einer angezeigten Galerie liegt, sonst Titelbild der ersten Galerie.
         $hero = null;
         foreach ($out as $g) {
@@ -163,6 +187,31 @@ final class Renderer
             }
         }
         return $photos[0] ?? null;
+    }
+
+    /** @var array<int,array<string,mixed>|null> */
+    private array $blockPhotos = [];
+
+    /** Foto für einen Seitenblock samt Bilddateien; null, wenn gelöscht, nicht fertig oder ohne JPEG. @return array<string,mixed>|null */
+    public function blockPhoto(int $id): ?array
+    {
+        if (array_key_exists($id, $this->blockPhotos)) {
+            return $this->blockPhotos[$id];
+        }
+        $p = $this->db->one(
+            "SELECT p.id, p.title, p.caption, p.alt_text, p.width, p.height FROM photos p WHERE p.id = ? AND p.deleted_at IS NULL AND p.status = 'ready'",
+            [$id],
+        );
+        if ($p !== null) {
+            $p['variants'] = [];
+            foreach ($this->db->all('SELECT width, height, format, path FROM photo_variants WHERE photo_id = ? ORDER BY width', [$id]) as $v) {
+                $p['variants'][(string) $v['format']][(int) $v['width']] = ['path' => (string) $v['path'], 'height' => (int) $v['height']];
+            }
+            if (!isset($p['variants']['jpeg'])) {
+                $p = null;
+            }
+        }
+        return $this->blockPhotos[$id] = $p;
     }
 
     // --- Bausteine für die Vorlagen ---
@@ -387,7 +436,8 @@ final class Renderer
         $d = $this->data();
         return $this->shell([
             'title' => $pg['title'] . ' – ' . $d['settings']['site_name'], 'desc' => '', 'path' => '/' . $pg['slug'] . '/', 'class' => 'page',
-            'body' => $this->body('page', ['pg' => $pg, 'html' => Markdown::render((string) $pg['body'])]),
+            'body' => $this->body('page', ['pg' => $pg, 'wide' => $pg['block_list'] !== null,
+                'html' => $pg['block_list'] !== null ? Blocks::render($pg['block_list'], $this) : Markdown::render((string) $pg['body'])]),
         ]);
     }
 
@@ -473,6 +523,11 @@ final class Renderer
         foreach ($this->data()['galleries'] as $g) {
             foreach ($g['photos'] as $p) {
                 $ids[(int) $p['id']] = (int) $p['id'];
+            }
+        }
+        foreach ($this->data()['pages'] as $pg) {
+            foreach (Blocks::photoIds($pg['block_list'] ?? []) as $id) {
+                $ids[$id] = $id;
             }
         }
         return array_values($ids);

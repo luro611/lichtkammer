@@ -122,3 +122,22 @@ body.lb-open{overflow:hidden}
 
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
 .h2s{font-size:30px;margin:24px 0 12px}
+
+/* Seiten aus Blöcken */
+.pageblocks{max-width:1000px}
+.blocks>*{margin-block:0 1.4em}
+.blocks .bh{font-size:34px;margin:1.4em 0 .5em;max-width:720px;margin-inline:auto}.blocks h3.bh{font:600 20px var(--f-body)}
+.bt-text,.bquote,.bbtn{max-width:720px;margin-inline:auto}
+.bt-text{font-size:17px}.bt-text p,.bt-text ul,.bt-text ol{margin:0 0 1em}
+.bquote{border-left:3px solid var(--accent);padding-left:16px;color:var(--muted);font-size:19px}.bquote p{margin:0 0 .4em}.bquote footer{font-size:14px}
+.brule{border:0;border-top:1px solid var(--line);margin-block:2em;max-width:720px}
+.bbtn{text-align:left}.knopf{display:inline-block;padding:11px 22px;border:1px solid var(--ink);border-radius:var(--r-img);color:var(--ink);text-decoration:none;font-weight:600}
+.knopf:hover{background:var(--ink);color:var(--bg)}
+.bimg{margin-inline:auto}.bimg picture,.bimg img{display:block;width:100%;height:auto}.bimg img{border-radius:var(--r-img)}
+.bimg.w-schmal{max-width:420px}.bimg.w-normal{max-width:720px}.bimg.w-voll{max-width:none}
+.bimg figcaption{color:var(--muted);font-size:14px;margin-top:8px}
+.bgrid{list-style:none;padding:0;margin-inline:0;display:grid;gap:var(--gap);grid-template-columns:repeat(2,1fr)}
+.bgrid.c3{grid-template-columns:repeat(3,1fr)}.bgrid.c4{grid-template-columns:repeat(4,1fr)}
+.bti{margin:0}.bti a{display:block;border-radius:var(--r-img);overflow:hidden;background:var(--soft)}.bti picture,.bti img{display:block;width:100%;height:auto}
+.bcols{display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:start}.bcols>div>*{margin-block:0 1.2em}.bcols .bimg,.bcols .bt-text,.bcols .bquote,.bcols .bbtn{margin-inline:0;max-width:none}.bcols .bh{margin-inline:0}
+@media (max-width:700px){.bcols{grid-template-columns:1fr;gap:0}.bgrid.c3,.bgrid.c4{grid-template-columns:repeat(2,1fr)}}

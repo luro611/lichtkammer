@@ -42,7 +42,11 @@ final class Pages
         return $slug;
     }
 
-    /** @param array{title:string,body:string,status:string,nav:string,slug?:string} $f */
+    /**
+     * blocks: nicht gesetzt = Text/Blöcke unverändert lassen; '' = einfacher Text (Markdown in body); sonst Block-JSON (wird geprüft, body bleibt unberührt).
+     *
+     * @param array{title:string,body:string,status:string,nav:string,slug?:string,blocks?:?string} $f
+     */
     public function save(?int $id, array $f): int
     {
         $title = Galleries::clip($f['title'], 120);
@@ -55,18 +59,29 @@ final class Pages
         }
         $status = $f['status'] === 'published' ? 'published' : 'draft';
         $nav = in_array($f['nav'], ['main', 'footer', 'none'], true) ? $f['nav'] : 'none';
+        $blocks = null; // null = unverändert
+        if (isset($f['blocks']) && $f['blocks'] !== '') {
+            $blocks = Blocks::encode(Blocks::parse($f['blocks'], $this->db));
+        } elseif (($f['blocks'] ?? null) === '') {
+            $blocks = '';
+        }
         $now = $this->clock->now();
         if ($id === null) {
             $slug = $this->uniqueSlug((string) ($f['slug'] ?? '') !== '' ? (string) $f['slug'] : $title, null);
             $this->db->run(
-                'INSERT INTO pages(slug, title, body, status, nav, sort_order, created_at, updated_at) VALUES(?,?,?,?,?,(SELECT COALESCE(MAX(sort_order),0)+1 FROM pages),?,?)',
-                [$slug, $title, $body, $status, $nav, $now, $now],
+                'INSERT INTO pages(slug, title, body, blocks, status, nav, sort_order, created_at, updated_at) VALUES(?,?,?,?,?,?,(SELECT COALESCE(MAX(sort_order),0)+1 FROM pages),?,?)',
+                [$slug, $title, $body, $blocks ?? '', $status, $nav, $now, $now],
             );
             return $this->db->lastId();
         }
         $cur = $this->get($id) ?? throw new MediaException('Die Seite gibt es nicht (mehr).');
         $slug = (string) ($f['slug'] ?? '') !== '' ? $this->uniqueSlug((string) $f['slug'], $id) : (string) $cur['slug'];
-        $this->db->run('UPDATE pages SET slug=?, title=?, body=?, status=?, nav=?, updated_at=? WHERE id=?', [$slug, $title, $body, $status, $nav, $now, $id]);
+        // Im Blockmodus bleibt body unberührt (Sicherung des alten Textes); beim Rückweg zu Text gilt der neue body.
+        $keepBody = $blocks !== null && $blocks !== '';
+        $this->db->run(
+            'UPDATE pages SET slug=?, title=?, body=?, blocks=?, status=?, nav=?, updated_at=? WHERE id=?',
+            [$slug, $title, $keepBody ? (string) $cur['body'] : $body, $blocks ?? (string) $cur['blocks'], $status, $nav, $now, $id],
+        );
         return $id;
     }
 

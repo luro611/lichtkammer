@@ -25,7 +25,7 @@ $ins = "INSERT INTO photos(id, gallery_id, sort_order, photographer, token, orig
 $raw->exec("$ins (1, 1, 2, 'Anna', 't1', 'o/1.jpg', 's1', 1, 'image/jpeg', 10, 10), (2, 1, 1, 'Anna', 't2', 'o/2.jpg', 's2', 1, 'image/jpeg', 11, 11), (3, NULL, 0, '', 't3', 'o/3.jpg', 's3', 1, 'image/jpeg', 12, 12)");
 unset($raw);
 $migrated = Database::open($dbFile);
-check('Migration 3 und 4: Version 4', Schema::version($migrated) === 4);
+check('Migration 3 bis 5: Version 5', Schema::version($migrated) === 5);
 check('Migration 3: Sicherung vor der Migration abgelegt', is_file($dbFile . '.vor-schema-2.bak'));
 $bak = new PDO('sqlite:' . $dbFile . '.vor-schema-2.bak');
 check('Migration 3: Sicherung hat den alten Stand (Version 2, ohne neue Tabelle)', $bak->query("SELECT v FROM meta WHERE k='schema_version'")->fetchColumn() === '2'
@@ -40,7 +40,7 @@ check('Migration 3: nichts Bestehendes verändert (Fotos, Galerie, alte Spalten)
     && $migrated->value("SELECT title FROM galleries WHERE id = 1") === 'Alt');
 unset($migrated);
 $again = Database::open($dbFile);
-check('Migration 3: zweites Öffnen ändert nichts und legt keine zweite Sicherung an', Schema::version($again) === 4 && (int) $again->value('SELECT COUNT(*) FROM gallery_photos') === 2 && count(glob($f4 . '/mig/*.bak')) === 1);
+check('Migration 3: zweites Öffnen ändert nichts und legt keine zweite Sicherung an', Schema::version($again) === 5 && (int) $again->value('SELECT COUNT(*) FROM gallery_photos') === 2 && count(glob($f4 . '/mig/*.bak')) === 1);
 unset($again);
 check('Migration 3: keine halbfertigen Sicherungsdateien (.tmp) übrig', glob($f4 . '/mig/*.tmp') === []);
 

@@ -10,18 +10,25 @@
     <input type="hidden" name="_csrf" value="<?= $e($csrf) ?>">
     <label class="field"><span>Titel</span><input name="title" value="<?= $e((string) $pg['title']) ?>" maxlength="120" required></label>
     <label class="field"><span>Adresse (Teil der Web-Adresse)</span><input name="slug" value="<?= $e((string) $pg['slug']) ?>" maxlength="60"></label>
-    <label class="field"><span>Text</span><textarea name="body" rows="18" maxlength="50000"><?= $e((string) $pg['body']) ?></textarea></label>
-    <details class="notice"><summary>Hilfe zur Gestaltung</summary>
-      <p class="small mono">## Überschrift · ### kleinere Überschrift · **fett** · *kursiv* · - Listenpunkt · 1. nummeriert · &gt; Zitat · --- Trennlinie · [Linktext](https://adresse.de) · [Mail](mailto:info@beispiel.de)</p>
-      <p class="small">Absätze trennst du mit einer Leerzeile. Anderes (z. B. eingefügtes HTML) wird nicht übernommen.</p>
-    </details>
+    <input type="hidden" name="blocks" id="blocks-field" value="<?= $e($blocksField) ?>">
+    <div class="field"><span id="editor-label">Inhalt</span>
+      <div id="page-editor" class="editor" role="group" aria-labelledby="editor-label" data-pick-url="/admin/fotos/auswahl"></div>
+      <noscript><p class="notice error">Der Seiten-Editor braucht JavaScript. Ohne JavaScript bleibt der Inhalt unverändert, wenn du speicherst.</p></noscript>
+      <p class="small muted">Jeder Block ist ein Baustein der Seite. Mit „Block hinzufügen“ kommt Neues dazu, mit den Pfeilen oder durch Ziehen am Griff ändert sich die Reihenfolge. Leere Blöcke werden beim Speichern entfernt.</p>
+    </div>
     <label class="field"><span>Status</span><select name="status"><option value="draft"<?= $pg['status'] === 'draft' ? ' selected' : '' ?>>Entwurf</option><option value="published"<?= $pg['status'] === 'published' ? ' selected' : '' ?>>veröffentlichen (mit dem nächsten Veröffentlichen)</option></select></label>
     <label class="field"><span>Verlinkt</span><select name="nav"><?php foreach (['main' => 'im Menü oben', 'footer' => 'in der Fußzeile', 'none' => 'nirgends'] as $k => $t): ?><option value="<?= $k ?>"<?= $pg['nav'] === $k ? ' selected' : '' ?>><?= $e($t) ?></option><?php endforeach; ?></select></label>
     <div class="actions">
       <button class="btn" type="submit">Speichern</button>
       <button class="btn ghost" type="submit" name="weiter" value="liste">Speichern und zur Liste</button>
-      <a class="btn ghost" href="/admin/vorschau/<?= $e((string) $pg['slug']) ?>">Vorschau (gespeicherter Stand)</a>
+      <a class="btn ghost" href="/admin/vorschau/<?= $e((string) $pg['slug']) ?>" target="_blank" rel="noopener">Vorschau (gespeicherter Stand)</a>
     </div>
+    <details class="notice"><summary>Erweitert</summary>
+      <p class="small">Nur Überschriften, Texte, Zitate und Trennlinien? Dann lässt sich die Seite wieder als einfacher Text speichern.</p>
+      <button class="btn small ghost" type="submit" name="modus" value="text" data-confirm="Als einfachen Text speichern? Das geht nur, wenn die Seite keine Bilder, Knöpfe oder Spalten enthält.">Als einfachen Text speichern</button>
+    </details>
   </form>
   <form method="post" action="/admin/seiten/<?= (int) $pg['id'] ?>/loeschen"><input type="hidden" name="_csrf" value="<?= $e($csrf) ?>"><button class="btn small ghost" type="submit" data-confirm="Seite „<?= $e((string) $pg['title']) ?>“ löschen?">Seite löschen</button></form>
 </section>
+<script type="application/json" id="editor-data"><?= $editor ?></script>
+<script src="<?= $e($asset('/assets/js/page-editor.js')) ?>" defer></script>
