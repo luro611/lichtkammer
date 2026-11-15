@@ -156,7 +156,7 @@ Jeder Schritt wird einzeln beauftragt, in einer eigenen, kurzen Sitzung (bauen m
 
 | Nr. | Schritt | Ergebnis | Risiko |
 |---|---|---|---|
-| 0 | **Bestandsaufnahme all-inkl** | PHP-Version, Imagick/GD (AVIF? HEIC?), pdo_sqlite, Limits, Ordner über dem Webroot, Subdomain `neu.` angelegt. Dazu eine Testdatei hochladen und wieder löschen. Größte vorhandene Bildauflösung bei WordPress. | niedrig |
+| 0 | **Bestandsaufnahme all-inkl** | PHP-Version, Imagick/GD (AVIF? HEIC?), pdo_sqlite, Limits, Ordner über dem Webroot, Subdomain `lichtkammer.` angelegt. Dazu eine Testdatei hochladen und wieder löschen. Größte vorhandene Bildauflösung bei WordPress. | niedrig |
 | 1 | **Projektgerüst** | Ordnerstruktur, Router, Templates, Design-Grundlage (Farben, Schriften, Apple-Rahmen), `.env.example`, Lizenz, erster Test, `deploy.sh` für `lichtkammer.br-foto.com` | niedrig |
 | 2 | **Anmeldung** | Konten, Passwort, TOTP, Wiederherstellungscodes, Sperren, Protokoll. Vorher Detailentwurf mit Fable-Prüfung. | **hoch** |
 | 3 | **Datenmodell und Bildpipeline** | SQLite-Schema mit Migrationen, Upload in Stücken, Varianten, EXIF, GPS-Entfernung, Dublettenprüfung | mittel |
