@@ -1,6 +1,6 @@
 # Bestandsaufnahme (Schritt 0)
 
-Stand: 15.11.2026. **Teil A (WordPress) ist fertig, Teil B (all-inkl-Server) wartet auf FTP-Zugang und Freigabe für eine Testdatei.**
+Stand: 15.11.2026. Teil A (WordPress) und Teil B (Server) sind erledigt.
 
 ## A. WordPress br-foto.com (per REST-API, nur lesend)
 
@@ -12,17 +12,29 @@ Stand: 15.11.2026. **Teil A (WordPress) ist fertig, Teil B (all-inkl-Server) war
 
 ## B. Server all-inkl (Konto A)
 
-Testinstallation unter **`lichtkammer.br-foto.com`** (statt `neu.br-foto.com` aus Plan 03). Zugangsdaten stehen nur in `.env` und im Schlüsselbund, nicht im Repo.
+Testinstallation unter **`lichtkammer.br-foto.com`** (statt `neu.br-foto.com` aus Plan 03). Zugangsdaten stehen nur in `.env` und im Schlüsselbund, nicht im Repo. Gemessen am 15.11.2026 mit einer einmaligen Testdatei (hochgeladen, per HTTP abgerufen, sofort gelöscht; Kontrolle: Ordner enthält wieder nur die `index.htm`, Abruf liefert 404).
 
 | Punkt | Ergebnis |
 |---|---|
-| FTPS-Zugang | funktioniert (TLS erzwungen, Zertifikat geprüft), nur lesend getestet |
-| Ordner über dem Webroot | **nicht erreichbar.** Der FTP-Benutzer ist auf den Ordner der Subdomain beschränkt: Die FTP-Wurzel ist zugleich der Webroot (enthält nur eine `index.htm`, 85 KB, Platzhalter von all-inkl). `app/`, `data/` und `originals/` können deshalb nicht außerhalb liegen. |
-| Folgerung | Diese Ordner liegen **im** Webroot und müssen per `.htaccess` (`Require all denied`) gesperrt werden; das ist zu testen (Zugriff von außen muss 403 liefern). Alternative: im KAS die Subdomain auf einen Unterordner (z. B. `public/`) zeigen lassen, dann liegen die übrigen Ordner daneben. Empfehlung: das im KAS einstellen, falls der Ziel-Ordner frei wählbar ist. Gilt später ebenso für `br-foto.com`. |
-| Subdomain | `neu.br-foto.com` wird nicht verwendet; es gilt `lichtkammer.br-foto.com` |
-| PHP-Version, Imagick/GD, AVIF, HEIC, pdo_sqlite | offen, braucht Testdatei |
-| upload_max_filesize, post_max_size, memory_limit, max_execution_time | offen, braucht Testdatei |
-| Schreibrechte | offen, braucht Schreibtest (Testdatei) |
+| PHP | **8.5.12** (php-fpm), Plan verlangt 8.3+: erfüllt |
+| Datenbank | `pdo_sqlite` und `sqlite3` vorhanden, SQLite **3.45.1** |
+| Bildbibliotheken | **Imagick** (ImageMagick 6.9.12) mit registrierten Formaten JPEG, PNG, WEBP, **AVIF, HEIC, HEIF**, TIFF, GIF. GD 2.3.3 mit WebP, **ohne AVIF**. |
+| Weitere Erweiterungen | `exif`, `fileinfo`, `mbstring`, `intl`, `sodium`, `openssl`, `curl`, `zip`, `gmp`, `bcmath`; `PASSWORD_ARGON2ID` verfügbar |
+| Limits | `upload_max_filesize` 512M, `post_max_size` 512M, `memory_limit` 512M, `max_execution_time` 60 s, `max_input_time` unbegrenzt, `max_file_uploads` 20 |
+| Einschränkungen | `open_basedir` leer, `disable_functions` leer |
+| Speicherplatz | rund 1,5 TB frei |
+| Ordner über dem Webroot | Per **FTP nicht erreichbar**: Der FTP-Benutzer ist auf den Ordner der Subdomain beschränkt (Wurzel = Webroot). **PHP kann aber** oberhalb schreiben: Docroot `/www/htdocs/v119013/lichtkammer.br-foto.com/`, der Elternordner `/www/htdocs/v119013` ist für PHP les- und schreibbar. |
+| Schreibtest im Webroot | erfolgreich (Datei anlegen und löschen) |
+| HTTPS für die Subdomain | **noch nicht eingerichtet.** Der Server liefert nur das Zertifikat `*.kasserver.com`, daher Zertifikatsfehler. Im KAS muss für `lichtkammer.br-foto.com` ein Let's-Encrypt-Zertifikat aktiviert werden (Lutz). Bis dahin ist die Subdomain nur per HTTP erreichbar; Anmeldung, `Secure`-Cookies und HSTS lassen sich erst danach testen. |
 
-### Noch nötig
-Ausdrückliche Freigabe von Lutz, eine `phpinfo`-Testdatei (plus einen kurzen Schreibtest und AVIF/HEIC-Prüfung) auf `lichtkammer.br-foto.com` hochzuladen. Die Dateien werden direkt nach dem Auslesen gelöscht. Zusätzlich im KAS prüfen, ob der Ziel-Ordner der Subdomain frei wählbar ist.
+### Folgerungen für den Plan
+
+1. **PHP 8.5 statt 8.3:** Code auf PHP 8.3 bis 8.5 testen; die Mindestversion bleibt 8.3.
+2. **Bildverarbeitung:** Imagick ist da, AVIF und HEIC sind registriert. Ob Kodieren und Dekodieren wirklich funktionieren (Delegate-Bibliotheken), prüft ein Praxistest mit echten Bildern in Schritt 3. GD fällt für AVIF aus; Fallback: WebP und JPEG.
+3. **Die Zeitgrenze von 60 s und `max_file_uploads` 20** bestätigen den Plan: Hochladen in Stücken, Verarbeitung Bild für Bild.
+4. **Daten außerhalb des Webroots:** FTP kann dort nichts ablegen, PHP aber schon. Vorschlag: `data/` (SQLite, Sitzungen, Protokolle) und `originals/` legt die Anwendung beim ersten Start selbst oberhalb des Webroots an. Dafür ist ein eigener Unterordner nötig (z. B. `/www/htdocs/v119013/lichtkammer-data/`), weil im Elternordner auch die Ordner anderer Domains des Kontos liegen. Zusätzlich sperrt eine `.htaccess` `app/` und alles Nichtöffentliche im Webroot. Das Deployment des Codes geht weiter per FTPS in den Webroot; der Datenordner wird nie deployt. Alternative im KAS: Zielordner der Subdomain auf `public/` setzen, falls frei wählbar (noch nicht geprüft).
+5. **Wichtig:** Backups vom Homeserver per FTPS erreichen den Datenordner über dem Webroot **nicht**. Entweder ein Export in den Webroot (geschützt) oder ein Abruf über einen geschützten Admin-Endpunkt. Das ist in Schritt 3 und 8 zu entscheiden.
+
+### Noch offen von Lutz
+- Zertifikat für `lichtkammer.br-foto.com` im KAS aktivieren.
+- Optional: im KAS prüfen, ob der Zielordner der Subdomain frei wählbar ist.
