@@ -47,7 +47,7 @@ final class Auth
         $gate = $this->limiter->gate([
             ['kind' => 'userip', 'key' => $this->limiter->key('userip', $n . '|' . $ip['key']), 'lock' => RateLimiter::LOCK_AT, 'delay' => true],
             ['kind' => 'ip', 'key' => $this->limiter->key('ip', $ip['key']), 'lock' => RateLimiter::LOCK_AT_IP, 'delay' => false],
-            ['kind' => 'user', 'key' => $this->limiter->key('user', $n), 'lock' => null, 'delay' => true],
+            ['kind' => 'user', 'key' => $this->limiter->key('user', $n), 'lock' => null, 'delay' => false], // nur zählen und melden (A2)
         ], true, $this->config->globalBrakeLimit(), $this->config->globalBrakeWindow());
         if (!$gate['ok']) {
             $this->noteBrake($gate['reason'], $ip['prefix']);
@@ -69,6 +69,9 @@ final class Auth
                 $this->audit->log('login_failed', (int) $user['id'], 'reason=' . $why, $ip['prefix']);
                 if (in_array('userip', $gate['locked_now'], true)) {
                     $this->audit->log('login_locked', (int) $user['id'], 'stage=password', $ip['prefix']);
+                }
+                if ($gate['alarm']) {
+                    $this->audit->log('account_under_attack', (int) $user['id'], 'attempts=' . RateLimiter::ALARM_USER, $ip['prefix']);
                 }
             } else {
                 $this->limiter->noteUnknownFailure($ip['key']);

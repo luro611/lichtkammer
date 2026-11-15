@@ -283,6 +283,21 @@ check('Aussperr-Falle: echter Benutzer von anderer Adresse wird NICHT ausgesperr
 check('Sperre meldet sich im Protokoll', $cnt($m, "SELECT COUNT(*) FROM audit_log WHERE event='login_locked'") >= 1);
 $m['clock']->advance(901);
 check('Sperre nach 15 Minuten aufgehoben', $att($m, 'lutz', '192.0.2.50', TEST_PASSWORD) === 303);
+// A2 (Entscheidung Lutz): 100 Fehlversuche auf einen Namen von 10 Adressen (je 10, unter der Sperre je Name+Adresse);
+// der echte Benutzer kommt trotzdem sofort durch, es gibt genau ein Ereignis account_under_attack (gedrosselt).
+$m['clock']->advance(1000);
+$svc->db->run('DELETE FROM login_attempts');
+$kU = $svc->limiter->key('user', 'lutz');
+$t0 = $m['clock']->now();
+for ($i = 0; $i < 99; $i++) {
+    $svc->db->run('INSERT INTO login_attempts(kind, key_hash, at) VALUES(?,?,?)', ['user', $kU, $t0 - 800 + $i]);
+}
+$cntAttack = $cnt($m, "SELECT COUNT(*) FROM audit_log WHERE event='account_under_attack'");
+check('A2: 100. Fehlversuch auf den Namen: Antwort 401 (keine Wartezeit), Ereignis account_under_attack', $att($m, 'lutz', '192.0.2.120') === 401 && $cnt($m, "SELECT COUNT(*) FROM audit_log WHERE event='account_under_attack'") === $cntAttack + 1);
+check('A2: 101. Versuch: kein weiteres Ereignis (gedrosselt), weiter 401', $att($m, 'lutz', '192.0.2.121') === 401 && $cnt($m, "SELECT COUNT(*) FROM audit_log WHERE event='account_under_attack'") === $cntAttack + 1);
+check('A2: echter Benutzer von neuer Adresse kommt sofort durch (keine Aussperrung über den Namen)', $att($m, 'lutz', '192.0.2.122', TEST_PASSWORD) === 303);
+check('A2: Ereignis nennt keinen Namen, nur attempts=100', $cnt($m, "SELECT COUNT(*) FROM audit_log WHERE event='account_under_attack' AND detail='attempts=100' AND user_id=1") === $cntAttack + 1);
+$svc->db->run('DELETE FROM login_attempts');
 // B1: Die angezeigte Restzeit passt zum Ende der Sperre (ab dem ersten gezählten Versuch)
 $svcB1 = $m['app']->services();
 $svcB1->db->run('DELETE FROM login_attempts');

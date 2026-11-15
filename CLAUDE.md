@@ -4,7 +4,7 @@ Schlankes Open-Source-Foto-CMS für ausschließlich eigene Bilder (früherer Arb
 
 ## Stand
 
-- **Phase:** Schritt 0 (Bestandsaufnahme) ist erledigt, siehe `docs/planung/04 Bestandsaufnahme.md`. Schritt 1 (Projektgerüst) ist gebaut und geprüft. Schritt 2 (Anmeldung, Entwurf `05`, Gutachten `07`) ist gebaut (Version 0.1.0-dev) und von Fable geprüft (`08 Pruefung Code Anmeldung.md`, Befunde behoben in `b30ef3e`, 284 Tests). Offen: Entscheidung A2 (Zähler „Name allein“), dann Upload auf den Testserver nach Freigabe.
+- **Phase:** Schritt 0 (Bestandsaufnahme) ist erledigt, siehe `docs/planung/04 Bestandsaufnahme.md`. Schritt 1 (Projektgerüst) ist gebaut und geprüft. Schritt 2 (Anmeldung, Entwurf `05`, Gutachten `07`) ist gebaut (Version 0.1.0-dev) und von Fable geprüft (`08 Pruefung Code Anmeldung.md`, alle Befunde behoben, 288 Tests, abgenommen). Nächster Schritt: Upload auf den Testserver nach Freigabe von Lutz.
 - **Jeder Schritt aus dem Plan wird einzeln beauftragt**, danach berichten und auf Freigabe warten.
 - **Testserver:** `lichtkammer.br-foto.com` (all-inkl Konto A, HTTPS aktiv). Zugang nur in `deploy/.env` und im Schlüsselbund (Dienst `web-ftp-lichtkammer.br-foto.com`). Hochladen nur nach Probelauf und Freigabe von Lutz. Docker zuerst auf pve10.
 - **Tests (kein lokales PHP):** einmal `docker build -t lichtkammer-test -f tests/Dockerfile tests`, dann `docker run --rm -v "$PWD":/app -w /app lichtkammer-test php tests/run.php` (PHP 8.5 CLI mit `intl`, das `php:8.5-cli` allein nicht hat).

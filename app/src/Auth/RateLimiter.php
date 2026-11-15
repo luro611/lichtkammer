@@ -6,6 +6,8 @@ namespace Lichtkammer\Auth;
 /**
  * Zähler gegen Raten. Alle Schlüssel sind HMACs (auch für unbekannte Namen: gleiche Behandlung).
  * Versuche werden VOR der teuren Prüfung gebucht (gate) und bei Erfolg wieder entfernt (release).
+ * Die Regel `user` (Name allein) weist nie ab: sonst könnten Fremde ein Konto von vielen Adressen aussperren.
+ * Sie zählt nur und meldet je 100 Versuche ein Ereignis `account_under_attack` (Entscheidung von Lutz, 15.11.2026).
  * Während einer Sperre werden keine Versuche gebucht: eine laufende Sperre verlängert sich nicht.
  */
 final class RateLimiter
@@ -15,7 +17,7 @@ final class RateLimiter
     public const DELAY_MAX = 30;
     public const LOCK_AT = 10;          // Name+Adresse und zweite Stufe
     public const LOCK_AT_IP = 30;       // Adresse allein (mehrere Namen, Mobilfunk-NAT)
-    public const DELAY_ONLY_USER = 100; // Name allein: nur Wartezeit, nie Sperre
+    public const ALARM_USER = 100;      // Name allein: weder Sperre noch Wartezeit, nur Protokollereignis je 100 Versuche (Prüfung 08, A2)
 
     public function __construct(private readonly Database $db, private readonly Keys $keys, private readonly Clock $clock)
     {
@@ -32,7 +34,8 @@ final class RateLimiter
      * @param list<array{kind:string,key:string,lock:?int,delay:bool}> $rules
      *        lock = Schwelle für 15 Minuten Sperre (null: keine Sperre), delay = Wartezeit ab dem 3. Fehlversuch
      * @param bool $globalBrake globale Bremse beachten und mitzählen
-     * @return array{ok:bool,retry:int,ids:list<int>,reason:string,locked_now:list<string>}
+     * @return array{ok:bool,retry:int,ids:list<int>,reason:string,locked_now:list<string>,alarm:bool}
+     *         alarm = die Regel `user` hat gerade ein Vielfaches von ALARM_USER erreicht (Konto unter Beschuss)
      */
     public function gate(array $rules, bool $globalBrake, int $brakeLimit, int $brakeWindow): array
     {
@@ -47,38 +50,41 @@ final class RateLimiter
                 $last = (int) ($row['last'] ?? 0);
                 if ($r['lock'] !== null && $n >= $r['lock']) {
                     // Die Sperre endet, wenn der erste der gezählten Versuche aus dem Fenster fällt.
-                    return ['ok' => false, 'retry' => max(1, $first + self::WINDOW - $now), 'ids' => [], 'reason' => 'locked', 'locked_now' => []];
+                    return ['ok' => false, 'retry' => max(1, $first + self::WINDOW - $now), 'ids' => [], 'reason' => 'locked', 'locked_now' => [], 'alarm' => false];
                 }
-                $delayFrom = $r['kind'] === 'user' ? self::DELAY_ONLY_USER : self::DELAY_FROM;
-                if ($r['delay'] && $n >= $delayFrom) {
-                    $wait = $r['kind'] === 'user' ? self::DELAY_MAX : min(self::DELAY_MAX, 2 ** ($n - $delayFrom));
+                if ($r['delay'] && $n >= self::DELAY_FROM) {
+                    $wait = min(self::DELAY_MAX, 2 ** ($n - self::DELAY_FROM));
                     if ($now < $last + $wait) {
-                        return ['ok' => false, 'retry' => $last + $wait - $now, 'ids' => [], 'reason' => 'delay', 'locked_now' => []];
+                        return ['ok' => false, 'retry' => $last + $wait - $now, 'ids' => [], 'reason' => 'delay', 'locked_now' => [], 'alarm' => false];
                     }
                 }
             }
             if ($globalBrake) {
                 $recent = (int) $this->db->value('SELECT COUNT(*) FROM login_attempts WHERE kind = ? AND at > ?', ['global', $now - $brakeWindow]);
                 if ($recent >= $brakeLimit) {
-                    return ['ok' => false, 'retry' => $brakeWindow, 'ids' => [], 'reason' => 'global', 'locked_now' => []];
+                    return ['ok' => false, 'retry' => $brakeWindow, 'ids' => [], 'reason' => 'global', 'locked_now' => [], 'alarm' => false];
                 }
             }
             $ids = [];
             $lockedNow = [];
+            $alarm = false;
             foreach ($rules as $r) {
                 $this->db->run('INSERT INTO login_attempts(kind, key_hash, at) VALUES(?,?,?)', [$r['kind'], $r['key'], $now]);
                 $ids[] = $this->db->lastId();
-                if ($r['lock'] !== null) {
+                if ($r['lock'] !== null || $r['kind'] === 'user') {
                     $n = (int) $this->db->value('SELECT COUNT(*) FROM login_attempts WHERE kind = ? AND key_hash = ? AND at >= ?', [$r['kind'], $r['key'], $now - self::WINDOW]);
-                    if ($n === $r['lock']) {
+                    if ($r['lock'] !== null && $n === $r['lock']) {
                         $lockedNow[] = $r['kind']; // dieser Versuch ist der, ab dem gesperrt wird (wenn er scheitert)
+                    }
+                    if ($r['kind'] === 'user' && $n > 0 && $n % self::ALARM_USER === 0) {
+                        $alarm = true; // gedrosselt: nur beim 100., 200., … Versuch im Fenster
                     }
                 }
             }
             if ($globalBrake) {
                 $this->db->run('INSERT INTO login_attempts(kind, key_hash, at) VALUES(?,?,?)', ['global', 'g', $now]);
             }
-            return ['ok' => true, 'retry' => 0, 'ids' => $ids, 'reason' => '', 'locked_now' => $lockedNow];
+            return ['ok' => true, 'retry' => 0, 'ids' => $ids, 'reason' => '', 'locked_now' => $lockedNow, 'alarm' => $alarm];
         });
     }
 

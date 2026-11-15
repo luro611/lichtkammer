@@ -4,9 +4,9 @@ Stand: 15.11.2026. Prüfung des gebauten Codes aus Commit `e8e385f` (Version 0.1
 
 ## 1. Ergebnis vorab
 
-**Kein Befund mit Risiko hoch, kein Weg an Passwort plus TOTP vorbei.** Alle Befunde aus Gutachten `07` (H1, H2, M1 bis M10, N1 bis N9) sind im Code umgesetzt. Gefunden wurden zwei Befunde mit Risiko mittel (Benutzerauflistung über die Antwortzeit; Aussperren eines Kontos über den Namenszähler) und sieben niedrige. Alle eindeutigen Befunde außer A2 sind in Commit `b30ef3e` behoben, jeder mit Test (jetzt 284 Prüfungen, 0 Fehler). **A2 braucht eine Entscheidung von Lutz** (Abschnitt 4).
+**Kein Befund mit Risiko hoch, kein Weg an Passwort plus TOTP vorbei.** Alle Befunde aus Gutachten `07` (H1, H2, M1 bis M10, N1 bis N9) sind im Code umgesetzt. Gefunden wurden zwei Befunde mit Risiko mittel (Benutzerauflistung über die Antwortzeit; Aussperren eines Kontos über den Namenszähler) und sieben niedrige. Alle eindeutigen Befunde sind behoben, jeder mit Test: A1, A3 bis A9 und B1 in Commit `b30ef3e`, A2 nach der Entscheidung von Lutz (Variante 1) im Folgecommit; 288 Prüfungen, 0 Fehler.
 
-**Schritt 2 kann abgenommen werden, sobald Lutz A2 entschieden hat**; die Umsetzung von A2 ist klein. Danach: Upload auf den Testserver nach Freigabe, dort C2 und C3 (Abschnitt 3) prüfen.
+**Schritt 2 ist aus Sicht dieser Prüfung abgenommen.** Nächster Schritt: Upload auf den Testserver nach Freigabe, dort C2 und C3 (Abschnitt 3) prüfen.
 
 ## 2. Befunde und Korrekturen
 
@@ -16,7 +16,7 @@ Stand: 15.11.2026. Prüfung des gebauten Codes aus Commit `e8e385f` (Version 0.1
 *Behoben:* Scheinhash einmal erzeugt und in `meta.dummy_hash` abgelegt, bei geänderten Argon2-Parametern erneuert (`Auth::verifyDummy`). Test: zweiter unbekannter Versuch kostet genau eine Prüfung, Scheinhash unverändert; alte Parameter werden erneuert. Entwurf `05`, Abschnitt 3, angepasst.
 
 **A2. Zähler „Name allein“ wirkt als Sperre (Aussperr-Falle wieder offen).** `RateLimiter`, Regel `user`: Nach 100 Fehlversuchen auf einen Namen in 15 Minuten (verteilt auf 10 Adressen, also unter der Sperre je Name+Adresse) gilt 30 s Wartezeit ab dem **letzten** gebuchten Versuch. Ein Angreifer, der jede Sekunde anfragt, belegt den freien Platz praktisch immer. Nachweis: Nach 100 Fehlversuchen aus verschiedenen /64-Netzen bekam der echte Benutzer von einer anderen Adresse mit richtigem Passwort `blocked`; in 5 simulierten Minuten (Angreifer 1/s, Benutzer alle 7 s) kam er 0 von 43 Mal durch. Der Entwurf wollte hier „nur Verzögerung, keine Sperre“. Kein Eindringen, aber Aussperrung mit kleinerem Aufwand als bei der globalen Bremse.
-*Offen, Entscheidung von Lutz:* siehe Abschnitt 4.
+*Behoben (Entscheidung von Lutz, 15.11.2026, Variante 1):* Die Regel `user` weist nie mehr ab (`delay => false`, keine Sperre). Sie zählt nur und schreibt beim 100., 200., … Versuch im 15-Minuten-Fenster ein Ereignis `account_under_attack` (`attempts=100`, kein Name), also gedrosselt. Test: 100 Fehlversuche auf den Namen, der echte Benutzer kommt von neuer Adresse sofort durch, genau ein Ereignis, der 101. Versuch erzeugt kein weiteres.
 
 ### Niedrig
 
@@ -55,14 +55,9 @@ Stand: 15.11.2026. Prüfung des gebauten Codes aus Commit `e8e385f` (Version 0.1
 - **C9. Administrator setzt anderen Administrator zurück** und erhält dessen Link: Übernahme möglich, liegt im Entwurf (gleiche Rechte), steht im Protokoll. Zur Kenntnis.
 - **C10. Docker bei falscher `LK_TRUSTED_PROXIES`:** alle Besucher teilen die Proxy-Adresse, 30 Fehlversuche sperren alle. Sichere Richtung, auf pve10 mit echtem Proxy testen.
 
-## 4. Entscheidung für Lutz (A2)
+## 4. Entscheidung zu A2 (Lutz, 15.11.2026)
 
-Die Regel „Name allein“ (100 Fehlversuche in 15 Minuten → 30 s Wartezeit) lässt sich mit 10 Adressen so füttern, dass das Konto praktisch gesperrt ist. Zwei Wege:
-
-1. **Nur zählen und melden.** Die Regel `user` weist nie ab, sondern schreibt ab 100 Versuchen ein Protokollereignis („Konto unter Beschuss“). Raten bleibt durch Name+Adresse (10/15 min → Sperre), Adresse (30/15 min), globale Bremse (20 Hash-Prüfungen/10 s) und TOTP begrenzt. Einfach, kein neues Cookie. **Empfehlung.**
-2. **Geräte-Cookie.** Nach erfolgreicher voller Anmeldung setzt der Server `__Host-lk_dev` (HMAC über Konto und Zufall, 1 Jahr). Wer es vorlegt, überspringt die Regel `user`. Schützt auch bei Variante 1 nicht nötigen Fällen, kostet aber eine weitere Tabelle und Pflege.
-
-Nach der Entscheidung: kleine Änderung in `RateLimiter::gate`/`Auth::login` mit Test, dann Upload auf den Testserver (nach Freigabe).
+Zur Wahl standen (1) nur zählen und melden oder (2) ein Geräte-Cookie `__Host-lk_dev` nach erfolgreicher Anmeldung, das die Regel `user` überspringt. **Lutz hat Variante 1 gewählt**, umgesetzt wie unter A2 beschrieben. Raten bleibt durch Name+Adresse (10/15 min → Sperre), Adresse (30/15 min), globale Bremse (20 Hash-Prüfungen/10 s) und TOTP begrenzt.
 
 ## 5. Geprüft und unauffällig
 
@@ -86,6 +81,5 @@ Nach der Entscheidung: kleine Änderung in `RateLimiter::gate`/`Auth::login` mit
 
 ## 6. Nächste Schritte
 
-1. Lutz entscheidet A2 (Abschnitt 4); Umsetzung mit Test, kleiner Commit.
-2. Upload auf `lichtkammer.br-foto.com` nach Freigabe; dort C2 (PHP-Stand) und C3 (`HTTPS`-Variable) prüfen, Zeit der globalen Bremse messen.
-3. Für Schritt 3 vormerken: B3 (echte Parallel-Tests), C1 (Aufräumen gedrosselt), C5 (Warnband `http://`), C7 (Umschlüsselungslauf bei Rotation).
+1. Upload auf `lichtkammer.br-foto.com` nach Freigabe; dort C2 (PHP-Stand) und C3 (`HTTPS`-Variable) prüfen, Zeit der globalen Bremse messen.
+2. Für Schritt 3 vormerken: B3 (echte Parallel-Tests), C1 (Aufräumen gedrosselt), C5 (Warnband `http://`), C7 (Umschlüsselungslauf bei Rotation).

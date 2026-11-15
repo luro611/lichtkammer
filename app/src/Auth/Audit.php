@@ -13,7 +13,7 @@ final class Audit
         'login_ok', 'login_failed', 'login_locked', 'totp_failed', 'twofa_locked', 'recovery_used', 'logout',
         'password_changed', 'totp_changed', 'recovery_regenerated', 'account_created', 'account_disabled', 'account_enabled',
         'account_reset', 'invite_created', 'invite_used', 'setup_done', 'emergency_reset', 'global_brake',
-        'sessions_ended', 'key_rotated', 'new_environment', 'role_changed',
+        'sessions_ended', 'key_rotated', 'new_environment', 'role_changed', 'account_under_attack',
     ];
 
     public function __construct(private readonly Database $db, private readonly Keys $keys, private readonly Clock $clock)
