@@ -1,0 +1,2 @@
+#!/bin/zsh
+print -rn -- "${STUB_HTTP:-404}"

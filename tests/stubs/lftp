@@ -1,0 +1,17 @@
+#!/bin/zsh
+# Test-Attrappe für lftp: protokolliert den Befehl, simuliert cls, put und get
+print -r -- "lftp $*" >> "$STUB_DIR/aufrufe.log"
+print -r -- "LFTP_PASSWORD gesetzt: ${LFTP_PASSWORD:+ja}" >> "$STUB_DIR/aufrufe.log"
+cmd="$*"
+if [[ "$cmd" == *"cls -1 -a /app"* ]]; then
+  [[ -n "${STUB_CLS_FEHLT:-}" ]] && exit 1
+  cat "$STUB_DIR/listing" 2>/dev/null; exit 0
+fi
+if [[ "$cmd" == *"put -O /app .env"* ]]; then
+  [[ -n "${STUB_PUT_FEHLT:-}" ]] && exit 1
+  cp .env "$STUB_DIR/hochgeladen.env"
+  print -r -- "Rechte der lokalen Datei: $(stat -f %Lp .env)" >> "$STUB_DIR/aufrufe.log"
+  print -r -- "Ordner: $PWD" >> "$STUB_DIR/aufrufe.log"; exit 0
+fi
+if [[ "$cmd" == *"get /app/.env"* ]]; then cp "$STUB_DIR/server.env" .env; exit 0; fi
+exit 0

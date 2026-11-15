@@ -8,6 +8,12 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# Einmalige Einrichtung des Servers (app/.env): siehe deploy/einrichten.sh
+#   ./deploy.sh --einrichten --probe   Probelauf   |   ./deploy.sh --einrichten   echt   |   ./deploy.sh --token-entfernen
+case "${1:-}" in
+  --einrichten|--token-entfernen) exec ./deploy/einrichten.sh "$@" ;;
+esac
+
 fehler() { echo "Abbruch: $*" >&2; exit 1; }
 JETZT=0
 case "${1:-}" in

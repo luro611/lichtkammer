@@ -1,0 +1,14 @@
+#!/bin/zsh
+# Test-Attrappe für macOS "security": Zustand in $STUB_DIR/keychain-<Dienst>
+echo "security $*" | sed 's/ -w .*/ -w <…>/' >> "$STUB_DIR/aufrufe.log"
+if [[ "$1" == "-i" ]]; then
+  read -r zeile
+  dienst=${${zeile#*-s }%% *}; wert=${zeile##*-w }
+  [[ -n "${STUB_KEYCHAIN_SCHREIBEN_FEHLT:-}" ]] && exit 1
+  print -rn -- "$wert" > "$STUB_DIR/keychain-$dienst"; exit 0
+fi
+dienst=""; w=0
+while (( $# )); do case "$1" in -s) dienst="$2"; shift ;; -w) w=1 ;; esac; shift; done
+[[ -f "$STUB_DIR/keychain-$dienst" ]] || exit 44
+(( w )) && cat "$STUB_DIR/keychain-$dienst"
+exit 0

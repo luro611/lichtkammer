@@ -3,14 +3,31 @@
 Stand: 15.11.2026, Version 0.1.0-dev. Gilt für die erste Einrichtung auf all-inkl (nur FTPS, kein SSH).
 Alle Werte unten sind Platzhalter. **Echte Schlüssel und Token stehen nie im Repository, nie im Chat, nie in `deploy.sh`.**
 
-## Ablauf in Kürze
+## Ablauf in Kürze (Standardweg: ein Befehl)
 
 1. Code hochladen (nach Probelauf und Freigabe): `./deploy.sh --jetzt`. Das überträgt nur `public/` und `app/`, nie `.env`, nie Daten.
-2. `app/.env` lokal anlegen und per FTPS in den Ordner `app/` auf dem Server legen (Schritt 2 bis 4).
-3. `https://lichtkammer.br-foto.com/admin/setup` aufrufen, erstes Konto mit Passwort und TOTP einrichten.
-4. `LK_SETUP_TOKEN` aus der Server-`.env` löschen.
+2. Probelauf der Einrichtung (erzeugt und überträgt nichts, prüft nur lesend, ob auf dem Server schon eine `app/.env` liegt):
 
-## 1. Schlüssel und Token lokal erzeugen
+   ```bash
+   ./deploy.sh --einrichten --probe
+   ```
+
+3. Echte Einrichtung (nur nach Freigabe):
+
+   ```bash
+   ./deploy.sh --einrichten
+   ```
+
+   Das Skript bricht ab, wenn auf dem Server schon eine `app/.env` liegt (nichts wird überschrieben). Es erzeugt `LK_APP_KEY` und `LK_SETUP_TOKEN`, legt den Schlüssel **zuerst** im Schlüsselbund ab (Dienst `lichtkammer-app-key-<DOMAIN>`, Konto `LK_APP_KEY`) und prüft, dass er lesbar ist. Danach baut es die `.env` mit allen Werten (aus `deploy/.env`: `DOMAIN`, optional `LK_SITE_NAME` und `LK_DATA_DIR`, Standard siehe Abschnitt 2) in einem frischen Ordner mit Rechten 600, überträgt sie per FTPS nach `app/.env` (600), löscht die lokale Datei sofort und prüft per `curl`, dass `/app/.env` 403 oder 404 liefert. Das Einrichtungs-Token wird **einmal** angezeigt; der Schlüssel nie. Rotation und Änderungen einer vorhandenen `.env` gehören nicht dazu.
+4. `https://lichtkammer.br-foto.com/admin/setup` aufrufen, Token eingeben, erstes Konto mit Passwort und TOTP einrichten.
+5. Token vom Server entfernen: `./deploy.sh --token-entfernen` (lädt die Server-`.env`, löscht nur die Zeile `LK_SETUP_TOKEN`, lädt sie mit 600 wieder hoch, zeigt keinen Schlüssel).
+6. Den Schlüssel aus dem Schlüsselbund zusätzlich in den Passwort-Manager legen (Schlüsselbund-Eintrag „lichtkammer-app-key-…“).
+
+Der Rest dieses Dokuments (Abschnitte 1 bis 3) beschreibt den **Ausweichweg von Hand**, falls das Skript nicht nutzbar ist (z. B. kein `lftp`). Die Abschnitte 4 bis 6 gelten für beide Wege.
+
+## Ausweichweg von Hand
+
+## 1. Schlüssel und Token lokal erzeugen (von Hand)
 
 Im Terminal auf dem Mac, Ausgabe nur in den Passwort-Manager bzw. in die Datei, nicht in den Chat:
 
@@ -72,7 +89,7 @@ curl -s -o /dev/null -w "%{http_code}\n" https://lichtkammer.br-foto.com/app/.en
 2. `https://lichtkammer.br-foto.com/admin/setup` öffnen. Dort: `LK_SETUP_TOKEN`, Benutzername (a–z, 0–9, `.`, `_`, `-`, 3 bis 32 Zeichen), Passwort.
 3. QR-Code mit der Authenticator-App scannen (oder den Text eingeben), Code bestätigen. Die angezeigte Serverzeit (UTC) zeigt, ob die Uhr stimmt.
 4. **Wiederherstellungscodes sofort in den Passwort-Manager** (werden nur einmal gezeigt).
-5. **`LK_SETUP_TOKEN` aus `app/.env` auf dem Server löschen** (Datei herunterladen, Zeile entfernen, wieder hochladen). Solange es steht, zeigt der Admin ein Warnband.
+5. **`LK_SETUP_TOKEN` aus `app/.env` auf dem Server löschen**: `./deploy.sh --token-entfernen`, von Hand: (Datei herunterladen, Zeile entfernen, wieder hochladen). Solange es steht, zeigt der Admin ein Warnband.
 
 Erscheint stattdessen eine Fehlerseite („Konfiguration“), steht dort der Grund (z. B. Schlüssel falsch, Datenordner nicht anlegbar). Dann nichts raten, sondern Claude die Meldung (ohne Geheimnisse) geben.
 
