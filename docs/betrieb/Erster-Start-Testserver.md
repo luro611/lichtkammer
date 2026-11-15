@@ -93,6 +93,14 @@ curl -s -o /dev/null -w "%{http_code}\n" https://lichtkammer.br-foto.com/app/.en
 
 Erscheint stattdessen eine Fehlerseite („Konfiguration“), steht dort der Grund (z. B. Schlüssel falsch, Datenordner nicht anlegbar). Dann nichts raten, sondern Claude die Meldung (ohne Geheimnisse) geben.
 
+### Safari zeigt alte Oberfläche oder Knöpfe reagieren nicht
+
+Seit 0.1.0-dev tragen CSS- und JS-Adressen eine Version (`app.css?v=…`), Browser holen nach einem Upload die neue Datei selbst. Bei Seiten aus der Zeit davor hilft einmalig: Safari → Entwickler → Caches leeren (Cmd+Option+E), dann Cmd+R.
+
+### Alte Datenbank im Datenordner
+
+Liegt vom früheren Probieren eine Datenbank mit Benutzern im Datenordner, gilt die Einrichtung als abgeschlossen und `/admin/setup` liefert 404. Dann die Datenbank (`lichtkammer.sqlite`) beiseite legen (umbenennen, nicht löschen) und neu einrichten. Der Datenordner liegt über dem Webroot und ist per FTPS nicht erreichbar; das geht nur über ein kurzes, mit Einmal-Schlüssel gesichertes PHP-Skript, das danach sofort wieder gelöscht wird (nach Absprache mit Claude).
+
 ## 5. Wenn der Datenordner außerhalb des Webroots nicht anlegbar ist
 
 Zeigt die Fehlerseite, dass `LK_DATA_DIR` nicht angelegt oder beschrieben werden kann, gibt es die Ausnahme
