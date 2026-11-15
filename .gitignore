@@ -1,6 +1,25 @@
 .DS_Store
+._*
+.vscode/
+.idea/
+*.swp
+
+# Umgebung und Geheimnisse
 .env
+.env.*
+!.env.example
 app/.env
+deploy/.env
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+
+# Claude Code lokale Einstellungen
+.claude/settings.local.json
+.claude/launch.json
+
+# Laufzeitdaten, Fotos
 /data/
 /originals/
 /public/media/*
@@ -8,5 +27,5 @@ app/.env
 /public/*.html
 *.sqlite
 *.sqlite3
+*.db
 *.log
-deploy/.env

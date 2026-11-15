@@ -1,6 +1,8 @@
 # Entwurf Schritt 2: Anmeldung (Risiko hoch)
 
-Stand: 15.11.2026. Entwurf zur Prüfung, noch kein Code. Grundlage: Plan 03, Abschnitt 6. Gebaut wird erst nach der Prüfung (Opus, bei Bedarf Fable) und Freigabe durch Lutz. Passkey ist Schritt 6 und hier nur als Erweiterungspunkt vorgesehen.
+Stand: 15.11.2026. Entwurf zur Prüfung, noch kein Code. Grundlage: Plan 03, Abschnitt 6. Gebaut wird erst nach der Prüfung (Opus, bei Bedarf Fable) und Freigabe durch Lutz.
+
+**Geprüft am 15.11.2026 (Opus).** Korrekturen sind im Text mit **(Prüfung)** markiert, die Begründungen und die Entscheidungen für Lutz stehen in `06 Pruefung Schritt 1 und Entwurf 2.md`. Passkey ist Schritt 6 und hier nur als Erweiterungspunkt vorgesehen.
 
 ## 1. Ziel und Abgrenzung
 
@@ -12,65 +14,86 @@ Stand: 15.11.2026. Entwurf zur Prüfung, noch kein Code. Grundlage: Plan 03, Abs
 
 | Tabelle | Inhalt |
 |---|---|
-| `users` | `id`, `username` (eindeutig, klein), `display_name`, `role`, `password_hash` (Argon2id), `totp_secret_enc`, `totp_confirmed_at`, `totp_last_step` (Schutz gegen Wiederverwendung), `failed_count`, `locked_until`, `disabled_at`, `created_at` |
+| `users` | `id`, `username` (eindeutig, klein), `display_name`, `role`, `password_hash` (Argon2id), `totp_secret_enc`, `totp_confirmed_at`, `totp_last_step` (Schutz gegen Wiederverwendung), `disabled_at`, `created_at` |
 | `recovery_codes` | `user_id`, `code_hash`, `used_at` |
 | `sessions` | `id_hash` (SHA-256 der Sitzungs-ID), `user_id`, `stage` (`password_ok` oder `full`), `csrf_token`, `created_at`, `last_seen_at`, `ip_prefix`, `ua_hash` |
-| `login_attempts` | `kind` (`user` oder `ip`), `key_hash`, `at` |
-| `invites` | `token_hash`, `role`, `expires_at`, `used_at`, `created_by` |
-| `audit_log` | `at`, `user_id` (leer erlaubt), `event`, `detail`, `ip_prefix`. Nur Anhängen, im Code keine Änderung und kein Löschen. |
+| `login_attempts` | `kind` (`user`, `ip`, `userip`), `key_hash`, `at`. **(Prüfung)** Alle Zähler und Sperren liegen hier, nicht in `users`: sonst verhalten sich bekannte und unbekannte Benutzernamen verschieden (Sperre verrät, dass das Konto existiert). Schlüssel = HMAC des normalisierten Namens (klein, NFC) bzw. der Adresse. |
+| `invites` | `token_hash`, `purpose` (`new_account`, `reenroll`), `user_id` (nur bei `reenroll`), `role`, `expires_at`, `used_at`, `created_by` **(Prüfung: ein Mechanismus für Einladung, Passwort-/TOTP-Rücksetzung)** |
+| `meta` | `setup_done_at`, verbrauchte Reset-Token (nur Hash) **(Prüfung)** |
+| `audit_log` | `at`, `user_id` (leer erlaubt), `event`, `detail`, `ip_prefix`, `chain` **(Prüfung)**. Nur Anhängen: SQLite-Trigger `BEFORE UPDATE/DELETE` brechen ab (Schutz gegen Programmfehler), `chain` = HMAC über Vorgänger-`chain` und Zeile, im Admin wird die Kette geprüft (erkennt Löschen/Ändern durch Dritte ohne Schlüssel). Kein Löschen, kein Kürzen vorerst. |
 
-- **Geheimschlüssel `LK_APP_KEY`** (32 Byte, Base64) in `app/.env` bzw. Umgebung, beim Einrichten erzeugt. Er verschlüsselt die TOTP-Geheimnisse (libsodium `secretbox`, Nonce je Eintrag) und dient als HMAC-Schlüssel für Wiederherstellungscodes und IP-Hashes. Er steht nie in der Datenbank. Fehlt er, startet der Admin nicht (Fehlerseite statt Standardwert).
-- IP-Adressen werden nur als Präfix gespeichert (IPv4 /24, IPv6 /48), damit das Protokoll datensparsam bleibt.
+- **Geheimschlüssel `LK_APP_KEY`** (32 Byte, Base64) in `app/.env` bzw. Umgebung. **(Prüfung)** Er wird nicht von der App „beim Einrichten erzeugt“, sondern von Lutz lokal (`openssl rand -base64 32`), zusammen mit `LK_SETUP_TOKEN` in `app/.env` per FTPS abgelegt und im Passwort-Manager gesichert (ohne SSH gibt es keinen anderen Weg; Docker: `.env`). Er steht nie in der Datenbank und wird nie ausgegeben oder protokolliert.
+  - **Teilschlüssel:** Aus ihm werden per HKDF (`hash_hkdf`) getrennte Schlüssel mit festen Kontexten abgeleitet (`totp`, `recovery`, `audit`, `ratelimit`, `csrf`), der Rohschlüssel wird nirgends direkt benutzt.
+  - **Verschlüsselung:** libsodium `secretbox`, Nonce je Eintrag, **versioniertes Format** `v1:<kid>:<nonce+cipher>` (`kid` = erste 8 Hex-Zeichen von SHA-256 des Schlüssels). So ist Rotation später möglich, ohne das Format zu ändern.
+  - **Prüfung beim Start:** Genau 32 Byte nach Base64-Dekodierung, nicht der Beispielwert, nicht lauter gleiche Bytes; sonst Fehlerseite statt Standardwert. Fehlt `sodium`, startet der Admin ebenfalls nicht (all-inkl hat es, Docker-Image bringt es mit).
+  - **Verlust:** Passwörter bleiben gültig, aber alle TOTP-Geheimnisse und Wiederherstellungscodes sind unbrauchbar. Weg zurück: Rücksetzweg (Abschnitt 8) mit neuem Schlüssel; danach richten alle Konten TOTP neu ein. Deshalb Sicherung des Schlüssels getrennt von der Datenbank-Sicherung (liegt er mit im Backup, schützt die Verschlüsselung nichts).
+  - **Rotation:** `LK_APP_KEY_PREVIOUS` wird zum Entschlüsseln alter Einträge akzeptiert; TOTP-Geheimnisse werden beim nächsten erfolgreichen Login mit dem neuen Schlüssel neu verschlüsselt. Wiederherstellungscodes (nur als HMAC gespeichert) lassen sich nicht umrechnen: Nach einer Rotation werden sie je Konto neu erzeugt. Die Rotation selbst wird erst nach Schritt 2 gebaut, das Format ist jetzt schon dafür vorbereitet.
+- **SQLite-Betrieb (Prüfung):** `PRAGMA busy_timeout=5000`, `foreign_keys=ON`; alle Prüf-und-Verbrauchen-Vorgänge (TOTP, Code, Einladung, Einrichtung) in `BEGIN IMMEDIATE`. WAL nur, wenn es auf dem Ziel funktioniert (all-inkl: auf dem Testserver prüfen, nicht annehmen, Ersatz `journal_mode=DELETE`). Datenordner bekommt beim Anlegen eine eigene `.htaccess` (`Require all denied`) und `index.html`, Datei 0600.
+- **IP-Adressen (Prüfung):** Im Protokoll und in der Sitzung nur als Präfix (IPv4 /24, IPv6 /48). Für Zähler und Sperren dagegen die volle IPv4-Adresse bzw. IPv6 /64, nur als HMAC und nach 15 Minuten gelöscht: ein /24 wäre bei Mobilfunk (CGNAT) so groß, dass ein Fremder im selben Netz beide Konten aussperren könnte. IPv4-in-IPv6 (`::ffff:a.b.c.d`) wird vorher auf IPv4 normalisiert.
+- **Quelladresse (Prüfung):** Maßgeblich ist nur `REMOTE_ADDR`. Im Docker-Image setzt `mod_remoteip` (`docker/apache.conf`) sie aus `X-Forwarded-For` und nimmt dabei richtig den rechten, nicht den frei erfindbaren linken Eintrag. Die App liest `X-Forwarded-For` nie selbst; `LK_TRUST_PROXY` gilt nur für `X-Forwarded-Proto`. `RemoteIPInternalProxy` ist derzeit das ganze private Netz (10/8, 172.16/12, 192.168/16): Wer im LAN den Proxy umgeht, kann seine Adresse fälschen. Vor dem Livegang auf die Adresse des Proxys einschränken (Wert aus `.env`).
 
 ## 3. Passwort
 
 - Argon2id über `password_hash` (`memory_cost` 64 MiB, `time_cost` 3, `threads` 1; passt zu 512 MB `memory_limit` bei all-inkl). Bei Änderung der Parameter `password_needs_rehash` beim nächsten Login.
 - Mindestens 12 Zeichen, höchstens 256 (Schutz vor Überlast). Abgelehnt werden: Benutzername im Passwort, Einträge einer lokalen Liste häufiger Passwörter (ca. 10.000, im Repo, `app/data/`). Es gibt keine Kompositionsregeln (Sonderzeichen, Ziffern), die Länge zählt.
-- Unbekannter Benutzer: gleiche Antwort und gleicher Zeitaufwand (Scheinvergleich gegen einen festen Hash).
+- Passwort vor dem Hashen NFC-normalisieren (wo `intl` da ist), Länge in Zeichen prüfen, Byte-Obergrenze 1024.
+- **Unbekannter Benutzer (Prüfung):** gleiche Antwort, gleicher Zeitaufwand und gleiche Zähler. Der Scheinhash wird zur Laufzeit mit denselben Parametern wie echte Hashes erzeugt (einmal je Anfrage-Prozess, nicht ein festes Beispiel mit anderen Parametern). Gesperrte, deaktivierte und TOTP-lose Konten durchlaufen **dieselbe** Passwortprüfung und liefern erst danach dieselbe allgemeine Meldung. Der Benutzername geht klein und NFC-normalisiert in alle Schlüssel.
+- **Reihenfolge (Prüfung):** erst Zähler/Sperre (billig), dann Argon2. Zusätzlich eine globale Bremse (z. B. mehr als 8 Hash-Prüfungen in 10 s → Antwort „bitte später“), weil 64 MiB je Prüfung bei vielen Anfragen gleichzeitig den Speicher von all-inkl sprengen können.
+- Liste häufiger Passwörter nicht in `app/data/` (verwechselbar mit dem Datenordner), sondern `app/resources/`.
 
 ## 4. TOTP (RFC 6238)
 
 - HMAC-SHA1, 6 Stellen, 30 s, Fenster ±1 Schritt (Uhrabweichung). Vergleich mit `hash_equals`.
-- **Wiederverwendung:** Ein Schritt `<= totp_last_step` wird abgelehnt; nach Erfolg wird `totp_last_step` im selben Update gesetzt (`UPDATE … WHERE totp_last_step < :step`, Trefferzahl prüfen), damit zwei gleichzeitige Anfragen nicht beide durchgehen.
-- **Einrichtung:** Geheimnis (20 Byte, Base32) wird erzeugt und verschlüsselt als „unbestätigt“ gespeichert. QR-Code als lokal erzeugtes SVG mit `viewBox` und ohne feste Breite/Höhe (Regel), dazu das Geheimnis als Text zum Abtippen. Aktiv wird TOTP erst, wenn ein gültiger Code eingegeben wurde; danach werden die Wiederherstellungscodes angezeigt.
-- TOTP ist **Pflicht**. Ein Konto ohne bestätigtes TOTP kann sich nicht anmelden, außer in der Einrichtungsfolge.
+- **Wiederverwendung:** Ein Schritt `<= totp_last_step` wird abgelehnt; nach Erfolg wird `totp_last_step` im selben Update gesetzt (`UPDATE … WHERE totp_last_step < :step`, Trefferzahl prüfen), damit zwei gleichzeitige Anfragen nicht beide durchgehen. **(Prüfung)** Alle drei Schritte des Fensters werden ohne vorzeitigen Abbruch berechnet und mit `hash_equals` verglichen; der höchste passende Schritt zählt. Das Update läuft in `BEGIN IMMEDIATE`; nur bei Trefferzahl 1 geht die Anmeldung weiter. Nach 5 falschen Codes in einer `password_ok`-Sitzung wird sie gelöscht (Passwort muss neu eingegeben werden).
+- **Einrichtung:** Geheimnis (20 Byte, Base32) wird erzeugt und verschlüsselt als „unbestätigt“ gespeichert (bei neuen Konten nur in der Einrichtungs-/Einladungssitzung, siehe Abschnitt 8; Seite mit `no-store`, das Geheimnis wird nie geloggt). QR-Code als lokal erzeugtes SVG mit `viewBox` und ohne feste Breite/Höhe (Regel), dazu das Geheimnis als Text zum Abtippen. Aktiv wird TOTP erst, wenn ein gültiger Code eingegeben wurde; danach werden die Wiederherstellungscodes angezeigt.
+- TOTP ist **Pflicht**. **(Prüfung)** Ein Konto ohne bestätigtes TOTP kann sich **nicht** anmelden. Es gibt keine „Passwort reicht zum Einrichten“-Stufe: Wer nur das Passwort kennt (Phishing), darf kein eigenes TOTP anlegen. Einrichtung nur über Einrichtung/Einladung/Rücksetz-Link (Abschnitt 8).
 
 ## 5. Wiederherstellungscodes
 
 - Zehn Codes zu je 10 Zeichen (Base32 ohne Verwechslungszeichen, in Gruppen), einmalig angezeigt, druckbar.
-- Gespeichert als `HMAC-SHA256(LK_APP_KEY, code)`. Jeder Code gilt einmal; Verbrauch im selben Update wie die Prüfung (`WHERE used_at IS NULL`).
+- Gespeichert als `HMAC-SHA256(Teilschlüssel recovery, normalisierter Code)`; Eingabe wird vorher groß geschrieben, von Trennzeichen befreit und Verwechslungszeichen werden abgebildet. Jeder Code gilt einmal; Verbrauch im selben Update wie die Prüfung (`UPDATE … WHERE user_id=? AND code_hash=? AND used_at IS NULL`, Trefferzahl 1, in `BEGIN IMMEDIATE`). Die Prüfung läuft immer gegen alle Codes des Kontos mit `hash_equals` (kein Hinweis aus der Laufzeit). Ein Wiederherstellungscode-Login ändert `totp_last_step` nicht.
+- **(Prüfung)** Neuerzeugen verlangt eine volle Sitzung **und** erneut das Passwort. Die Codes stehen nie in der Sitzung oder im Cache (`no-store`), die Seite zeigt sie nur einmal.
 - Nutzung wird protokolliert und führt zur Aufforderung, neue Codes zu erzeugen (alte werden ungültig).
 
 ## 6. Anmeldeablauf und Sitzung
 
-1. `POST /admin/login` mit Benutzername und Passwort (CSRF-Token Pflicht). Bei Erfolg: neue Sitzung mit `stage = password_ok`, Sitzungs-ID neu erzeugt (keine Fixierung), Weiterleitung zur TOTP-Seite.
-2. `POST /admin/login/totp` mit Code oder Wiederherstellungscode. Bei Erfolg: `stage = full`, Sitzungs-ID **erneut** erneuert.
-3. Nur `stage = full` darf Admin-Seiten sehen. `password_ok` verfällt nach 5 Minuten.
+1. `POST /admin/login` mit Benutzername und Passwort. **(Prüfung)** Vor der Anmeldung gibt es keine Sitzung, also kein Sitzungs-CSRF: Das Formular trägt ein zustandsloses Token (`HMAC(csrf-Schlüssel, Zufall|Ablaufzeit)`, 1 Stunde gültig, zusätzlich als `SameSite=Strict`-Cookie im Double-Submit-Verfahren). Das gilt auch für Einrichtung, Einladung und Rücksetz-Link. Bei Erfolg: neue Sitzung mit `stage = password_ok`, Sitzungs-ID neu erzeugt (keine Fixierung), Weiterleitung zur TOTP-Seite. Ein mitgeschicktes altes Cookie wird nie übernommen, die zugehörige Zeile wird gelöscht.
+2. `POST /admin/login/totp` mit Code oder Wiederherstellungscode. Bei Erfolg: `stage = full`, Sitzungs-ID **erneut** erneuert. **(Prüfung)** Die `password_ok`-Zeile wird im selben Vorgang gelöscht und eine neue angelegt (ID und CSRF-Token neu), sodass die alte ID nie volle Rechte erhält.
+3. Nur `stage = full` darf Admin-Seiten sehen. `password_ok` verfällt nach 5 Minuten. **(Prüfung)** Zugriff ist „verboten, solange nicht erlaubt“: Alle Wege unter `/admin/` laufen durch eine zentrale Prüfung (Sitzung, Konto nicht deaktiviert, Rolle), nur eine feste Liste (Anmelden, TOTP, Einrichtung, Einladung, Rücksetzen) ist ausgenommen. Die Sitzungsabfrage verbindet `users` und lehnt deaktivierte Konten sofort ab.
 
 - **Sitzungs-ID:** 32 Zufallsbytes, Cookie mit der ID, in der Datenbank nur der SHA-256-Hash. Eigene Sitzungsverwaltung in SQLite (nicht PHP-Dateisitzungen), damit sie in beiden Betriebsarten gleich funktioniert und alle Sitzungen eines Kontos widerrufbar sind.
-- **Cookie:** `__Host-`-Präfix (`Secure`, Pfad `/`, ohne `Domain`), `HttpOnly`, `SameSite=Strict`. Nur lokal ohne HTTPS (`LK_ENV=development`) ohne Präfix und `Secure`.
-- **Lebensdauer:** Leerlauf 30 Minuten, absolut 12 Stunden. Beides einstellbar, Standard wie genannt.
+- **Cookie:** `__Host-`-Präfix (`Secure`, Pfad `/`, ohne `Domain`), `HttpOnly`, `SameSite=Strict`. **(Prüfung)** Ob das Präfix gilt, bestimmt die **Konfiguration**, nicht die einzelne Anfrage: `LK_BASE_URL` mit `https://` → immer `__Host-` und `Secure`; kommt die Anfrage dann ohne HTTPS an (z. B. `LK_TRUST_PROXY` vergessen), verweigert der Admin die Anmeldung mit klarer Meldung, statt still ein schwächeres Cookie zu setzen. Nur bei `http://` in `LK_BASE_URL` (lokale Entwicklung) ohne Präfix und `Secure`. Das ist unabhängig von `LK_ENV` (sonst schwächt „development“ in Produktion die Cookies). all-inkl: direkter TLS-Abschluss, `$_SERVER['HTTPS']` auf dem Testserver prüfen; Docker: Proxy mit `LK_TRUST_PROXY=1`, Port 8080 nicht nach außen öffnen (sonst kann jeder `X-Forwarded-Proto` setzen).
+- **Folge von `SameSite=Strict`:** Ein Link von außen (Nachricht, E-Mail) auf `/admin` kommt ohne Cookie an und zeigt die Anmeldeseite, obwohl man angemeldet ist. Gewollt; die Anmeldeseite leitet bei vorhandener Sitzung weiter.
+- **Bindung (Prüfung):** `ip_prefix` und `ua_hash` dienen nur dem Protokoll („neue Umgebung“), nicht dem Abbruch der Sitzung: Mobilgeräte wechseln Netz und IPv6-Adresse, Browser-Updates ändern den User-Agent. Der Schutz gegen Cookie-Diebstahl liegt in `HttpOnly`/`Secure`/CSP.
+- **Weiterleitung nach Anmeldung (Prüfung):** nur auf Pfade, die mit genau einem `/` beginnen (kein `//`, kein `/\`, kein Schema).
+- **Schreiblast (Prüfung):** `last_seen_at` nur aktualisieren, wenn der Wert älter als 60 s ist. Abgelaufene Sitzungen und alte `login_attempts` werden bei jeder Anmeldung gelöscht (kein Cron).
+- **Lebensdauer:** Leerlauf 30 Minuten, absolut 12 Stunden. Beides einstellbar, Standard wie genannt (Frage 1). **(Prüfung)** Auch Upload- und Statusanfragen zählen als Aktivität; läuft die Sitzung mitten im Hochladen ab, zeigt die Oberfläche eine Meldung und setzt nach erneuter Anmeldung fort, statt Stücke zu verwerfen (Schritt 4).
 - **Abmeldung** löscht die Sitzung serverseitig. Passwortänderung und TOTP-Neueinrichtung beenden alle anderen Sitzungen des Kontos. Ein Administrator kann Sitzungen anderer Konten beenden.
 - **CSRF:** Token je Sitzung (zusätzlich zu `SameSite=Strict`), bei jedem `POST` geprüft, `hash_equals`. Zustandsändernde Aktionen nie per `GET`.
 - **Anmeldeseite:** Sie bekommt Siegel und Wortmarke von luro, wie vereinbart. `Cache-Control: no-store` auf allen Admin-Seiten.
 
 ## 7. Schutz gegen Raten
 
-- Zähler je Konto (`failed_count`) und je IP-Präfix (`login_attempts`, gleitendes Fenster 15 Minuten).
-- Ab dem 3. Fehlversuch zunehmende Verzögerung (1, 2, 4, 8 s, maximal 30 s), ab 10 Fehlversuchen in 15 Minuten Sperre des Kontos bzw. der Quelle für 15 Minuten. Die Sperre gilt auch für die TOTP- und Wiederherstellungscode-Eingabe (gemeinsamer Zähler).
+- Zähler je Konto-Name und je Adresse (`login_attempts`, gleitendes Fenster 15 Minuten). **(Prüfung)** Schlüssel sind HMACs, auch für nicht existierende Namen (Gleichbehandlung).
+- Ab dem 3. Fehlversuch zunehmende Verzögerung (1, 2, 4, 8 s, maximal 30 s), ab 10 Fehlversuchen in 15 Minuten Sperre für 15 Minuten. Die Sperre gilt auch für die TOTP- und Wiederherstellungscode-Eingabe (gemeinsamer Zähler).
+- **Aussperr-Falle (Prüfung):** Eine reine Sperre „je Konto“ ließe Fremde Lutz' Konto dauerhaft aussperren (alle 15 Minuten 10 Versuche). Deshalb: Passwortstufe zählt je **Name + Adresse** (`userip`) und je Adresse; je Name allein nur mit hoher Schwelle (z. B. 100 in 15 Minuten) und dann nur Verzögerung, keine Sperre. Die zweite Stufe (TOTP/Code) zählt je Konto streng, weil dort das Passwort schon stimmte. Eine laufende Sperre wird nicht verlängert, wenn weitere Versuche kommen.
 - Meldungen bleiben allgemein („Anmeldung nicht möglich“), sie verraten nicht, ob Benutzer, Passwort oder Code falsch war. Die Sperre wird dem Konto-Inhaber nicht anders angezeigt, den Administratoren aber im Protokoll.
 - Verzögerung ohne Blockieren von PHP-Prozessen: Wartezeit als Zeitstempel (`locked_until`) und Antwort „bitte später“, kein `sleep`.
 
 ## 8. Ersteinrichtung und weitere Konten
 
-- **Erstes Konto (Lutz):** Die Seite `/admin/setup` ist nur erreichbar, wenn (a) `users` leer ist **und** (b) ein Einrichtungstoken `LK_SETUP_TOKEN` in `app/.env` gesetzt ist und im Formular eingegeben wird. Lutz legt es per FTPS ab, da es kein SSH gibt. Nach dem ersten Konto liefert die Route dauerhaft 404; das Token wird zusätzlich als verbraucht vermerkt.
-- **Zweites Konto:** Der Administrator erzeugt im Admin eine **Einladung** (Token, 24 h, einmal nutzbar, nur als Hash gespeichert, Link wird angezeigt und von Lutz weitergegeben). Die eingeladene Person setzt Benutzername, Passwort und TOTP selbst. Mehr als zwei aktive Konten sind technisch möglich, der Plan sieht zwei vor; die Zahl wird nicht fest eingebaut.
+- **Erstes Konto (Lutz):** Die Seite `/admin/setup` ist nur erreichbar, wenn (a) `users` leer ist, (b) `meta.setup_done_at` fehlt **und** (c) `LK_SETUP_TOKEN` (mindestens 32 Zeichen) in `app/.env` gesetzt ist und im Formular eingegeben wird. Lutz legt `.env` mit Token und `LK_APP_KEY` per FTPS ab (kein SSH). Fehlt das Token oder ist die Einrichtung erledigt, liefert die Route 404 (auch für `POST`; der Router liefert für unbekannte oder gesperrte Routen nie 405, das verriete die Route). Tokenvergleich mit `hash_equals`, gedrosselt wie die Anmeldung.
+  - **(Prüfung) Konto erst am Ende:** Passwort wird geprüft und gehasht, das TOTP-Geheimnis erzeugt und bis zur Bestätigung nur in einer kurzlebigen Einrichtungssitzung gehalten. Das Konto (`users`, `meta.setup_done_at`, Wiederherstellungscodes) entsteht erst **in einer Transaktion** (`BEGIN IMMEDIATE`, `users` erneut auf leer geprüft) nach gültigem TOTP-Code. So gibt es nie ein Konto ohne TOTP, und zwei gleichzeitige Einrichtungen erzeugen keine zwei Administratoren.
+  - Danach zeigt die Seite einmal: „Bitte `LK_SETUP_TOKEN` aus `app/.env` löschen.“ Das Token wird nicht automatisch entfernt. Geht die Datenbank später verloren (falscher `LK_DATA_DIR`), wäre die Einrichtung mit stehendem Token wieder offen; deshalb ist das Entfernen Teil der Abnahme.
+- **Zweites Konto:** Der Administrator erzeugt im Admin eine **Einladung** (Token 32 Byte, 24 h, einmal nutzbar, nur als Hash gespeichert, Link wird angezeigt und von Lutz weitergegeben). Die eingeladene Person setzt Benutzername, Passwort und TOTP selbst. **(Prüfung)** Das `GET` auf den Link verbraucht nichts; Verbrauch und Kontoanlage in einer Transaktion nach bestätigtem TOTP (`UPDATE invites SET used_at … WHERE used_at IS NULL AND expires_at > now`, Trefferzahl 1). Benutzername bereits vergeben → Meldung ohne Verbrauch. Ungültige, abgelaufene und benutzte Links zeigen dieselbe Seite. Der Link steht im Webserver-Protokoll; deshalb 24 h und Einmaligkeit. Mehr als zwei aktive Konten sind technisch möglich, der Plan sieht zwei vor; die Zahl wird nicht fest eingebaut.
 - **Konto sperren/entsperren** durch Administrator; ein Administrator kann sich nicht selbst sperren oder den letzten Administrator herabstufen.
-- **Zurücksetzen:** Verliert jemand Gerät und Wiederherstellungscodes, setzt der Administrator das TOTP der Person zurück (neue Einrichtung beim nächsten Login nach Passwortprüfung). Für den Fall, dass Lutz selbst ausgesperrt ist, siehe Offene Frage 3.
+- **Zurücksetzen (Prüfung geändert):** Verliert jemand Gerät und Wiederherstellungscodes oder das Passwort, erzeugt der Administrator einen **Rücksetz-Link** (`invites.purpose = reenroll`, wie eine Einladung). Das alte TOTP, die Wiederherstellungscodes und alle Sitzungen des Kontos werden sofort ungültig; die Person setzt über den Link neues Passwort und neues TOTP. Das ersetzt „neue Einrichtung nach Passwortprüfung“, weil dort ein Passwortdieb ein eigenes TOTP hätte einrichten können.
+- **Notfall für Lutz (Admin ausgesperrt):** siehe Frage 3. Empfehlung: kein hochgeladenes Skript, sondern eine fest eingebaute, normalerweise tote Route `/admin/reset`, die nur lebt, wenn `LK_RESET_TOKEN` (mindestens 32 Zeichen) in `app/.env` steht. Wer FTPS-Schreibzugriff hat, kann ohnehin den Code austauschen; das ist die Vertrauensbasis. Ablauf: Token + Benutzername eingeben → erzeugt einen Rücksetz-Link wie oben (Passwort **und** TOTP neu), Token-Hash wandert in `meta` (nicht wiederverwendbar, auch wenn die Zeile in `.env` bleibt), alle Sitzungen des Kontos enden, Protokolleintrag, Hinweis an alle angemeldeten Administratoren, Drosselung wie Anmeldung. Docker: `.env` ändern und Container neu erzeugen (Umgebung wird nur beim Start gelesen).
+- **Passwort ändern (Prüfung):** nur mit aktuellem Passwort **und** aktuellem TOTP-Code; beendet alle anderen Sitzungen.
 
 ## 9. Protokoll
 
-Ereignisse: Anmeldung erfolgreich/fehlgeschlagen, TOTP-Fehler, Sperre, Wiederherstellungscode benutzt, Abmeldung, Passwort-/TOTP-Änderung, Konto angelegt/gesperrt/zurückgesetzt, Einladung erzeugt/benutzt, Einrichtung. Im Admin sichtbar für beide Konten (nur eigene Ereignisse für `editor`, alle für `admin`). Keine Passwörter, Codes oder Token im Protokoll.
+Ereignisse: Anmeldung erfolgreich/fehlgeschlagen, TOTP-Fehler, Sperre, Wiederherstellungscode benutzt, Abmeldung, Passwort-/TOTP-Änderung, Konto angelegt/gesperrt/zurückgesetzt, Einladung erzeugt/benutzt, Einrichtung. Im Admin sichtbar für beide Konten (nur eigene Ereignisse für `editor`, alle für `admin`). Keine Passwörter, Codes oder Token im Protokoll. **(Prüfung)** Der bei einer fehlgeschlagenen Anmeldung getippte Benutzername wird nie roh gespeichert (nur gekürzter HMAC), damit Angreifer keine Texte ins Protokoll bringen und Versehen mit Passwörtern im Namensfeld nicht landen; bei der Ausgabe ist ohnehin alles escaped. Fehlversuche von Unbekannten werden zusammengefasst (ein Eintrag je Adresse und Minute mit Zähler), damit niemand die Datenbank mit Protokollzeilen füllen kann. Der Kettenprüfwert (Abschnitt 2) wird im Admin angezeigt („Protokoll unversehrt“ / „Lücke ab Eintrag n“). Unveränderbar im strengen Sinn ist das gegen jemanden mit Zugriff auf Schlüssel *und* Datei nicht; es erkennt Fremdeingriffe ohne Schlüssel.
 
 ## 10. Erweiterungspunkt Passkey (Schritt 6)
 
@@ -86,15 +109,18 @@ Ereignisse: Anmeldung erfolgreich/fehlgeschlagen, TOTP-Fehler, Sperre, Wiederher
 - Sperre: Zähler, Verzögerung, Aufhebung nach Ablauf; gleiche Antwort für unbekannten Benutzer.
 - Einrichtung: nur mit leerem `users` und Token; danach 404; Einladung einmalig und mit Ablauf.
 - QR-SVG hat `viewBox`, keine feste Breite/Höhe, und wird im Browser angesehen.
-- Audit: nur anhängen, keine Geheimnisse im Protokoll.
+- Audit: nur anhängen (Trigger verweigert `UPDATE`/`DELETE`), Kette erkennt entfernte und geänderte Zeilen, keine Geheimnisse im Protokoll.
+- **(Prüfung) zusätzlich:** unbekannter und bekannter Name liefern gleiche Antwort, gleichen Status und gleichen Zählerstand; Konto gesperrt/deaktiviert/ohne TOTP ebenso; `password_ok`-ID funktioniert nach dem TOTP-Schritt nicht mehr; Login-CSRF (fehlend, abgelaufen, falsch); Schlüssel: falsche Länge/Beispielwert/fehlend → Fehlerseite, versioniertes Format wird gelesen, `LK_APP_KEY_PREVIOUS` entschlüsselt; Setup: zwei gleichzeitige Einrichtungen → genau ein Konto, Konto erst nach TOTP, `POST` auf gesperrtes Setup → 404 (nicht 405); Rücksetz-Token einmalig; Weiterleitungsziel `//evil` abgelehnt; Cookie-Entscheidung nach `LK_BASE_URL`, HTTP-Anfrage bei `https://` abgelehnt; IPv4-in-IPv6 und /64-Schlüssel; Sperre je Name+Adresse sperrt nicht den echten Benutzer von anderer Adresse; Wettlauf zweier Prozesse (zwei PHP-Prozesse gleichzeitig mit demselben TOTP-Code bzw. Wiederherstellungscode: genau einer gewinnt).
 
 ## 12. Offene Fragen an Lutz
 
-1. **Sitzungsdauer:** Leerlauf 30 Minuten und absolut 12 Stunden. Passt das für die zweite Person beim Hochladen vieler Bilder (lange Sitzungen), oder soll der Leerlauf länger sein?
+1. **Sitzungsdauer:** (Empfehlung der Prüfung: Leerlauf 60 Minuten, absolut 12 Stunden, Uploads zählen als Aktivität.) Leerlauf 30 Minuten und absolut 12 Stunden. Passt das für die zweite Person beim Hochladen vieler Bilder (lange Sitzungen), oder soll der Leerlauf länger sein?
 2. **Einladung:** Link, den du der zweiten Person schickst (z. B. per Nachricht), statt E-Mail-Versand vom Server. Einverstanden?
-3. **Notfall für Lutz:** Wenn Passwort-Manager und Wiederherstellungscodes weg sind, bleibt nur ein manueller Weg. Vorschlag: Ein kleines Rücksetzskript, das du per FTPS hochlädst, mit `LK_RESET_TOKEN` aus `app/.env` und das sich nach einmaliger Nutzung selbst löscht. Oder lieber ohne diesen Weg und Neueinrichtung über die Datenbank? Das Skript ist eine zusätzliche Angriffsfläche; ich empfehle es nur auf Zeit (Token wird danach entfernt).
+3. **Notfall für Lutz:** Wenn Passwort-Manager und Wiederherstellungscodes weg sind, bleibt nur ein manueller Weg. Vorschlag: Ein kleines Rücksetzskript, das du per FTPS hochlädst, mit `LK_RESET_TOKEN` aus `app/.env` und das sich nach einmaliger Nutzung selbst löscht. Oder lieber ohne diesen Weg und Neueinrichtung über die Datenbank? **Empfehlung der Prüfung:** eingebaute Route statt Skript (siehe Abschnitt 8); ohne Rücksetzweg wäre der einzige Ausweg, die SQLite-Datei per PHP/FTPS zu löschen, was alle Konten, das Protokoll und alle Bilddaten-Verknüpfungen zerstört.
 4. **Editor-Rechte:** Darf die zweite Person ihr eigenes TOTP und Passwort selbst ändern (Vorschlag: ja, mit aktuellem Passwort)?
 
 ## 13. Was geprüft werden soll
 
 Besonders: Sitzungsablauf und Fixierung, Rennen bei TOTP und Wiederherstellungscodes, Gleichbehandlung bei unbekanntem Benutzer, Umgang mit `LK_APP_KEY` (Verlust, Rotation), Ersteinrichtung ohne SSH, Rücksetzweg, Protokoll-Unveränderbarkeit, Verhalten hinter Reverse-Proxy (IP-Präfix aus `X-Forwarded-For` nur bei `LK_TRUST_PROXY`).
+5. **(Prüfung) Schlüssel:** `LK_APP_KEY` und `LK_SETUP_TOKEN` erzeugst du lokal und legst `app/.env` per FTPS ab; eine Kopie des Schlüssels kommt in den Passwort-Manager. Einverstanden (die App kann ihn auf all-inkl nicht sicherer selbst erzeugen)?
+6. **(Prüfung) Aufbewahrung:** Das Protokoll wird vorerst nie gekürzt (kleine Datenmenge). Passt das, oder soll es nach z. B. 12 Monaten gekürzt werden (dann mit Kettenabschluss)?
