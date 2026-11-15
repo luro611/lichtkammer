@@ -47,6 +47,20 @@ br-foto.com (all-inkl, Konto A)
 - **Bildverarbeitung auf dem Server mit Imagick, sonst GD.** Damit PHP-Zeitlimits und Speichergrenzen nicht stören, wird jedes Bild als eigener kleiner Auftrag verarbeitet: Der Browser lädt in Stücken hoch und stößt danach Bild für Bild die Verarbeitung an, mit Fortschrittsanzeige. Fällt ein Bild aus, laufen die anderen weiter.
 - **Varianten:** Breiten 480, 960, 1600 und 2400 px als WebP und JPEG, dazu AVIF, wenn der Server es kann. Außerdem ein winziger Unschärfe-Platzhalter. GPS-Daten werden aus allen öffentlichen Varianten entfernt.
 
+## 4a. Zwei Betriebsarten: all-inkl und Docker (Entscheidung Lutz, 15.11.2026)
+
+Lichtkammer läuft mit **demselben Code** auf all-inkl (PHP-FPM, Deployment per FTPS) und selbst gehostet im LXC (Docker Compose). Unterschiede stehen nur in der Konfiguration, nie im Code.
+
+- **Konfigurationsschicht:** Pfade für Daten (SQLite, Sitzungen, Protokolle), Originale und erzeugte Bilder sowie die Basis-Adresse kommen aus Umgebungsvariablen oder `.env` (gleiches Schema, `.env.example` im Repo).
+- **Webserver-Regeln für beide:** `.htaccess` (Apache, all-inkl) und eine Caddy- oder nginx-Regel (Docker). Beide liefern fertige HTML-Dateien direkt aus, geben sonst an `index.php` weiter und sperren Nichtöffentliches.
+- **Keine Abhängigkeit von Cron, SSH oder Composer auf dem Server.** Bildverarbeitung und Datenbankkopie werden vom Browser angestoßen.
+- **Keine festen Annahmen über Limits:** `memory_limit` und `max_execution_time` werden gelesen, Uploads gehen immer in Stücken. Imagick ist der Normalfall, GD der Ersatz (ohne AVIF).
+- **HTTPS hinter Reverse-Proxy:** Einstellung „vertraue `X-Forwarded-Proto`“, damit `Secure`-Cookies und HSTS im Container stimmen.
+- **PHP 8.3 bis 8.5** werden getestet; Mindestversion 8.3.
+- **Docker:** `Dockerfile` (PHP 8.5 mit Imagick inkl. AVIF/HEIC, `pdo_sqlite`) und `compose.yaml` im Repo, Image `ghcr.io/luro611/lichtkammer`. Volumes für Daten, Originale und erzeugte Bilder. Bereitstellung im LXC mit Dockhand. Keine zweite Datenbank nötig (SQLite). Im Container ist `public/` der Webroot, `data/` und `originals/` liegen außerhalb.
+- **Test:** Zuerst auf pve10; auf pve01 erst nach Freigabe auf GitHub.
+- **Sicherung:** all-inkl per FTPS vom Homeserver (siehe Abschnitt 9, Datenordner ist per FTP nicht erreichbar, Lösung in Schritt 3 und 8); Docker per Volume-Backup.
+
 ## 5. Gestaltung
 
 Grundlage ist die Designsprache von rothe.it und lurohome.de (`Webseiten/lurohome/src/style.css`):
@@ -157,7 +171,7 @@ Jeder Schritt wird einzeln beauftragt, in einer eigenen, kurzen Sitzung (bauen m
 | Nr. | Schritt | Ergebnis | Risiko |
 |---|---|---|---|
 | 0 | **Bestandsaufnahme all-inkl** | PHP-Version, Imagick/GD (AVIF? HEIC?), pdo_sqlite, Limits, Ordner über dem Webroot, Subdomain `lichtkammer.` angelegt. Dazu eine Testdatei hochladen und wieder löschen. Größte vorhandene Bildauflösung bei WordPress. | niedrig |
-| 1 | **Projektgerüst** | Ordnerstruktur, Router, Templates, Design-Grundlage (Farben, Schriften, Apple-Rahmen), `.env.example`, Lizenz, erster Test, `deploy.sh` für `lichtkammer.br-foto.com` | niedrig |
+| 1 | **Projektgerüst** | Ordnerstruktur, Router, Templates, Design-Grundlage (Farben, Schriften, Apple-Rahmen), `.env.example`, Lizenz, erster Test, `deploy.sh` für `lichtkammer.br-foto.com`, Konfigurationsschicht, `Dockerfile`, `compose.yaml`, Webserver-Regeln für Apache und Caddy/nginx, Pfadtest für beide Betriebsarten (Abschnitt 4a) | niedrig |
 | 2 | **Anmeldung** | Konten, Passwort, TOTP, Wiederherstellungscodes, Sperren, Protokoll. Vorher Detailentwurf mit Fable-Prüfung. | **hoch** |
 | 3 | **Datenmodell und Bildpipeline** | SQLite-Schema mit Migrationen, Upload in Stücken, Varianten, EXIF, GPS-Entfernung, Dublettenprüfung | mittel |
 | 4 | **Bildverwaltung** | Galerien, Sortieren, Titelbild, Mehrfachbearbeitung, Alt-Text-Pflicht, Papierkorb, Suche | mittel |
