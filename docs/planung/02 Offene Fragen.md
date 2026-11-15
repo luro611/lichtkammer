@@ -28,7 +28,7 @@ Stand: 2026-10-19. Zu klären vor oder in Schritt 0. Antworten hier eintragen, E
 ## D. Antworten zu Plan 03, Abschnitt 12 (Lutz, 15.11.2026)
 
 1. **Apple-Rahmen:** nur br-foto. Die allgemeine Regel (2 px) bleibt, br-foto ist eine begründete Ausnahme.
-2. **Repos:** getrennt. `photo-cms` = System ohne Inhalte, `br-foto` = Einstellungen, Weiterleitungen, Importskript, `deploy.sh`.
+2. **Repos:** getrennt. `lichtkammer` = System ohne Inhalte, `br-foto` = Einstellungen, Weiterleitungen, Importskript, `deploy.sh`.
 3. **Passkey:** Schritt 6, vor dem Livegang. TOTP zum Start.
 4. **Marke:** einverstanden (BR-Foto öffentlich, luro nur kleine Wortmarke in der Fußzeile, Siegel auf der Anmeldeseite).
 5. **Namen der Fotografen:** offen, wird vor dem Umzug (Schritt 7) mit beiden geprüft.
@@ -36,5 +36,5 @@ Stand: 2026-10-19. Zu klären vor oder in Schritt 0. Antworten hier eintragen, E
 7. **Originale:** teilweise vorhanden, Ort und Umfang noch zu nennen (Klärung spätestens in Schritt 7). WordPress selbst hält für 114 Bilder die ungeskalte Originaldatei vor, siehe `04 Bestandsaufnahme.md`.
 8. **EXIF öffentlich:** je Galerie einstellbar, Standard aus. GPS nie.
 9. **Gerät der zweiten Person:** Mac.
-10. **Projektname:** **Lichtkammer** (Arbeitsname PHOTO-CMS entfällt). Ordner und Repo werden von der Startsitzung nach Abschluss von Schritt 0 umbenannt.
+10. **Projektname:** **Lichtkammer** (Arbeitsname PHOTO-CMS entfällt). Ordner und Repo am 15.11.2026 umbenannt (`~/Documents/Projekte/lichtkammer`, `luro611/lichtkammer`).
 11. **Lizenz:** AGPL-3.0-or-later (Entscheidung Lutz, 15.11.2026; beantwortet C.10 und C.11).
