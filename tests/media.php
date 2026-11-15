@@ -122,7 +122,7 @@ $s = lk_setup($m);
 $b = $s['b'];
 $svc = $m['app']->services();
 $db = $svc->db;
-check('Schema: Version 2', Schema::version($db) === 2 && count(Schema::migrations()) === 2);
+check('Schema: Version 3', Schema::version($db) === 3 && count(Schema::migrations()) === 3);
 foreach (['galleries', 'photos', 'photo_variants', 'uploads'] as $t) {
     check("Schema: Tabelle $t", $db->value("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", [$t]) !== null);
 }
@@ -234,7 +234,7 @@ check('Fotos: Übersicht zeigt Vorschaubild und „Alt-Text fehlt“', str_conta
 $dup = lk_upload($b, 'Kopie.jpg', $orig);
 check('Dublette: erkannt und gemeldet', $dup['duplicate'] === true && $dup['photo_id'] === $pid && $dup['in_trash'] === false);
 check('Dublette: kein zweites Original, keine zweite Zeile', (int) $db->value('SELECT COUNT(*) FROM photos') === 1 && count(glob($m['config']->originalsDir() . '/*/*.jpg')) === 1);
-$db->run('UPDATE photos SET deleted_at = 1 WHERE id = ?', [$pid]);
+$db->run('UPDATE photos SET deleted_at = ? WHERE id = ?', [TEST_START, $pid]);
 $dup2 = lk_upload($b, 'Kopie2.jpg', $orig);
 check('Dublette: auch im Papierkorb erkannt', $dup2['duplicate'] === true && $dup2['in_trash'] === true);
 $db->run('UPDATE photos SET deleted_at = NULL WHERE id = ?', [$pid]);

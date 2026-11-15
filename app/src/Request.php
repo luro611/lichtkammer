@@ -52,6 +52,16 @@ final class Request
         return is_string($v) ? $v : '';
     }
 
+    /** Liste aus name[]-Feldern (nur Strings, höchstens 500). @return list<string> */
+    public function inputList(string $key): array
+    {
+        $v = $this->post[$key] ?? [];
+        if (!is_array($v)) {
+            return [];
+        }
+        return array_slice(array_values(array_filter($v, 'is_string')), 0, 500);
+    }
+
     /** Kopfzeile, z. B. header('X-CSRF-Token'). */
     public function header(string $name): string
     {

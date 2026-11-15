@@ -171,6 +171,30 @@ CREATE TABLE uploads (
     updated_at INTEGER NOT NULL
 );
 SQL,
+            // 3: Galerie-Zuordnung n:m, Fotografen, Indizes (Schritt 4). Nur additiv.
+            <<<'SQL'
+CREATE TABLE gallery_photos (
+    gallery_id INTEGER NOT NULL REFERENCES galleries(id) ON DELETE CASCADE,
+    photo_id INTEGER NOT NULL REFERENCES photos(id) ON DELETE CASCADE,
+    position INTEGER NOT NULL DEFAULT 0,
+    added_at INTEGER NOT NULL,
+    PRIMARY KEY (gallery_id, photo_id)
+);
+CREATE INDEX gallery_photos_order ON gallery_photos(gallery_id, position);
+CREATE INDEX gallery_photos_photo ON gallery_photos(photo_id);
+INSERT INTO gallery_photos(gallery_id, photo_id, position, added_at)
+    SELECT gallery_id, id, sort_order, created_at FROM photos WHERE gallery_id IS NOT NULL;
+CREATE TABLE photographers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    sort_order INTEGER NOT NULL DEFAULT 0
+);
+ALTER TABLE photos ADD COLUMN photographer_id INTEGER REFERENCES photographers(id) ON DELETE SET NULL;
+INSERT OR IGNORE INTO photographers(name) SELECT DISTINCT photographer FROM photos WHERE photographer <> '';
+UPDATE photos SET photographer_id = (SELECT id FROM photographers WHERE name = photos.photographer) WHERE photographer <> '';
+CREATE INDEX photos_deleted ON photos(deleted_at);
+CREATE INDEX photos_year ON photos(year);
+SQL,
         ];
     }
 

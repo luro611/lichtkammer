@@ -101,10 +101,18 @@ final class Library
         $now = $this->clock->now();
         try {
             $this->db->run(
-                'INSERT INTO photos(gallery_id, token, original_name, original_path, sha256, bytes, mime, status, uploaded_by, created_at, updated_at, sort_order)
-                 VALUES(?,?,?,?,?,?,?,\'pending\',?,?,?, (SELECT COALESCE(MAX(sort_order),0)+1 FROM photos WHERE gallery_id IS ?))',
-                [$galleryId, $token, self::cleanName($originalName), $rel, $sha, $size, $mime, $userId, $now, $now, $galleryId],
+                'INSERT INTO photos(token, original_name, original_path, sha256, bytes, mime, status, uploaded_by, created_at, updated_at)
+                 VALUES(?,?,?,?,?,?,\'pending\',?,?,?)',
+                [$token, self::cleanName($originalName), $rel, $sha, $size, $mime, $userId, $now, $now],
             );
+            $photoId = $this->db->lastId();
+            if ($galleryId !== null) { // seit Schema 3: Verknüpfung mit eigener Position, ans Ende
+                $this->db->run(
+                    'INSERT OR IGNORE INTO gallery_photos(gallery_id, photo_id, position, added_at)
+                     VALUES(?, ?, (SELECT COALESCE(MAX(position),0)+1 FROM gallery_photos WHERE gallery_id = ?), ?)',
+                    [$galleryId, $photoId, $galleryId, $now],
+                );
+            }
         } catch (\PDOException $e) {
             @unlink($abs);
             $dup = $this->db->one('SELECT id, deleted_at FROM photos WHERE sha256 = ?', [$sha]);
@@ -113,7 +121,7 @@ final class Library
             }
             throw $e;
         }
-        return ['duplicate' => false, 'photo_id' => $this->db->lastId(), 'in_trash' => false];
+        return ['duplicate' => false, 'photo_id' => $photoId, 'in_trash' => false];
     }
 
     public static function cleanName(string $name): string

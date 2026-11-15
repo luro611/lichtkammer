@@ -5,6 +5,8 @@ namespace Lichtkammer\Auth;
 
 use Lichtkammer\Config;
 use Lichtkammer\Media\Capabilities;
+use Lichtkammer\Media\Catalog;
+use Lichtkammer\Media\Galleries;
 use Lichtkammer\Media\Library;
 use Lichtkammer\Media\Uploads;
 
@@ -29,6 +31,8 @@ final class Services
         public readonly string $dataDir,
         public readonly Library $library,
         public readonly Uploads $uploads,
+        public readonly Galleries $galleries,
+        public readonly Catalog $catalog,
     ) {
     }
 
@@ -55,6 +59,8 @@ final class Services
         $maxBytes = max(1, $config->int('LK_MAX_UPLOAD_MB', 100)) * 1048576;
         $library = new Library($db, $clock, $config->originalsDir(), $config->mediaDir(), Capabilities::engine(), $maxBytes);
         $uploads = new Uploads($db, $clock, $library, $dataDir, $maxBytes);
-        return new self($config, $clock, $db, $keys, $passwords, $limiter, $sessions, $audit, $recovery, $cookies, $preCsrf, $auth, $enrollment, $accounts, $dataDir, $library, $uploads);
+        $galleries = new Galleries($db, $clock);
+        $catalog = new Catalog($db, $clock, $library, $config->originalsDir(), $config->mediaDir());
+        return new self($config, $clock, $db, $keys, $passwords, $limiter, $sessions, $audit, $recovery, $cookies, $preCsrf, $auth, $enrollment, $accounts, $dataDir, $library, $uploads, $galleries, $catalog);
     }
 }

@@ -14,6 +14,7 @@ final class Audit
         'password_changed', 'totp_changed', 'recovery_regenerated', 'account_created', 'account_disabled', 'account_enabled',
         'account_reset', 'invite_created', 'invite_used', 'setup_done', 'emergency_reset', 'global_brake',
         'sessions_ended', 'key_rotated', 'new_environment', 'role_changed', 'account_under_attack', 'photo_uploaded',
+        'gallery_saved', 'gallery_deleted', 'gallery_published', 'photos_saved', 'photos_trashed', 'photos_restored', 'photos_purged',
     ];
 
     public function __construct(private readonly Database $db, private readonly Keys $keys, private readonly Clock $clock)

@@ -7,6 +7,7 @@
   if (!box || !list || !input) { return; }
   var csrf = box.getAttribute('data-csrf');
   var maxBytes = parseInt(box.getAttribute('data-max-mb'), 10) * 1048576;
+  var gallery = box.getAttribute('data-gallery') || '';
   var queue = [];
   var running = false;
 
@@ -67,7 +68,7 @@
     if (file.size > maxBytes) { fail(row, 'Zu groß (höchstens ' + (maxBytes / 1048576) + ' MB).'); return Promise.resolve(); }
     if (file.size < 1) { fail(row, 'Die Datei ist leer.'); return Promise.resolve(); }
     row.msg.textContent = 'lädt hoch …';
-    return post('/admin/upload/start', form({ name: file.name, size: file.size }), { 'Content-Type': 'application/x-www-form-urlencoded' }).then(function (s) {
+    return post('/admin/upload/start', form(gallery ? { name: file.name, size: file.size, gallery: gallery } : { name: file.name, size: file.size }), { 'Content-Type': 'application/x-www-form-urlencoded' }).then(function (s) {
       if (s.error) { fail(row, s.error); return null; }
       return sendChunks(file, s.id, s.chunk, row, 0, 3).then(function (ok) {
         if (!ok) { return null; }

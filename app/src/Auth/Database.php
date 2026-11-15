@@ -38,6 +38,19 @@ final class Database
             @chmod($file, 0600);
         }
         $db = new self($pdo);
+        // Vor einer Migration auf Bestandsdaten eine Kopie ablegen (VACUUM INTO ist auch im WAL-Betrieb stimmig).
+        $before = Schema::version($db);
+        if (!$isNew && $file !== ':memory:' && $before > 0 && $before < count(Schema::migrations())) {
+            $backup = $file . '.vor-schema-' . $before . '.bak';
+            if (!is_file($backup)) {
+                $old = umask(0077);
+                try {
+                    $pdo->exec('VACUUM INTO ' . $pdo->quote($backup));
+                } finally {
+                    umask($old);
+                }
+            }
+        }
         Schema::migrate($db);
         return $db;
     }

@@ -1,6 +1,6 @@
 # Entwurf Schritt 4: Bildverwaltung
 
-Stand: 15.11.2026. Entwurf zur Freigabe, noch kein Code. Grundlage: Plan `03` Abschnitte 5, 7, 11 und Schritt 3 (`09`). Risiko laut Plan „mittel“; es gibt aber eine Migration auf Bestandsdaten, deshalb zuerst dieser Entwurf. Die öffentliche Seite (Schritt 5) ist nicht Teil davon.
+Stand: 15.11.2026. Entscheidungen E1 bis E7 von Lutz wie empfohlen freigegeben, gebaut (Abschnitt 6). Grundlage: Plan `03` Abschnitte 5, 7, 11 und Schritt 3 (`09`). Risiko laut Plan „mittel“; es gibt aber eine Migration auf Bestandsdaten, deshalb zuerst dieser Entwurf. Die öffentliche Seite (Schritt 5) ist nicht Teil davon.
 
 ## 1. Wie Fotos auf die Seite kommen (Kernfrage)
 
@@ -86,3 +86,13 @@ CREATE INDEX photos_year ON photos(year);
 3. Controller und Vorlagen, Skript (`gallery.js`: Ziehen mit Tastatur-Ersatz „nach oben/unten“, Mehrfachauswahl); Seiten funktionieren ohne Skript für Formulare.
 4. Entwurf der Oberfläche im Browser ansehen (hell/dunkel, beide Designs), alle 389 Tests plus neue grün.
 5. Commit und Push, Bericht. Nichts hochladen.
+
+## 6. Gebaut (Stand 15.11.2026)
+
+- Migration 3 wie in Abschnitt 3; vor jeder Migration auf Bestandsdaten legt `Database::open` eine Kopie `lichtkammer.sqlite.vor-schema-<alte Version>.bak` im Datenordner an (`VACUUM INTO`, auch im WAL-Betrieb stimmig).
+- Dienste `Media/Galleries` und `Media/Catalog`, Seiten in `Admin/MediaPages` (Galerien, Galerieseite, Hinzufügen aus der Mediathek, Mediathek mit Suche und Filtern, Foto bearbeiten, Mehrfachbearbeitung, Papierkorb, Fotografen), Skript `public/assets/js/admin.js` (Ziehen, „alle auswählen“, Rückfrage). Ohne Skript bleiben Pfeile und Formulare nutzbar.
+- Der Upload in eine Galerie legt die Verknüpfung `gallery_photos` an; die alten Spalten `photos.gallery_id`, `sort_order`, `photographer` werden nicht mehr benutzt.
+- Papierkorb: Varianten werden sofort gelöscht, Wiederherstellen erzeugt sie neu (synchron in der Anfrage). Endgültiges Löschen nach 30 Tagen läuft beim Öffnen von Fotos oder Papierkorb.
+- „Veröffentlicht“ ist in Schritt 4 nur die Markierung samt Alt-Text-Prüfung; die Seite erzeugt Schritt 5.
+- Nicht gebaut (E5): Drehen, Fokuspunkt, Foto ersetzen.
+- Tests: `tests/bildverwaltung.php` (127 Prüfungen: Migration auf Bestandsdaten, Zuordnung, Reihenfolge, Titelbild, Alt-Text-Pflicht, Mehrfach, Suche, Papierkorb samt 30-Tage-Löschung, Fotografen, Zugriff und CSRF, CSP).

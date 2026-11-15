@@ -21,6 +21,8 @@ $csrf = $csrf ?? '';
   <nav class="nav" aria-label="Verwaltung">
     <a href="/admin">Übersicht</a>
     <a href="/admin/fotos">Fotos</a>
+    <a href="/admin/galerien">Galerien</a>
+    <a href="/admin/papierkorb">Papierkorb</a>
 <?php if (($user['role'] ?? '') === 'admin'): ?>    <a href="/admin/users">Konten</a>
 <?php endif; ?>
     <a href="/admin/log">Protokoll</a>
@@ -43,5 +45,7 @@ $csrf = $csrf ?? '';
   <span class="mono">Version <?= $e(\Lichtkammer\Config::VERSION) ?></span>
   <span>Website: <a class="luro" href="https://lurohome.de" aria-label="luro · lurohome.de">lu<em>ro</em></a></span>
 </div></footer>
+<?php if ($user !== null): ?><script src="<?= $e($asset('/assets/js/admin.js')) ?>" defer></script>
+<?php endif; ?>
 </body>
 </html>

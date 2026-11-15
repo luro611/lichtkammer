@@ -23,6 +23,8 @@ use Lichtkammer\View;
  */
 final class AdminController
 {
+    use MediaPages;
+
     private readonly Router $router;
 
     public function __construct(private readonly Services $s, private readonly View $view, private readonly Config $config)
@@ -49,7 +51,29 @@ final class AdminController
         $r('POST', '/admin/account/password', 'accountPassword');
         $r('POST', '/admin/account/codes', 'accountCodes');
         $r('GET', '/admin/log', 'log');
-        $r('GET', '/admin/fotos', 'photos');
+        $r('GET', '/admin/fotos', 'library');
+        $r('POST', '/admin/fotos/mehrfach', 'photosBulk');
+        $r('GET', '/admin/fotos/{id}', 'photo');
+        $r('POST', '/admin/fotos/{id}/speichern', 'photoSave');
+        $r('GET', '/admin/galerien', 'galleries');
+        $r('POST', '/admin/galerien', 'galleryCreate');
+        $r('POST', '/admin/galerien/reihenfolge', 'galleriesOrder');
+        $r('GET', '/admin/galerien/{id}', 'gallery');
+        $r('POST', '/admin/galerien/{id}/bewegen', 'galleriesMove');
+        $r('POST', '/admin/galerien/{id}/speichern', 'gallerySave');
+        $r('POST', '/admin/galerien/{id}/status', 'galleryStatus');
+        $r('POST', '/admin/galerien/{id}/loeschen', 'galleryDelete');
+        $r('GET', '/admin/galerien/{id}/hinzufuegen', 'galleryAddForm');
+        $r('POST', '/admin/galerien/{id}/hinzufuegen', 'galleryAdd');
+        $r('POST', '/admin/galerien/{id}/entfernen', 'galleryRemove');
+        $r('POST', '/admin/galerien/{id}/reihenfolge', 'galleryOrder');
+        $r('POST', '/admin/galerien/{id}/foto-bewegen', 'galleryPhotoMove');
+        $r('POST', '/admin/galerien/{id}/sortieren', 'gallerySort');
+        $r('POST', '/admin/galerien/{id}/titelbild', 'galleryCover');
+        $r('GET', '/admin/papierkorb', 'trash');
+        $r('POST', '/admin/papierkorb', 'trashAction');
+        $r('GET', '/admin/fotografen', 'photographers');
+        $r('POST', '/admin/fotografen', 'photographersPost');
         $r('POST', '/admin/upload/start', 'uploadStart');
         $r('POST', '/admin/upload/{id}/chunk', 'uploadChunk');
         $r('POST', '/admin/upload/{id}/finish', 'uploadFinish');
@@ -79,6 +103,7 @@ final class AdminController
                     return $this->page('admin/message', ['title' => 'Abgelehnt', 'heading' => 'Anfrage abgelehnt', 'text' => 'Die Seite war zu lange offen oder die Anfrage kam nicht von dieser Seite. Bitte neu laden und noch einmal versuchen.'], 403, $sess);
                 }
             }
+            $this->flash = $this->flashFrom($req);
             return $this->{$handler}($req, $params, $sess);
         };
         $method === 'GET' ? $this->router->get($path, $wrapped) : $this->router->post($path, $wrapped);
@@ -147,7 +172,7 @@ final class AdminController
     /** @param array<string,mixed> $data @param array<string,mixed>|null $sess */
     private function page(string $template, array $data, int $status = 200, ?array $sess = null): Response
     {
-        $data += ['banners' => $this->banners($sess), 'user' => $sess, 'csrf' => $sess['csrf_token'] ?? ''];
+        $data += ['flash' => $this->flash, 'banners' => $this->banners($sess), 'user' => $sess, 'csrf' => $sess['csrf_token'] ?? ''];
         return Response::html($this->view->render($template, $data), $status)->withHeaders([
             'Cache-Control' => 'no-store',
             'Pragma' => 'no-cache',
@@ -263,24 +288,6 @@ final class AdminController
     }
 
     // --- Fotos (Schritt 3): Übersicht, Upload in Stücken, Verarbeitung ---
-
-    public function photos(Request $req, array $p, ?array $sess): Response
-    {
-        $rows = $this->s->db->all('SELECT id, token, original_name, status, error, width, height, alt_text, created_at FROM photos WHERE deleted_at IS NULL ORDER BY id DESC LIMIT 60');
-        foreach ($rows as &$row) {
-            $row['thumb'] = $this->s->db->value("SELECT path FROM photo_variants WHERE photo_id = ? AND format = 'jpeg' ORDER BY width LIMIT 1", [$row['id']]);
-        }
-        unset($row);
-        $engine = $this->s->library->engine();
-        return $this->page('admin/photos', [
-            'title' => 'Fotos',
-            'photos' => $rows,
-            'total' => (int) $this->s->db->value('SELECT COUNT(*) FROM photos WHERE deleted_at IS NULL'),
-            'engine' => $engine === null ? null : $engine->name(),
-            'formats' => $engine === null ? [] : $engine->formats(),
-            'maxMb' => max(1, $this->config->int('LK_MAX_UPLOAD_MB', 100)),
-        ], 200, $sess);
-    }
 
     public function uploadStart(Request $req, array $p, ?array $sess): Response
     {
