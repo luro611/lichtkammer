@@ -36,4 +36,5 @@ Stand: 2026-10-19. Zu klären vor oder in Schritt 0. Antworten hier eintragen, E
 7. **Originale:** teilweise vorhanden, Ort und Umfang noch zu nennen (Klärung spätestens in Schritt 7). WordPress selbst hält für 114 Bilder die ungeskalte Originaldatei vor, siehe `04 Bestandsaufnahme.md`.
 8. **EXIF öffentlich:** je Galerie einstellbar, Standard aus. GPS nie.
 9. **Gerät der zweiten Person:** Mac.
-10. **Projektname:** **Lichtkammer** (Arbeitsname PHOTO-CMS entfällt). Repo-Umbenennung `photo-cms` → `lichtkammer` ist noch zu entscheiden.
+10. **Projektname:** **Lichtkammer** (Arbeitsname PHOTO-CMS entfällt). Ordner und Repo werden von der Startsitzung nach Abschluss von Schritt 0 umbenannt.
+11. **Lizenz:** AGPL-3.0-or-later (Entscheidung Lutz, 15.11.2026; beantwortet C.10 und C.11).
