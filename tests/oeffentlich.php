@@ -154,6 +154,12 @@ check('Ausliefern: If-None-Match → 304 ohne Inhalt', ($nm = $anon->request('GE
 $nf = $anon->get('/gibt-es-nicht/');
 check('Ausliefern: unbekannt → 404 im Theme', $nf->status === 404 && str_contains($nf->body, 'Nicht <em>gefunden</em>'));
 check('Ausliefern: Pfad-Tricks → 404, nie eine Datei außerhalb', $anon->get('/../data/lichtkammer.sqlite')->status === 404 && $anon->get('/%2e%2e/manifest.json')->status === 404 && $anon->get('/.lock')->status === 404 && $anon->get('/manifest.json')->status === 404);
+$evil = $anon->get('/x%0d%0aSet-Cookie:%20a=b');
+$bs = $anon->get('/%5Cevil');
+check('Ausliefern: Steuerzeichen und Backslash in der Adresse → 404, keine Weiterleitung', $evil->status === 404 && !isset($evil->headers['Location']) && $bs->status === 404 && !isset($bs->headers['Location']));
+mkdir($f5 . '/a/data/site/building-20200101-000000-abcd/x', 0700, true);
+file_put_contents($f5 . '/a/data/site/building-20200101-000000-abcd/x/index.html', 'rest');
+check('Veröffentlichen: Reste eines abgebrochenen Laufs werden beim nächsten Lauf entfernt', $svc->builder->publish(1)['ok'] && !is_dir($f5 . '/a/data/site/building-20200101-000000-abcd'));
 check('Ausliefern: POST auf öffentliche Adresse → 404', $anon->post('/', ['a' => 'b'])->status === 404);
 // ohne Datenbank und ohne Schlüssel: nur Konfiguration und eine Datei
 $cfgNoKey = lk_config($f5 . '/a', ['LK_APP_KEY' => '']);

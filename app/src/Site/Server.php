@@ -26,7 +26,9 @@ final class Server
         }
         $root = $dir . '/releases/' . $id;
         $path = $req->path();
-        if (str_contains($path, "\0") || str_contains($path, '..') || preg_match('#/\.#', $path) === 1) {
+        // Nur Zeichen, die Adressen der Seiten enthalten (Kleinbuchstaben, Ziffern, Bindestrich) – keine Steuerzeichen,
+        // Backslashes oder Sonderzeichen, die in einer Weiterleitung (Location) Schaden anrichten könnten.
+        if (preg_match('#^[A-Za-z0-9_/.\-]*$#', $path) !== 1 || str_contains($path, '..') || preg_match('#/\.#', $path) === 1) {
             return $this->notFound($root);
         }
         if (in_array($path, ['/robots.txt', '/sitemap.xml'], true)) {

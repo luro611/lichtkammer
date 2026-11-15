@@ -141,6 +141,10 @@ final class Builder
             return $fail('Es läuft gerade ein anderes Veröffentlichen. Bitte gleich noch einmal versuchen.');
         }
         try {
+            // Reste eines abgebrochenen Laufs (Zeitüberschreitung, Absturz); wir halten die Sperre, also läuft kein anderer Bau.
+            foreach (glob($site . '/building-*', GLOB_ONLYDIR) ?: [] as $stale) {
+                self::removeDir($stale);
+            }
             $r = $this->renderer();
             $files = $r->all();
             if ($r->errors !== []) {
