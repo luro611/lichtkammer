@@ -10,6 +10,8 @@ use Lichtkammer\Auth\Qr;
 use Lichtkammer\Auth\Services;
 use Lichtkammer\Auth\Totp;
 use Lichtkammer\Config;
+use Lichtkammer\Media\MediaException;
+use Lichtkammer\Media\Uploads;
 use Lichtkammer\Request;
 use Lichtkammer\Response;
 use Lichtkammer\Router;
@@ -47,6 +49,11 @@ final class AdminController
         $r('POST', '/admin/account/password', 'accountPassword');
         $r('POST', '/admin/account/codes', 'accountCodes');
         $r('GET', '/admin/log', 'log');
+        $r('GET', '/admin/fotos', 'photos');
+        $r('POST', '/admin/upload/start', 'uploadStart');
+        $r('POST', '/admin/upload/{id}/chunk', 'uploadChunk');
+        $r('POST', '/admin/upload/{id}/finish', 'uploadFinish');
+        $r('POST', '/admin/fotos/{id}/verarbeiten', 'photoProcess');
         $r('GET', '/admin/users', 'users', false, 'admin');
         $r('POST', '/admin/users/invite', 'usersInvite', false, 'admin');
         $r('POST', '/admin/users/{id}/{action}', 'usersAction', false, 'admin');
@@ -68,7 +75,7 @@ final class AdminController
                 if ($role === 'admin' && $sess['role'] !== 'admin') {
                     return $this->page('admin/message', ['title' => 'Kein Zugriff', 'heading' => 'Kein Zugriff', 'text' => 'Dafür fehlt dir die Berechtigung.'], 403, $sess);
                 }
-                if ($req->method() === 'POST' && !hash_equals((string) $sess['csrf_token'], $req->input('_csrf'))) {
+                if ($req->method() === 'POST' && !hash_equals((string) $sess['csrf_token'], $req->input('_csrf') ?: $req->header('X-CSRF-Token'))) {
                     return $this->page('admin/message', ['title' => 'Abgelehnt', 'heading' => 'Anfrage abgelehnt', 'text' => 'Die Seite war zu lange offen oder die Anfrage kam nicht von dieser Seite. Bitte neu laden und noch einmal versuchen.'], 403, $sess);
                 }
             }
@@ -253,6 +260,74 @@ final class AdminController
         return Response::redirect('/admin/login')
             ->withCookie($this->s->cookies->clear('lk_sid'))
             ->withHeaders(['Clear-Site-Data' => '"cookies"']);
+    }
+
+    // --- Fotos (Schritt 3): Übersicht, Upload in Stücken, Verarbeitung ---
+
+    public function photos(Request $req, array $p, ?array $sess): Response
+    {
+        $rows = $this->s->db->all('SELECT id, token, original_name, status, error, width, height, alt_text, created_at FROM photos WHERE deleted_at IS NULL ORDER BY id DESC LIMIT 60');
+        foreach ($rows as &$row) {
+            $row['thumb'] = $this->s->db->value("SELECT path FROM photo_variants WHERE photo_id = ? AND format = 'jpeg' ORDER BY width LIMIT 1", [$row['id']]);
+        }
+        unset($row);
+        $engine = $this->s->library->engine();
+        return $this->page('admin/photos', [
+            'title' => 'Fotos',
+            'photos' => $rows,
+            'total' => (int) $this->s->db->value('SELECT COUNT(*) FROM photos WHERE deleted_at IS NULL'),
+            'engine' => $engine === null ? null : $engine->name(),
+            'formats' => $engine === null ? [] : $engine->formats(),
+            'maxMb' => max(1, $this->config->int('LK_MAX_UPLOAD_MB', 100)),
+        ], 200, $sess);
+    }
+
+    public function uploadStart(Request $req, array $p, ?array $sess): Response
+    {
+        try {
+            $gallery = ctype_digit($req->input('gallery')) ? (int) $req->input('gallery') : null;
+            $id = $this->s->uploads->start((int) $sess['user_id'], $req->input('name'), (int) $req->input('size'), $gallery);
+            return Response::json(['id' => $id, 'chunk' => 2 * 1024 * 1024]);
+        } catch (MediaException $e) {
+            return Response::json(['error' => $e->getMessage()], 400);
+        }
+    }
+
+    public function uploadChunk(Request $req, array $p, ?array $sess): Response
+    {
+        $body = $req->body(Uploads::MAX_CHUNK);
+        try {
+            $r = $this->s->uploads->chunk((int) $sess['user_id'], (string) $p['id'], (int) $req->query('offset'), $body);
+            return Response::json($r);
+        } catch (MediaException $e) {
+            if ($e->getCode() === 409) {
+                return Response::json(['error' => 'Versatz passt nicht', 'received' => (int) $e->getMessage()], 409);
+            }
+            return Response::json(['error' => $e->getMessage()], $e->getCode() === 404 ? 404 : 400);
+        }
+    }
+
+    public function uploadFinish(Request $req, array $p, ?array $sess): Response
+    {
+        try {
+            $r = $this->s->uploads->finish((int) $sess['user_id'], (string) $p['id']);
+        } catch (MediaException $e) {
+            return Response::json(['error' => $e->getMessage()], $e->getCode() === 404 ? 404 : 400);
+        }
+        if (!$r['duplicate']) {
+            $this->s->audit->log('photo_uploaded', (int) $sess['user_id'], 'photo=' . $r['photo_id'], $this->ipPrefix($req));
+        }
+        return Response::json($r);
+    }
+
+    public function photoProcess(Request $req, array $p, ?array $sess): Response
+    {
+        try {
+            $r = $this->s->library->process((int) $p['id']);
+        } catch (MediaException $e) {
+            return Response::json(['error' => $e->getMessage()], 404);
+        }
+        return Response::json($r);
     }
 
     // --- Ersteinrichtung ---

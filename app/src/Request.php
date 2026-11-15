@@ -15,6 +15,7 @@ final class Request
         private readonly Config $config,
         private readonly array $post = [],
         private readonly array $cookies = [],
+        private readonly ?string $body = null,
     ) {
     }
 
@@ -49,6 +50,22 @@ final class Request
     {
         $v = $this->post[$key] ?? '';
         return is_string($v) ? $v : '';
+    }
+
+    /** Kopfzeile, z. B. header('X-CSRF-Token'). */
+    public function header(string $name): string
+    {
+        $v = $this->server['HTTP_' . strtoupper(str_replace('-', '_', $name))] ?? '';
+        return is_string($v) ? $v : '';
+    }
+
+    /** Roher Anfragekörper (für Upload-Stücke); höchstens $max Byte. */
+    public function body(int $max): string
+    {
+        if ($this->body !== null) {
+            return substr($this->body, 0, $max + 1);
+        }
+        return (string) file_get_contents('php://input', false, null, 0, $max + 1);
     }
 
     public function cookie(string $name): string

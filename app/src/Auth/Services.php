@@ -4,6 +4,9 @@ declare(strict_types=1);
 namespace Lichtkammer\Auth;
 
 use Lichtkammer\Config;
+use Lichtkammer\Media\Capabilities;
+use Lichtkammer\Media\Library;
+use Lichtkammer\Media\Uploads;
 
 /** Baut alle Dienste der Anmeldung zusammen (eine Datenbankverbindung). */
 final class Services
@@ -24,6 +27,8 @@ final class Services
         public readonly Enrollment $enrollment,
         public readonly Accounts $accounts,
         public readonly string $dataDir,
+        public readonly Library $library,
+        public readonly Uploads $uploads,
     ) {
     }
 
@@ -47,6 +52,9 @@ final class Services
         $auth = new Auth($config, $db, $keys, $passwords, $limiter, $sessions, $audit, $recovery, $clock);
         $enrollment = new Enrollment($config, $db, $keys, $passwords, $limiter, $sessions, $audit, $recovery, $clock);
         $accounts = new Accounts($db, $keys, $sessions, $audit, $clock);
-        return new self($config, $clock, $db, $keys, $passwords, $limiter, $sessions, $audit, $recovery, $cookies, $preCsrf, $auth, $enrollment, $accounts, $dataDir);
+        $maxBytes = max(1, $config->int('LK_MAX_UPLOAD_MB', 100)) * 1048576;
+        $library = new Library($db, $clock, $config->originalsDir(), $config->mediaDir(), Capabilities::engine(), $maxBytes);
+        $uploads = new Uploads($db, $clock, $library, $dataDir, $maxBytes);
+        return new self($config, $clock, $db, $keys, $passwords, $limiter, $sessions, $audit, $recovery, $cookies, $preCsrf, $auth, $enrollment, $accounts, $dataDir, $library, $uploads);
     }
 }

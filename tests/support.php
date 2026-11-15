@@ -29,6 +29,7 @@ function lk_config(string $tmp, array $env = []): Config
         'LK_APP_KEY' => lk_key(),
         'LK_BASE_URL' => 'https://lk.test',
         'LK_DATA_DIR' => $tmp . '/data',
+        'LK_ORIGINALS_DIR' => $tmp . '/originals',
         'LK_SETUP_TOKEN' => TEST_SETUP_TOKEN,
     ];
     foreach ($env as $k => $v) {
@@ -58,13 +59,13 @@ final class TestBrowser
     }
 
     /** @param array<string,string> $post @param array<string,string> $server */
-    public function request(string $method, string $path, array $post = [], array $server = []): Response
+    public function request(string $method, string $path, array $post = [], array $server = [], ?string $body = null): Response
     {
         $server += ['REQUEST_METHOD' => $method, 'REQUEST_URI' => $path, 'REMOTE_ADDR' => $this->ip, 'HTTP_USER_AGENT' => 'TestBrowser/1'];
         if ($this->https) {
             $server['HTTPS'] = 'on';
         }
-        $req = new Request($server, $this->config, $post, $this->jar);
+        $req = new Request($server, $this->config, $post, $this->jar, $body);
         $resp = $this->app->handle($req);
         foreach ($resp->cookies as $c) {
             $first = explode(';', $c)[0];

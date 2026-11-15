@@ -20,6 +20,7 @@ $csrf = $csrf ?? '';
 <?php if ($user !== null): ?>
   <nav class="nav" aria-label="Verwaltung">
     <a href="/admin">Übersicht</a>
+    <a href="/admin/fotos">Fotos</a>
 <?php if (($user['role'] ?? '') === 'admin'): ?>    <a href="/admin/users">Konten</a>
 <?php endif; ?>
     <a href="/admin/log">Protokoll</a>

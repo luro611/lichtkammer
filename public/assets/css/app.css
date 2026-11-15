@@ -97,4 +97,19 @@ th,td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
 .row-actions{display:flex;gap:6px;flex-wrap:wrap}.row-actions form{margin:0}
 @media (max-width:600px){.bar .shell{flex-wrap:wrap;gap:12px}.codes{columns:1}}
 
+/* Fotos: Upload und Übersicht */
+.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.small{font-size:12px}.error-text{color:var(--accent-strong)}
+.dropzone{text-align:center;border:1px dashed var(--line);transition:border-color .2s var(--ease),background .2s var(--ease)}
+.dropzone.over{border-color:var(--accent);background:var(--soft)}
+.dropzone:focus-within{outline:2px solid var(--accent);outline-offset:3px}
+.queue{list-style:none;padding:0;margin:16px 0 0;display:flex;flex-direction:column;gap:8px}
+.qrow{display:grid;grid-template-columns:minmax(0,2fr) minmax(80px,1fr) minmax(0,1.4fr);gap:12px;align-items:center;padding:10px 14px;border:1px solid var(--line);border-radius:var(--r-input);background:var(--surface)}
+.qrow progress{width:100%;height:6px;accent-color:var(--accent)}
+.qrow.done .small{color:var(--ink)}.qrow.failed{border-color:var(--accent)}.qrow.failed .small{color:var(--accent-strong)}
+.thumbs{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px}
+.thumb{display:flex;flex-direction:column;gap:6px}
+.thumb img,.thumb .ph{width:100%;aspect-ratio:3/2;object-fit:cover;border-radius:var(--r-input);background:var(--soft);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px}
+@media (max-width:600px){.qrow{grid-template-columns:1fr}}
+
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}

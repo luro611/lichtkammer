@@ -22,6 +22,12 @@ final class Response
         return new self($html, $status, ['Content-Type' => 'text/html; charset=utf-8']);
     }
 
+    /** @param array<string,mixed> $data */
+    public static function json(array $data, int $status = 200): self
+    {
+        return new self((string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $status, ['Content-Type' => 'application/json; charset=utf-8', 'Cache-Control' => 'no-store']);
+    }
+
     public static function notFound(): self
     {
         return new self('Nicht gefunden', 404, ['Content-Type' => 'text/plain; charset=utf-8']);

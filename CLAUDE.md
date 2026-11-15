@@ -4,10 +4,10 @@ Schlankes Open-Source-Foto-CMS für ausschließlich eigene Bilder (früherer Arb
 
 ## Stand
 
-- **Phase:** Schritt 0 (Bestandsaufnahme) ist erledigt, siehe `docs/planung/04 Bestandsaufnahme.md`. Schritt 1 (Projektgerüst) ist gebaut und geprüft. Schritt 2 (Anmeldung, Entwurf `05`, Gutachten `07`) ist gebaut (Version 0.1.0-dev) und von Fable geprüft (`08 Pruefung Code Anmeldung.md`, alle Befunde behoben, 288 Tests, abgenommen). Nächster Schritt: Upload auf den Testserver nach Freigabe von Lutz.
+- **Phase:** Schritt 0 (Bestandsaufnahme) ist erledigt, siehe `docs/planung/04 Bestandsaufnahme.md`. Schritt 1 (Projektgerüst) ist gebaut und geprüft. Schritt 2 (Anmeldung, Entwurf `05`, Gutachten `07`) ist gebaut (Version 0.1.0-dev) und von Fable geprüft (`08 Pruefung Code Anmeldung.md`, alle Befunde behoben, 288 Tests, abgenommen). Seit `1a52696` Designumschalter. Schritt 3 (Datenmodell und Bildpipeline, `docs/planung/09 Schritt 3 Datenmodell und Bildpipeline.md`) ist gebaut, 386 Prüfungen grün, lokal im Browser angesehen, noch nicht auf dem Testserver und noch ungeprüft durch Opus. Nächster Schritt laut Plan 03: Schritt 4 (Bildverwaltung), nach Freigabe von Lutz.
 - **Jeder Schritt aus dem Plan wird einzeln beauftragt**, danach berichten und auf Freigabe warten.
 - **Testserver:** `lichtkammer.br-foto.com` (all-inkl Konto A, HTTPS aktiv). Zugang nur in `deploy/.env` und im Schlüsselbund (Dienst `web-ftp-lichtkammer.br-foto.com`). Hochladen nur nach Probelauf und Freigabe von Lutz. Docker zuerst auf pve10.
-- **Tests (kein lokales PHP):** einmal `docker build -t lichtkammer-test -f tests/Dockerfile tests`, dann `docker run --rm -v "$PWD":/app -w /app lichtkammer-test php tests/run.php` (PHP 8.5 CLI mit `intl`, das `php:8.5-cli` allein nicht hat).
+- **Tests (kein lokales PHP):** einmal `docker build -t lichtkammer-test -f tests/Dockerfile tests` (jetzt mit GD, exif und Imagick, dauert ein paar Minuten), dann `docker run --rm -v "$PWD":/app -w /app lichtkammer-test php tests/run.php` (PHP 8.5 CLI mit `intl`, GD, exif, Imagick).
 - **Admin-Konfiguration:** ohne `LK_APP_KEY` (`openssl rand -base64 32`), `LK_BASE_URL` und `LK_DATA_DIR` außerhalb des Webroots startet der Admin nicht. Beschreibung in `.env.example`.
 
 ## Planung

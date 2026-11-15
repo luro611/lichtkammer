@@ -102,6 +102,75 @@ CREATE TABLE pending_enrollments (
     created_at INTEGER NOT NULL
 );
 SQL,
+            // 2: Fotos, Galerien, Varianten, Uploads (Schritt 3)
+            <<<'SQL'
+CREATE TABLE galleries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug TEXT NOT NULL UNIQUE,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    cover_photo_id INTEGER,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','published')),
+    show_exif INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+CREATE TABLE photos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    gallery_id INTEGER REFERENCES galleries(id) ON DELETE SET NULL,
+    token TEXT NOT NULL UNIQUE,
+    original_name TEXT NOT NULL DEFAULT '',
+    original_path TEXT NOT NULL UNIQUE,
+    sha256 TEXT NOT NULL UNIQUE,
+    bytes INTEGER NOT NULL,
+    mime TEXT NOT NULL,
+    width INTEGER NOT NULL DEFAULT 0,
+    height INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','ready','failed')),
+    error TEXT NOT NULL DEFAULT '',
+    pipeline_version INTEGER NOT NULL DEFAULT 0,
+    title TEXT NOT NULL DEFAULT '',
+    caption TEXT NOT NULL DEFAULT '',
+    alt_text TEXT NOT NULL DEFAULT '',
+    photographer TEXT NOT NULL DEFAULT '',
+    place TEXT NOT NULL DEFAULT '',
+    year INTEGER,
+    taken_at TEXT,
+    exif_json TEXT NOT NULL DEFAULT '{}',
+    has_gps INTEGER NOT NULL DEFAULT 0,
+    blur_data_uri TEXT NOT NULL DEFAULT '',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    rotation INTEGER NOT NULL DEFAULT 0,
+    focus_x REAL,
+    focus_y REAL,
+    uploaded_by INTEGER REFERENCES users(id),
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    deleted_at INTEGER
+);
+CREATE INDEX photos_gallery ON photos(gallery_id, sort_order);
+CREATE INDEX photos_status ON photos(status);
+CREATE TABLE photo_variants (
+    photo_id INTEGER NOT NULL REFERENCES photos(id) ON DELETE CASCADE,
+    width INTEGER NOT NULL,
+    height INTEGER NOT NULL,
+    format TEXT NOT NULL CHECK (format IN ('avif','webp','jpeg')),
+    path TEXT NOT NULL,
+    bytes INTEGER NOT NULL,
+    PRIMARY KEY (photo_id, width, format)
+);
+CREATE TABLE uploads (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    original_name TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    received INTEGER NOT NULL DEFAULT 0,
+    gallery_id INTEGER REFERENCES galleries(id) ON DELETE SET NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+SQL,
         ];
     }
 
