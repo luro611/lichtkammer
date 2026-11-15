@@ -16,7 +16,7 @@ $csrf = $csrf ?? '';
 </head>
 <body>
 <header class="bar"><div class="shell">
-  <a class="brand" href="/"><?= $e($config->siteName()) ?></a>
+  <a class="brand" href="/">Lichtkammer</a>
 <?php if ($user !== null): ?>
   <nav class="nav" aria-label="Verwaltung">
     <a href="/admin">Übersicht</a>
