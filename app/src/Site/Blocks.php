@@ -14,6 +14,8 @@ use Lichtkammer\Media\MediaException;
  */
 final class Blocks
 {
+    /** @var array<int,true> Fotos mit schon vergebener Anker-Id (je Seite nur einmal). */
+    private static array $seen = [];
     public const MAX_BLOCKS = 100;
     public const MAX_JSON = 200000;
     public const MAX_PHOTOS = 12;
@@ -102,6 +104,9 @@ final class Blocks
                 if ($href !== '' && !Markdown::safeUrl($href)) {
                     throw new MediaException("$where: Die Adresse des Links ist ungültig.");
                 }
+                if (($b['decor'] ?? false) === true && $href !== '') {
+                    throw new MediaException("$where: Ein Bild mit Link braucht einen Alt-Text (der Link sonst keinen Namen hat). „Nur Dekoration“ geht nur ohne Link.");
+                }
                 $w = $b['width'] ?? 'normal';
                 return ['t' => 'image', 'photo' => $photo, 'alt' => $s('alt', 250), 'decor' => ($b['decor'] ?? false) === true,
                     'caption' => $s('caption', 300), 'width' => in_array($w, self::WIDTHS, true) ? $w : 'normal', 'href' => $href];
@@ -119,7 +124,7 @@ final class Blocks
                         throw new MediaException("$where: ungültiges Foto im Raster.");
                     }
                     $photos[] = ['photo' => self::photoId($p['photo'] ?? null, $db, $where),
-                        'alt' => isset($p['alt']) && is_string($p['alt']) ? Galleries::clip($p['alt'], 250) : '', 'decor' => ($p['decor'] ?? false) === true];
+                        'alt' => isset($p['alt']) && is_string($p['alt']) ? Galleries::clip($p['alt'], 250) : '', 'decor' => false]; // jedes Rasterbild ist ein Link in die Lightbox und braucht einen Namen
                 }
                 $cols = (int) ($b['cols'] ?? 3);
                 return ['t' => 'gallery', 'photos' => $photos, 'cols' => in_array($cols, [2, 3, 4], true) ? $cols : 3];
@@ -202,10 +207,7 @@ final class Blocks
         $buf = [];
         $quote = [];
         $flush = static function () use (&$buf, &$quote, &$out): void {
-            $text = trim(implode("\n", $buf));
-            if ($text !== '') {
-                $out[] = ['t' => 'text', 'text' => $text];
-            }
+            self::pushText($out, trim(implode("\n", $buf)));
             $buf = [];
             if ($quote !== []) {
                 $out[] = ['t' => 'quote', 'text' => trim(implode("\n", $quote)), 'by' => ''];
@@ -216,16 +218,17 @@ final class Blocks
             $t = rtrim($line);
             if (preg_match('/^(#{1,3})\s+(.+)$/', $t, $m) === 1) {
                 $flush();
-                $out[] = ['t' => 'heading', 'level' => strlen($m[1]) === 3 ? 3 : 2, 'text' => $m[2]];
+                if (mb_strlen($m[2]) > 200) { // zu lang für eine Überschrift: als Text übernehmen, nichts abschneiden
+                    self::pushText($out, $t);
+                } else {
+                    $out[] = ['t' => 'heading', 'level' => strlen($m[1]) === 3 ? 3 : 2, 'text' => $m[2]];
+                }
             } elseif (preg_match('/^(-{3,}|\*{3,})$/', trim($t)) === 1) {
                 $flush();
                 $out[] = ['t' => 'rule'];
             } elseif (preg_match('/^>\s?(.*)$/', $t, $m) === 1) {
                 if ($quote === []) {
-                    $text = trim(implode("\n", $buf));
-                    if ($text !== '') {
-                        $out[] = ['t' => 'text', 'text' => $text];
-                    }
+                    self::pushText($out, trim(implode("\n", $buf)));
                     $buf = [];
                 }
                 $quote[] = $m[1];
@@ -238,6 +241,33 @@ final class Blocks
         }
         $flush();
         return $out;
+    }
+
+    /** Text als Block(s) anhängen; über 20.000 Zeichen an Leerzeilen (zur Not hart) geteilt, damit nichts abgeschnitten wird. @param list<array<string,mixed>> $out */
+    private static function pushText(array &$out, string $text): void
+    {
+        if ($text === '') {
+            return;
+        }
+        $cur = '';
+        foreach (preg_split('/\n{2,}/', $text) ?: [] as $para) {
+            while (mb_strlen($para) > 20000) {
+                if ($cur !== '') {
+                    $out[] = ['t' => 'text', 'text' => $cur];
+                    $cur = '';
+                }
+                $out[] = ['t' => 'text', 'text' => mb_substr($para, 0, 20000)];
+                $para = mb_substr($para, 20000);
+            }
+            if ($cur !== '' && mb_strlen($cur) + mb_strlen($para) + 2 > 20000) {
+                $out[] = ['t' => 'text', 'text' => $cur];
+                $cur = '';
+            }
+            $cur .= ($cur === '' ? '' : "\n\n") . $para;
+        }
+        if (trim($cur) !== '') {
+            $out[] = ['t' => 'text', 'text' => $cur];
+        }
     }
 
     /** Rückweg nach Markdown; null, wenn die Seite Bilder, Knöpfe oder Spalten enthält. @param list<array<string,mixed>> $blocks */
@@ -270,6 +300,7 @@ final class Blocks
     /** @param list<array<string,mixed>> $blocks */
     public static function render(array $blocks, Renderer $r): string
     {
+        self::$seen = [];
         $html = '';
         foreach ($blocks as $b) {
             $html .= self::one($b, $r, false);
@@ -284,7 +315,7 @@ final class Blocks
         switch ($b['t']) {
             case 'heading':
                 $l = (int) $b['level'] === 3 ? 3 : 2;
-                return "<h$l class=\"bh\">" . $h($b['text']) . "</h$l>\n";
+                return "<h$l class=\"bh\">" . Markdown::inline($b['text']) . "</h$l>\n";
             case 'text':
                 return '<div class="prose bt-text">' . Markdown::render($b['text'], false) . "</div>\n";
             case 'quote':
@@ -311,7 +342,9 @@ final class Blocks
                         continue;
                     }
                     $alt = $e['decor'] ? '' : $e['alt'];
-                    $items .= '<li class="bti"><a id="foto-' . (int) $p['id'] . '" href="' . $h($r->fullUrl($p)) . '" data-id="' . (int) $p['id'] . '" data-srcset="' . $h($r->lightboxSet($p))
+                    $anchor = isset(self::$seen[(int) $p['id']]) ? '' : ' id="foto-' . (int) $p['id'] . '"';
+                    self::$seen[(int) $p['id']] = true;
+                    $items .= '<li class="bti"><a' . $anchor . ' href=""' . $h($r->fullUrl($p)) . '" data-id="' . (int) $p['id'] . '" data-srcset="' . $h($r->lightboxSet($p))
                         . '" data-w="' . (int) $p['width'] . '" data-h="' . (int) $p['height'] . '" data-alt="' . $h($alt) . '" data-title="' . $h((string) $p['title']) . '" data-caption="' . $h((string) $p['caption'])
                         . '" data-meta="" data-photographer="" data-gear="" data-settings="" data-taken="">'
                         . $r->picture($p, ['sizes' => '(min-width:900px) ' . (int) (1000 / (int) $b['cols']) . 'px, 50vw', 'maxw' => 960, 'alt' => $alt]) . "</a></li>\n";

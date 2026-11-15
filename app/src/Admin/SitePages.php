@@ -116,7 +116,7 @@ trait SitePages
         try {
             $this->s->pages->save($id, $f);
         } catch (MediaException $e) {
-            return $this->pageForm($id, $sess, $e->getMessage(), 400, $f);
+            return $this->pageForm($id, $sess, $e->getMessage(), 400, $raw !== '' ? ['blocks' => $raw] + $f : $f);
         }
         $this->auditLog('page_saved', $sess, 'page=' . $id, $req);
         return $this->done($req->input('weiter') === 'liste' ? '/admin/seiten' : '/admin/seiten/' . $id, 'page');

@@ -13,7 +13,7 @@
     <input type="hidden" name="blocks" id="blocks-field" value="<?= $e($blocksField) ?>">
     <div class="field"><span id="editor-label">Inhalt</span>
       <div id="page-editor" class="editor" role="group" aria-labelledby="editor-label" data-pick-url="/admin/fotos/auswahl"></div>
-      <noscript><p class="notice error">Der Seiten-Editor braucht JavaScript. Ohne JavaScript bleibt der Inhalt unverändert, wenn du speicherst.</p></noscript>
+      <noscript><p class="notice error">Der Seiten-Editor braucht JavaScript. Ohne JavaScript lässt sich der Inhalt nicht bearbeiten. Speichern ändert nur Titel, Adresse, Status und Verlinkung; ein alter Text wird dabei in Blöcke übernommen.</p></noscript>
       <p class="small muted">Jeder Block ist ein Baustein der Seite. Mit „Block hinzufügen“ kommt Neues dazu, mit den Pfeilen oder durch Ziehen am Griff ändert sich die Reihenfolge. Leere Blöcke werden beim Speichern entfernt.</p>
     </div>
     <label class="field"><span>Status</span><select name="status"><option value="draft"<?= $pg['status'] === 'draft' ? ' selected' : '' ?>>Entwurf</option><option value="published"<?= $pg['status'] === 'published' ? ' selected' : '' ?>>veröffentlichen (mit dem nächsten Veröffentlichen)</option></select></label>

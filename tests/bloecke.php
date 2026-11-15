@@ -58,6 +58,16 @@ check('Umwandlung: zurück zu Markdown ergibt dieselbe Ausgabe wie vorher', Mark
 check('Umwandlung: Seiten mit Bild lassen sich nicht als Text speichern', Blocks::toMarkdown([['t' => 'image', 'photo' => 1, 'alt' => '', 'decor' => false, 'caption' => '', 'width' => 'normal', 'href' => '']]) === null);
 check('Text-Block: Überschriften im Text werden nicht zu Überschriften', !str_contains(Markdown::render("# Nicht\n\nText", false), '<h'));
 
+// --- Nachbesserungen aus der Prüfung ---
+$long = str_repeat("Absatz mit Text.\n\n", 2500) . '## ' . str_repeat('L', 300) . "\n\n" . str_repeat('x', 25000);
+$lb = Blocks::fromMarkdown($long);
+$sum = array_sum(array_map(static fn (array $b): int => mb_strlen($b['text'] ?? ''), $lb));
+check('Umwandlung: lange Texte werden geteilt statt gekürzt, zu lange Überschrift bleibt Text', max(array_map(static fn (array $b): int => mb_strlen($b['text'] ?? ''), $lb)) <= 20000 && $sum >= mb_strlen($long) - 2600 - 10 * 2 && !in_array('heading', array_column($lb, 't'), true)
+    && count(Blocks::parse($J($lb))) === count($lb) && str_contains(implode('', array_column($lb, 'text')), str_repeat('L', 300)));
+check('Überschrift: Fett und Links aus altem Markdown bleiben erhalten (Ausgabe wie vorher)', str_contains(Markdown::inline('Wer **wir** [sind](/x/)'), '<strong>wir</strong>'));
+check('Blöcke: „Nur Dekoration“ mit Link abgelehnt, im Raster gibt es keine Dekoration', $throws(fn () => Blocks::parse($J([['t' => 'image', 'photo' => 1, 'decor' => true, 'href' => '/x/']]))) !== null
+    && Blocks::parse($J([['t' => 'gallery', 'photos' => [['photo' => 1, 'alt' => '', 'decor' => true]]]]))[0]['photos'][0]['decor'] === false);
+
 // --- Umgebung ---
 $m = lk_make($f6 . '/a');
 $s = lk_setup($m);
@@ -108,7 +118,7 @@ check('Speichern (Blöcke): Weiterleitung mit Bestätigung, Blöcke gespeichert,
 $stored = Blocks::decode((string) $db->value('SELECT blocks FROM pages WHERE id = ?', [$pid]));
 check('Speichern (Blöcke): gespeichert wird die geprüfte Form (Typen, Reihenfolge)', array_column($stored, 't') === ['heading', 'text', 'image', 'gallery', 'quote', 'rule', 'button', 'columns']);
 $ed2 = $b->get("/admin/seiten/$pid");
-check('Editor: Text mit </script> bricht nicht aus dem Datenblock aus', substr_count($ed2->body, '<script') === substr_count($ed2->body, '</script>') && !str_contains($ed2->body, '</script><script>x') && str_contains($ed2->body, '<'));
+check('Editor: Text mit </script> bricht nicht aus dem Datenblock aus', substr_count($ed2->body, '<script') === 4 && substr_count($ed2->body, '</script>') === 4 && !str_contains($ed2->body, '</script><script>x') && str_contains($ed2->body, '<'));
 check('Editor: Fotos des Seiteninhalts mit Vorschaubild im Datenblock', str_contains($ed2->body, '"photos":{"' . $q1 . '"') && str_contains($ed2->body, '/media/'));
 
 // Vorschau
@@ -120,6 +130,15 @@ check('Vorschau (Blöcke): Raster mit Lightbox-Daten und Spalten', str_contains(
 check('Vorschau (Blöcke): Zitat, Trennlinie, Knopf mit Vorschau-Präfix, zwei Spalten', str_contains($pv->body, '<blockquote class="bquote"><p>Licht ist alles</p><footer>Jemand</footer>') && str_contains($pv->body, '<hr class="brule">')
     && str_contains($pv->body, 'class="knopf" href="/admin/vorschau/galerien/"') && str_contains($pv->body, 'class="bcols"'));
 check('Vorschau (Blöcke): Pfade der Bilder führen nicht auf Originale', !str_contains($pv->body, 'originals') && !str_contains($pv->body, 'bloecke-900'));
+
+$dup = $b->post("/admin/seiten/$pid/speichern", ['blocks' => $J([['t' => 'gallery', 'photos' => [['photo' => $q1, 'alt' => 'a'], ['photo' => $q1, 'alt' => 'b']]]])] + $post);
+check('Raster: dasselbe Foto zweimal ergibt keine doppelte Anker-Id', substr_count($b->get('/admin/vorschau/fotografen')->body, 'id="foto-' . $q1 . '"') === 1);
+$b->post("/admin/seiten/$pid/speichern", ['blocks' => $J($blocks)] + $post);
+$svc->catalog->trash([$q2]);
+$pvT = $b->get('/admin/vorschau/fotografen')->body;
+check('Vorschau: Foto im Papierkorb erscheint nicht (weder Bild noch Rasterkachel)', !str_contains($pvT, 'id="foto-' . $q2 . '"') && str_contains($pvT, 'id="foto-' . $q1 . '"'));
+check('Speichern: Foto im Papierkorb wird abgelehnt', $b->post("/admin/seiten/$pid/speichern", ['blocks' => $J([['t' => 'image', 'photo' => $q2, 'alt' => 'x']])] + $post)->status === 400);
+$svc->catalog->restore([$q2]);
 
 // Alt-Text-Pflicht und Sperren
 $noAlt = $blocks;
@@ -174,6 +193,10 @@ check('Als einfachen Text speichern: Blöcke leer, body neu, Ausgabe als prose',
     && (string) $db->value('SELECT body FROM pages WHERE id = ?', [$pid]) === "## Nur Text\n\nAbsatz" && str_contains($b->get('/admin/vorschau/fotografen')->body, '<div class="prose">'));
 $tx2 = $b->post("/admin/seiten/$pid/speichern", ['blocks' => $J($blocks), 'modus' => 'text'] + $post);
 check('Als einfachen Text speichern: mit Bild/Knopf/Spalten abgelehnt (400) und nichts geändert', $tx2->status === 400 && str_contains($tx2->body, 'lässt sich nicht als einfacher Text') && (string) $db->value('SELECT blocks FROM pages WHERE id = ?', [$pid]) === '');
+
+$longBody = ['_csrf' => $csrf, 'title' => '', 'slug' => 'fotografen', 'status' => 'draft', 'nav' => 'main', 'modus' => 'text', 'blocks' => $J([['t' => 'text', 'text' => 'Meine Änderung XYZ']])];
+$fail = $b->post("/admin/seiten/$pid/speichern", $longBody);
+check('Als Text speichern mit Fehler (leerer Titel): Eingaben bleiben im Editor erhalten', $fail->status === 400 && str_contains($fail->body, 'Meine Änderung XYZ'));
 
 // Fotoauswahl (JSON)
 $pk = $b->get('/admin/fotos/auswahl');

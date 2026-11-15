@@ -132,6 +132,7 @@
         list.push(nb);
         dirty = true;
         focusId = nb._id;
+        focusSel = t === 'rule' ? '.bhead .bup' : '';
         say('Block „' + TYPES[t].name + '“ hinzugefügt.');
         renderAll();
       });
@@ -177,7 +178,9 @@
     });
     handle.addEventListener('dragend', function () { drag = null; clearDrop(); card.classList.remove('dragging'); });
     head.appendChild(handle);
-    head.appendChild(el('strong', 'btitle', nr + '. ' + tname));
+    var ttl = el('strong', 'btitle', nr + '. ' + tname);
+    ttl.tabIndex = -1;
+    head.appendChild(ttl);
     head.appendChild(el('span', 'bsummary small muted', b._c ? summary(b) : ''));
     var tools = el('div', 'btools');
     var up = btn('↑', 'bup', function () { move(list, i, -1); }, tname + ' ' + nr + ' nach oben');
@@ -191,8 +194,11 @@
     tools.appendChild(tg);
     tools.appendChild(btn('Duplizieren', '', function () {
       var copy = JSON.parse(JSON.stringify(b, replacer));
+      copy._id = ++uid;
       list.splice(i + 1, 0, copy);
       dirty = true;
+      focusId = copy._id;
+      focusSel = '.bhead .bup';
       say('Block dupliziert.');
       renderAll();
     }, tname + ' ' + nr + ' duplizieren'));
@@ -200,6 +206,8 @@
       if (!isEmpty(b) && !window.confirm('Diesen Block („' + tname + '“) löschen?')) { return; }
       list.splice(i, 1);
       dirty = true;
+      var near = list[i] || list[i - 1];
+      if (near) { focusId = near._id || null; focusSel = '.bhead .btitle'; }
       say('Block gelöscht.');
       renderAll();
     }, tname + ' ' + nr + ' löschen'));
@@ -305,7 +313,7 @@
     return box;
   }
 
-  function altRow(obj, idPrefix) {
+  function altRow(obj, noDecor) {
     var wrap = el('div', 'altrow');
     var a = input(obj, 'alt', 250);
     var warn = el('p', 'warn small', 'Alt-Text fehlt: Bitte beschreiben, was auf dem Bild zu sehen ist (für Screenreader und Suchmaschinen). Ohne Alt-Text lässt sich die Seite nicht veröffentlichen.');
@@ -315,13 +323,13 @@
     var lab = el('label', 'check');
     lab.appendChild(chk);
     lab.appendChild(document.createTextNode(' Nur Dekoration (kein Alt-Text nötig)'));
-    var upd = function () { warn.hidden = !!obj.decor || obj.alt.trim() !== ''; a.disabled = !!obj.decor; };
+    var upd = function () { warn.hidden = !!obj.decor || String(obj.alt || '').trim() !== ''; a.disabled = !!obj.decor; };
     a.addEventListener('input', upd);
     chk.addEventListener('change', function () { obj.decor = chk.checked; dirty = true; upd(); });
     upd();
     wrap.appendChild(labelled('Alt-Text (Beschreibung des Bildes)', a));
     wrap.appendChild(warn);
-    wrap.appendChild(lab);
+    if (!noDecor) { wrap.appendChild(lab); }
     return wrap;
   }
 
@@ -359,7 +367,7 @@
       var li = el('li', 'bgalitem');
       li.appendChild(thumb(p.photo));
       var side = el('div', 'bgalside');
-      side.appendChild(altRow(p));
+      side.appendChild(altRow(p, true));
       var tools = el('div', 'btools');
       var u = btn('↑', '', function () { reorder(b.photos, i, -1, b); }, 'Foto ' + (i + 1) + ' nach vorn');
       var d = btn('↓', '', function () { reorder(b.photos, i, 1, b); }, 'Foto ' + (i + 1) + ' nach hinten');
@@ -377,7 +385,7 @@
     var add = btn('Fotos hinzufügen', 'bgalbtn', function () {
       pick(true, function (rows) {
         rows.forEach(function (r) {
-          if (b.photos.length >= 12) { return; }
+          if (b.photos.length >= 12) { say('Höchstens 12 Fotos je Raster: nicht alle wurden übernommen.'); return; }
           photos[r.id] = { t: r.t, a: r.a, c: r.c, u: r.u, x: 0 };
           b.photos.push({ photo: r.id, alt: r.a || '', decor: false });
         });
@@ -446,7 +454,7 @@
       im.loading = 'lazy';
       b.appendChild(im);
       b.appendChild(el('span', 'small', r.t));
-      if (multi) { b.setAttribute('aria-pressed', 'false'); }
+      if (multi) { b.setAttribute('aria-pressed', sel[r.id] ? 'true' : 'false'); }
       b.addEventListener('click', function () {
         if (!multi) { dlg.close(); done([r]); return; }
         if (sel[r.id]) { delete sel[r.id]; b.setAttribute('aria-pressed', 'false'); } else { sel[r.id] = r; b.setAttribute('aria-pressed', 'true'); }
