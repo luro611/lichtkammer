@@ -4,3 +4,7 @@ RemoveType .php
 <FilesMatch "\.(php|phtml|phar)$">
   Require all denied
 </FilesMatch>
+# Dateinamen enthalten eine Zufallskennung und die Breite und ändern sich nie: dauerhaft zwischenspeichern.
+<IfModule mod_headers.c>
+Header set Cache-Control "public, max-age=31536000, immutable"
+</IfModule>

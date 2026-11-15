@@ -16,6 +16,12 @@ final class View
         return $this->include('layout', $data + ['content' => $content]);
     }
 
+    /** Nur die Vorlage, ohne Rahmen (für die öffentlichen Seiten, die ihren eigenen Rahmen haben). @param array<string,mixed> $data */
+    public function fragment(string $template, array $data = []): string
+    {
+        return $this->include($template, $data);
+    }
+
     /** Adresse einer Datei aus public/ mit Änderungszeit als Version, damit Browser nach einem Upload die neue Datei holen. */
     public function asset(string $path): string
     {

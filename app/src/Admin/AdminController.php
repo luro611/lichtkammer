@@ -24,6 +24,7 @@ use Lichtkammer\View;
 final class AdminController
 {
     use MediaPages;
+    use SitePages;
 
     private readonly Router $router;
 
@@ -70,6 +71,20 @@ final class AdminController
         $r('POST', '/admin/galerien/{id}/foto-bewegen', 'galleryPhotoMove');
         $r('POST', '/admin/galerien/{id}/sortieren', 'gallerySort');
         $r('POST', '/admin/galerien/{id}/titelbild', 'galleryCover');
+        $r('GET', '/admin/seiten', 'pages');
+        $r('POST', '/admin/seiten', 'pageCreate');
+        $r('GET', '/admin/seiten/{id}', 'pageEdit');
+        $r('POST', '/admin/seiten/{id}/speichern', 'pageSave');
+        $r('POST', '/admin/seiten/{id}/loeschen', 'pageDelete');
+        $r('POST', '/admin/seiten/{id}/bewegen', 'pageMove');
+        $r('GET', '/admin/einstellungen', 'siteSettings');
+        $r('POST', '/admin/einstellungen', 'siteSettingsSave');
+        $r('GET', '/admin/veroeffentlichen', 'publishPage');
+        $r('POST', '/admin/veroeffentlichen', 'publishPost');
+        $r('POST', '/admin/veroeffentlichen/zuruecksetzen', 'publishRollback');
+        $r('GET', '/admin/vorschau', 'preview');
+        $r('GET', '/admin/vorschau/{a}', 'preview');
+        $r('GET', '/admin/vorschau/{a}/{b}', 'preview');
         $r('GET', '/admin/papierkorb', 'trash');
         $r('POST', '/admin/papierkorb', 'trashAction');
         $r('GET', '/admin/fotografen', 'photographers');
@@ -494,6 +509,8 @@ final class AdminController
             'title' => 'Übersicht',
             'remaining' => $this->s->recovery->remaining($uid),
             'chain' => $chain,
+            'live' => $this->s->builder->current() !== null,
+            'changes' => count($this->s->builder->plan()['changes']),
         ], 200, $sess);
     }
 

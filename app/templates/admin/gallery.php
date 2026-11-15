@@ -7,6 +7,7 @@ $bulkBack = '/admin/galerien/' . $gid; ?>
 <section class="hero">
   <p class="eyebrow"><a href="/admin/galerien">Galerien</a> · <?= $pub ? 'veröffentlicht' : 'Entwurf' ?></p>
   <h1><?= $e($title) ?></h1>
+  <p><a class="btn small ghost" href="/admin/vorschau/galerien/<?= $e((string) $g['slug']) ?>">Vorschau der Galerie</a></p>
 <?php include __DIR__ . '/../partials/notices.php'; ?>
 <?php if ($blockers !== []): ?>
   <div class="notice error" role="alert">

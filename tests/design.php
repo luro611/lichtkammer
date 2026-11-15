@@ -13,11 +13,10 @@ $js = (string) file_get_contents($root . '/public/assets/js/design.js');
 $m = lk_make($f . '/a');
 $b = new TestBrowser($m['app'], $m['config']);
 $login = $b->get('/admin/login');
-$home = $b->get('/');
 $s = lk_setup($m);
 $admin = $s['b']->get('/admin');
 
-foreach (['Anmeldeseite' => $login, 'Startseite' => $home, 'Admin' => $admin] as $name => $r) {
+foreach (['Anmeldeseite' => $login, 'Admin' => $admin] as $name => $r) {
     check("Design: $name hat beide Umschalter", str_contains($r->body, 'data-design-set="rothe"') && str_contains($r->body, 'data-design-set="lurohome"') && str_contains($r->body, 'data-theme-set="dark"') && str_contains($r->body, 'data-theme-set="light"'));
     check("Design: $name lädt design.js im Kopf (vor dem Inhalt)", preg_match('~<script src="/assets/js/design\.js"></script>\s*</head>~', $r->body) === 1);
     check("Design: $name ohne Inline-Style und Inline-Skript", !preg_match('~\sstyle=|<script(?![^>]*\ssrc=)|\sonclick=~i', $r->body));

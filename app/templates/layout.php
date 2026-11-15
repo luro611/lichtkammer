@@ -22,6 +22,8 @@ $csrf = $csrf ?? '';
     <a href="/admin">Übersicht</a>
     <a href="/admin/fotos">Fotos</a>
     <a href="/admin/galerien">Galerien</a>
+    <a href="/admin/seiten">Seiten</a>
+    <a href="/admin/veroeffentlichen">Veröffentlichen</a>
     <a href="/admin/papierkorb">Papierkorb</a>
 <?php if (($user['role'] ?? '') === 'admin'): ?>    <a href="/admin/users">Konten</a>
 <?php endif; ?>

@@ -9,6 +9,10 @@ use Lichtkammer\Media\Catalog;
 use Lichtkammer\Media\Galleries;
 use Lichtkammer\Media\Library;
 use Lichtkammer\Media\Uploads;
+use Lichtkammer\Site\Builder;
+use Lichtkammer\Site\Pages;
+use Lichtkammer\Site\Settings;
+use Lichtkammer\View;
 
 /** Baut alle Dienste der Anmeldung zusammen (eine Datenbankverbindung). */
 final class Services
@@ -33,6 +37,9 @@ final class Services
         public readonly Uploads $uploads,
         public readonly Galleries $galleries,
         public readonly Catalog $catalog,
+        public readonly Pages $pages,
+        public readonly Settings $settings,
+        public readonly Builder $builder,
     ) {
     }
 
@@ -61,6 +68,9 @@ final class Services
         $uploads = new Uploads($db, $clock, $library, $dataDir, $maxBytes);
         $galleries = new Galleries($db, $clock);
         $catalog = new Catalog($db, $clock, $library, $config->originalsDir(), $config->mediaDir());
-        return new self($config, $clock, $db, $keys, $passwords, $limiter, $sessions, $audit, $recovery, $cookies, $preCsrf, $auth, $enrollment, $accounts, $dataDir, $library, $uploads, $galleries, $catalog);
+        $pages = new Pages($db, $clock);
+        $settings = new Settings($db, $config);
+        $builder = new Builder($db, $config, $clock, new View($config->appDir . '/templates', $config), $settings, $dataDir);
+        return new self($config, $clock, $db, $keys, $passwords, $limiter, $sessions, $audit, $recovery, $cookies, $preCsrf, $auth, $enrollment, $accounts, $dataDir, $library, $uploads, $galleries, $catalog, $pages, $settings, $builder);
     }
 }

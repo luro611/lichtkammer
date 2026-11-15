@@ -1,6 +1,6 @@
 # Entwurf Schritt 5: Öffentliche Seite
 
-Stand: 15.11.2026. Zur Freigabe, noch kein Code. Grundlage: Plan `03` (Abschnitte 4, 4a, 5, 7, 11), Schritt 3 (`09`), Schritt 4 (`10`). Nicht Teil davon: Passkey, Umzug, Ausstellungen (Phase 2), Drehen/Fokuspunkt/Foto ersetzen (Schritt 4b), Bilder und PDF-Anhänge in Seiten.
+Stand: 15.11.2026. E1 bis E10 von Lutz wie empfohlen freigegeben, gebaut (Abschnitt 8). Grundlage: Plan `03` (Abschnitte 4, 4a, 5, 7, 11), Schritt 3 (`09`), Schritt 4 (`10`). Nicht Teil davon: Passkey, Umzug, Ausstellungen (Phase 2), Drehen/Fokuspunkt/Foto ersetzen (Schritt 4b), Bilder und PDF-Anhänge in Seiten.
 
 ## 1. Seitenstruktur und Adressen
 
@@ -107,4 +107,12 @@ Neue Tabelle `pages` (Migration 4, additiv): `id, slug UNIQUE, title, body, stat
 | E9 | **EXIF öffentlich** (Plan 12.8): bei `show_exif` Kamera, Objektiv, Blende, Zeit, ISO, Brennweite, Aufnahmedatum, oder kleinerer Satz? | **Alle diese sieben**, je Galerie abschaltbar wie bisher; GPS nie. |
 | E10 | **Seitenschalter für Besucher:** Hell/Dunkel mit Umschalter in der Kopfleiste (Standard: Systemeinstellung), merkt sich per `localStorage` ohne Cookie. | **So.** Kein Cookie, keine Einwilligung nötig. |
 
-Nach der Freigabe (E1 bis E10 wie empfohlen oder mit deinen Änderungen) baue ich in der Reihenfolge von Abschnitt 6.
+## 8. Gebaut (Stand 15.11.2026)
+
+- Migration 4 (`pages`, `site_settings`); Dienste `Site/Pages`, `Site/Settings`, `Site/Markdown`, `Site/Renderer`, `Site/Builder`, `Site/Server`; Admin-Seiten in `Admin/SitePages` (Seiten, Einstellungen, Veröffentlichen mit Fassungsliste und Zurückholen, Vorschau unter `/admin/vorschau/…`).
+- Theme `public/assets/css/site.css` (Raster-Klassen `r50` bis `r300`), `site.js` (Filter, Lightbox), `site-theme.js` (hell/dunkel). Vorlagen unter `app/templates/site/`.
+- Die Platzhalter-Startseite von Schritt 1 entfällt: ohne veröffentlichte Fassung antwortet `/` mit 503 („noch nicht veröffentlicht“), `/health` läuft weiter.
+- Abweichung vom Entwurf: Der Unschärfe-Platzhalter steht nur im Hero; die Fußzeile verlinkt die Seiten mit `nav = footer`; Fassungen enthalten zusätzlich `photo_ids` im Manifest, damit der Admin beim Löschen eines Live-Fotos warnen kann (E5).
+- Tests: `tests/oeffentlich.php` (Markdown, Raster-Klassen, Veröffentlichen, Rückgängig, Aufräumen, Sperre, Ausliefern ohne Datenbank, GPS/EXIF/Entwürfe/Papierkorb, Vorschau, Kontrast). 614 Prüfungen grün.
+- Nicht gebaut: Bilder und PDF in Seiten (E8), Drehen/Fokuspunkt (4b), Passkey, Umzug.
+- Nach dem Hochladen des Codes muss einmal veröffentlicht werden (`/admin/veroeffentlichen`), sonst antwortet die Domain mit 503. Bei einem Testserver mit bisheriger Platzhalterseite ist das gewollt.

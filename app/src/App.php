@@ -7,6 +7,7 @@ use Lichtkammer\Admin\AdminController;
 use Lichtkammer\Auth\Clock;
 use Lichtkammer\Auth\ConfigError;
 use Lichtkammer\Auth\Services;
+use Lichtkammer\Site\Server;
 
 /** Verdrahtet öffentliche Seiten und Admin. public/index.php und die Tests benutzen dieselbe Klasse. */
 final class App
@@ -14,7 +15,7 @@ final class App
     private ?Services $services = null;
     private ?AdminController $admin = null;
     private readonly View $view;
-    private readonly Router $public;
+    private readonly Server $site;
 
     /** @param array{memory_cost:int,time_cost:int,threads:int}|null $argonOptions nur für Tests */
     public function __construct(
@@ -23,12 +24,7 @@ final class App
         private readonly ?array $argonOptions = null,
     ) {
         $this->view = new View($config->appDir . '/templates', $config);
-        $this->public = new Router();
-        $this->public->get('/', fn (Request $request): Response => Response::html($this->view->render('home', [
-            'title' => $this->config->siteName(),
-            'request' => $request,
-        ])));
-        $this->public->get('/health', static fn (): Response => new Response('ok ' . Config::VERSION . "\n", 200, ['Content-Type' => 'text/plain; charset=utf-8']));
+        $this->site = new Server($config);
     }
 
     public function services(): Services
@@ -50,6 +46,12 @@ final class App
             }
             return $this->admin->handle($request);
         }
-        return $this->public->dispatch($request);
+        if ($path === '/health') {
+            return new Response('ok ' . Config::VERSION . "\n", 200, ['Content-Type' => 'text/plain; charset=utf-8']);
+        }
+        if (!in_array($request->method(), ['GET', 'HEAD'], true)) {
+            return Response::notFound();
+        }
+        return $this->site->serve($request);
     }
 }

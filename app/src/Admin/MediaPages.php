@@ -22,6 +22,7 @@ trait MediaPages
         'created' => 'Galerie angelegt.',
         'deleted' => 'Galerie gelöscht. Die Fotos bleiben in der Mediathek.',
         'trashed' => '{n} Foto(s) in den Papierkorb gelegt. Dort sind sie 30 Tage wiederherstellbar.',
+        'trashed_live' => '{n} Foto(s) in den Papierkorb gelegt. Mindestens eines ist auf der Live-Seite sichtbar: bitte neu veröffentlichen, sonst fehlt dort das Bild.',
         'restored' => '{n} Foto(s) wiederhergestellt.',
         'purged' => '{n} Foto(s) endgültig gelöscht.',
         'added' => '{n} Foto(s) zur Galerie hinzugefügt.',
@@ -32,6 +33,9 @@ trait MediaPages
         'draft' => 'Die Galerie ist wieder ein Entwurf.',
         'bulk' => 'Änderungen an {n} Foto(s) gespeichert.',
         'nothing' => 'Es war nichts ausgewählt.',
+        'page' => 'Seite gespeichert.',
+        'pagedeleted' => 'Seite gelöscht.',
+        'settings' => 'Einstellungen gespeichert.',
         'person' => 'Fotografen gespeichert.',
     ];
 
@@ -355,7 +359,7 @@ trait MediaPages
                 if ($n > 0) {
                     $this->auditLog('photos_trashed', $sess, 'count=' . $n, $req);
                 }
-                return $this->done($back, 'trashed', $n);
+                return $this->done($back, $n > 0 && $this->s->builder->isLive($ids) ? 'trashed_live' : 'trashed', $n);
         }
         return $this->done($back, 'nothing');
     }

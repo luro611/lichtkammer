@@ -195,6 +195,24 @@ UPDATE photos SET photographer_id = (SELECT id FROM photographers WHERE name = p
 CREATE INDEX photos_deleted ON photos(deleted_at);
 CREATE INDEX photos_year ON photos(year);
 SQL,
+            // 4: einfache Seiten und Seiteneinstellungen (Schritt 5). Nur additiv.
+            <<<'SQL'
+CREATE TABLE pages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug TEXT NOT NULL UNIQUE,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','published')),
+    nav TEXT NOT NULL DEFAULT 'none' CHECK (nav IN ('main','footer','none')),
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+CREATE TABLE site_settings (
+    k TEXT PRIMARY KEY,
+    v TEXT NOT NULL
+);
+SQL,
         ];
     }
 

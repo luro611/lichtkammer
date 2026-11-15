@@ -16,7 +16,7 @@ $m = lk_make($f . '/nokey', ['LK_APP_KEY' => '']);
 $b = new TestBrowser($m['app'], $m['config']);
 $r = $b->get('/admin/login');
 check('Ohne Schlüssel: Admin 503 mit Hinweis', $r->status === 503 && str_contains($r->body, 'LK_APP_KEY'));
-check('Ohne Schlüssel: öffentliche Startseite läuft', $b->get('/')->status === 200 && $b->get('/health')->status === 200);
+check('Ohne Schlüssel: öffentliche Startseite läuft (noch nicht veröffentlicht: 503)', $b->get('/')->status === 503 && $b->get('/health')->status === 200);
 
 // --- Ersteinrichtung ---
 $m = lk_make($f . '/a');
