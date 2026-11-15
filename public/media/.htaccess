@@ -1,0 +1,6 @@
+# Kein PHP im Medienordner
+RemoveHandler .php .phtml
+RemoveType .php
+<FilesMatch "\.(php|phtml|phar)$">
+  Require all denied
+</FilesMatch>

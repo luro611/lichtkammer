@@ -1,0 +1,19 @@
+# Lichtkammer im eigenen LXC: docker compose up -d --build
+# TLS beendet der Reverse-Proxy davor; LK_TRUST_PROXY=1 lässt X-Forwarded-Proto gelten.
+services:
+  lichtkammer:
+    build: .
+    # später: image: ghcr.io/luro611/lichtkammer:<Version>
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    env_file:
+      - .env
+    volumes:
+      - lk-data:/var/lib/lichtkammer/data
+      - lk-originals:/var/lib/lichtkammer/originals
+      - lk-media:/var/www/html/public/media
+volumes:
+  lk-data:
+  lk-originals:
+  lk-media:

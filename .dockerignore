@@ -1,0 +1,10 @@
+.git
+.env
+app/.env
+data
+originals
+otf
+docs
+tests
+deploy
+*.md

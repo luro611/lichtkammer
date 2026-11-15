@@ -1,0 +1,17 @@
+# Lichtkammer: Webserver-Regeln für Apache (all-inkl und Docker-Image).
+# Fertige HTML-Dateien direkt ausliefern, sonst an index.php.
+Options -Indexes -MultiViews
+DirectoryIndex index.html index.php
+
+<IfModule mod_rewrite.c>
+RewriteEngine On
+# Nichtöffentliches nie ausliefern, auch wenn es im Webroot liegt (all-inkl).
+RewriteRule ^(app|data|originals|tests|docker|deploy)(/|$) - [F,L]
+RewriteRule (^|/)\.(?!well-known/) - [F,L]
+RewriteRule \.(env|sqlite|sqlite3|db|log)$ - [F,L]
+# Existierende Dateien (auch fertige Seiten) direkt, alles andere an den Router.
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [L]
+</IfModule>
+# Im Medienordner läuft kein PHP: siehe public/media/.htaccess

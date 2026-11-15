@@ -52,7 +52,7 @@ br-foto.com (all-inkl, Konto A)
 Lichtkammer läuft mit **demselben Code** auf all-inkl (PHP-FPM, Deployment per FTPS) und selbst gehostet im LXC (Docker Compose). Unterschiede stehen nur in der Konfiguration, nie im Code.
 
 - **Konfigurationsschicht:** Pfade für Daten (SQLite, Sitzungen, Protokolle), Originale und erzeugte Bilder sowie die Basis-Adresse kommen aus Umgebungsvariablen oder `.env` (gleiches Schema, `.env.example` im Repo).
-- **Webserver-Regeln für beide:** `.htaccess` (Apache, all-inkl) und eine Caddy- oder nginx-Regel (Docker). Beide liefern fertige HTML-Dateien direkt aus, geben sonst an `index.php` weiter und sperren Nichtöffentliches.
+- **Webserver-Regeln für beide:** eine `.htaccess` (Apache). Das Docker-Image nutzt ebenfalls Apache, damit dieselben Regeln gelten (umgesetzt in Schritt 1); ein Reverse-Proxy wie Caddy oder nginx steht davor und beendet TLS. Beide liefern fertige HTML-Dateien direkt aus, geben sonst an `index.php` weiter und sperren Nichtöffentliches.
 - **Keine Abhängigkeit von Cron, SSH oder Composer auf dem Server.** Bildverarbeitung und Datenbankkopie werden vom Browser angestoßen.
 - **Keine festen Annahmen über Limits:** `memory_limit` und `max_execution_time` werden gelesen, Uploads gehen immer in Stücken. Imagick ist der Normalfall, GD der Ersatz (ohne AVIF).
 - **HTTPS hinter Reverse-Proxy:** Einstellung „vertraue `X-Forwarded-Proto`“, damit `Secure`-Cookies und HSTS im Container stimmen.

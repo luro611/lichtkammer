@@ -1,39 +1,12 @@
-# macOS
 .DS_Store
-._*
-
-# Editoren
-.vscode/
-.idea/
-*.swp
-
-# Umgebung und Geheimnisse
 .env
-.env.*
-!.env.example
-*.pem
-*.key
-id_rsa*
-id_ed25519*
-
-# Claude Code lokale Einstellungen
-.claude/settings.local.json
-.claude/launch.json
-
-# Python
-__pycache__/
-*.py[cod]
-.venv/
-venv/
-.pytest_cache/
-
-# Lokale Daten, Fotos und Build
+app/.env
+/data/
+/originals/
+/public/media/*
+!/public/media/.htaccess
+/public/*.html
 *.sqlite
 *.sqlite3
-*.db
-data/
-uploads/
-originals/
-dist/
-logs/
 *.log
+deploy/.env

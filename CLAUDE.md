@@ -4,8 +4,10 @@ Schlankes Open-Source-Foto-CMS für ausschließlich eigene Bilder (früherer Arb
 
 ## Stand
 
-- **Phase:** Schritt 0 (Bestandsaufnahme) abgeschlossen, siehe `04 Bestandsaufnahme.md`. Als Nächstes Schritt 1 (Projektgerüst) aus `03 Plan br-foto.md`, Abschnitt 11.
-- **Vor der Freigabe keinen Anwendungscode schreiben.** Jeder Schritt aus dem Prompt-Plan wird einzeln beauftragt, danach berichten und auf Freigabe warten.
+- **Phase:** Schritt 0 (Bestandsaufnahme) ist erledigt, siehe `docs/planung/04 Bestandsaufnahme.md`. Schritt 1 (Projektgerüst) ist gebaut, noch nicht freigegeben.
+- **Jeder Schritt aus dem Plan wird einzeln beauftragt**, danach berichten und auf Freigabe warten.
+- **Testserver:** `lichtkammer.br-foto.com` (all-inkl Konto A, HTTPS aktiv). Zugang nur in `deploy/.env` und im Schlüsselbund (Dienst `web-ftp-lichtkammer.br-foto.com`). Hochladen nur nach Probelauf und Freigabe von Lutz. Docker zuerst auf pve10.
+- **Tests:** `docker run --rm -v "$PWD":/app -w /app php:8.5-cli php tests/run.php` (kein lokales PHP).
 
 ## Planung
 
@@ -13,7 +15,8 @@ Liegt unter `docs/planung/`:
 
 - `01 Konzept PHOTO-CMS.md`: Ausgangskonzept mit Architektur, Datenmodell, Themes, Bildpipeline, Roadmap und Prompt-Plan (Schritte 0 bis 10)
 - `02 Offene Fragen.md`: Fragen und Antworten von Lutz (15.11.2026)
-- `03 Plan br-foto.md`: aktueller Plan (alles auf all-inkl, PHP und SQLite, TOTP und Passkey), ersetzt Konzept 01 in Teilen; Abschnitt 4a: zwei Betriebsarten all-inkl und Docker
+- `03 Plan br-foto.md`: aktueller Plan (alles auf all-inkl, PHP und SQLite, TOTP und Passkey, zwei Betriebsarten), ersetzt Konzept 01 in Teilen
+- `04 Bestandsaufnahme.md`: gemessene Werte von WordPress und all-inkl; Abschnitt 4a: zwei Betriebsarten all-inkl und Docker
 - `04 Bestandsaufnahme.md`: Serverwerte all-inkl und Bestand br-foto.com
 
 ## Projekt-Eckdaten
