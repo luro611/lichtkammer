@@ -16,6 +16,7 @@ use Lichtkammer\Response;
 trait MediaPages
 {
     private ?string $flash = null;
+    private string $navPath = '';
 
     private const FLASH = [
         'saved' => 'Gespeichert.',
@@ -33,7 +34,8 @@ trait MediaPages
         'draft' => 'Die Galerie ist wieder ein Entwurf.',
         'bulk' => 'Änderungen an {n} Foto(s) gespeichert.',
         'nothing' => 'Es war nichts ausgewählt.',
-        'page' => 'Seite gespeichert.',
+        'page' => 'Gespeichert. Die Seite ist aktualisiert.',
+        'pagecreated' => 'Seite angelegt. Jetzt Text eintragen und speichern.',
         'pagedeleted' => 'Seite gelöscht.',
         'settings' => 'Einstellungen gespeichert.',
         'person' => 'Fotografen gespeichert.',

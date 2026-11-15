@@ -218,6 +218,40 @@ check('Übersicht: Hinweis auf unveröffentlichte Änderungen', str_contains($b-
 check('Navigation: Seiten und Veröffentlichen verlinkt', str_contains($b->get('/admin')->body, 'href="/admin/seiten"') && str_contains($b->get('/admin')->body, 'href="/admin/veroeffentlichen"'));
 check('Admin-Seiten laden: Seitenliste, Einstellungen, Veröffentlichen', $b->get('/admin/seiten')->status === 200 && str_contains($b->get('/admin/einstellungen')->body, 'br.foto') && $b->get('/admin/veroeffentlichen')->status === 200);
 
+// --- Menü, Rückmeldung, 404 ohne Abmelden ---
+$dash = $b->get('/admin')->body;
+check('Menü: Gruppen Inhalte und Verwaltung, Einstellungen sichtbar, Veröffentlichen als Knopf', substr_count($dash, '<details class="navgroup"') === 2 && str_contains($dash, 'href="/admin/einstellungen"')
+    && str_contains($dash, 'class="btn small publish" href="/admin/veroeffentlichen"') && str_contains($dash, 'href="/admin/papierkorb"') && str_contains($dash, 'href="/admin/account"'));
+check('Menü: Konten nur für Administratoren, Marke führt in die Verwaltung', str_contains($dash, 'href="/admin/users"') && str_contains($dash, 'class="brand" href="/admin"'));
+check('Menü: aktuelle Seite markiert, Gruppe als aktiv', str_contains($b->get('/admin/seiten')->body, '<details class="navgroup" data-active>') && str_contains($b->get('/admin/einstellungen')->body, 'href="/admin/einstellungen" aria-current="page"'));
+$nf = $b->get('/admin/seiten/9999');
+check('404 im Admin: bekannte Seite fehlt → Fehlerseite im Rahmen, Abmelden-Knopf noch da', $nf->status === 404 && str_contains($nf->body, 'action="/admin/logout"'));
+check('404 im Admin: Sitzung bleibt bestehen', $b->get('/admin')->status === 200 && $b->get('/admin/seiten')->status === 200);
+$unk = $b->get('/admin/gibt-es-nicht');
+check('404 im Admin: unbekannte Adresse → Fehlerseite im Rahmen, Sitzung bleibt', $unk->status === 404 && str_contains($unk->body, 'action="/admin/logout"') && $b->get('/admin')->status === 200);
+$unkPost = $b->get('/admin/seiten/1/speichern');
+check('404 im Admin: GET auf reine POST-Adresse → Fehlerseite, Sitzung bleibt', $unkPost->status === 404 && str_contains($unkPost->body, 'action="/admin/logout"') && $b->get('/admin')->status === 200);
+check('404 im Admin: ohne Anmeldung nur schlichtes 404', $anon->get('/admin/gibt-es-nicht')->status === 404 && !str_contains($anon->get('/admin/gibt-es-nicht')->body, '<html'));
+$sm = $b->post('/admin/seiten/9999/speichern', ['_csrf' => $csrf, 'title' => 'x', 'slug' => 'x', 'body' => '', 'status' => 'draft', 'nav' => 'none']);
+check('404 im Admin: Speichern einer fehlenden Seite → 404, Sitzung bleibt', $sm->status === 404 && $b->get('/admin')->status === 200);
+$c1 = $b->post('/admin/seiten', ['_csrf' => $csrf, 'vorlage' => 'fotografen']);
+$fid = (int) $db->value("SELECT id FROM pages WHERE slug = 'fotografen'");
+check('Seite anlegen (Vorlage Fotografen): Weiterleitung auf die neue Seite, die es gibt', $c1->status === 303 && ($c1->headers['Location'] ?? '') === "/admin/seiten/$fid?m=pagecreated" && $b->get("/admin/seiten/$fid?m=pagecreated")->status === 200);
+$c2 = $b->post('/admin/seiten', ['_csrf' => $csrf, 'title' => 'Fotografen']);
+$fid2 = (int) $db->value("SELECT id FROM pages WHERE slug = 'fotografen-2'");
+check('Seite anlegen (leer, gleicher Titel): eigene Adresse, Seite erreichbar', $c2->status === 303 && $fid2 > $fid && $b->get($c2->headers['Location'] ?? '/x')->status === 200);
+$ed = $b->get("/admin/seiten/$fid?m=pagecreated")->body;
+check('Anlegen: deutliche Bestätigung oben', str_contains($ed, 'class="notice ok" role="status">Seite angelegt'));
+$sv = $b->post("/admin/seiten/$fid/speichern", ['_csrf' => $csrf, 'title' => 'Fotografen', 'slug' => 'fotografen', 'body' => 'Text', 'status' => 'draft', 'nav' => 'main']);
+$after = $b->get($sv->headers['Location'] ?? '/x')->body;
+check('Speichern: Bestätigung „Gespeichert“ deutlich, mit Wegen danach (Vorschau, Liste, Veröffentlichen) und Entwurfshinweis',
+    $sv->status === 303 && str_contains($after, 'class="notice ok" role="status">Gespeichert') && str_contains($after, 'Vorschau ansehen') && str_contains($after, 'href="/admin/seiten">Zur Liste') && str_contains($after, 'Entwurf'));
+$sl = $b->post("/admin/seiten/$fid/speichern", ['_csrf' => $csrf, 'title' => 'Fotografen', 'slug' => 'fotografen', 'body' => 'Text', 'status' => 'published', 'nav' => 'main', 'weiter' => 'liste']);
+check('Speichern und zur Liste: Weiterleitung auf die Liste mit Bestätigung', ($sl->headers['Location'] ?? '') === '/admin/seiten?m=page' && str_contains($b->get('/admin/seiten?m=page')->body, 'class="notice ok"'));
+check('Speichern: Knöpfe „Speichern“ und „Speichern und zur Liste“ im Formular', str_contains($b->get("/admin/seiten/$fid")->body, 'name="weiter" value="liste"'));
+$b->post("/admin/seiten/$fid/loeschen", ['_csrf' => $csrf]);
+$b->post("/admin/seiten/$fid2/loeschen", ['_csrf' => $csrf]);
+
 // --- Kontrast (WCAG AA, 4,5:1) der benutzten Farbpaare, hell und dunkel ---
 $lum = static function (string $hex): float {
     $c = array_map(static fn (string $h): float => ($v = hexdec($h) / 255) <= 0.03928 ? $v / 12.92 : (($v + 0.055) / 1.055) ** 2.4, str_split(ltrim($hex, '#'), 2));

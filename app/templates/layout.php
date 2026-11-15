@@ -16,20 +16,37 @@ $csrf = $csrf ?? '';
 </head>
 <body>
 <header class="bar"><div class="shell">
-  <a class="brand" href="/">Lichtkammer</a>
-<?php if ($user !== null): ?>
+  <a class="brand" href="<?= $user !== null ? '/admin' : '/' ?>">Lichtkammer</a>
+<?php if ($user !== null):
+    $path = (string) ($navPath ?? '');
+    $on = static fn (string ...$prefixes): bool => array_reduce($prefixes, static fn (bool $c, string $p): bool => $c || $path === $p || str_starts_with($path, $p . '/'), false);
+    $cur = static fn (bool $active): string => $active ? ' aria-current="page"' : '';
+    $inhalte = $on('/admin/fotos', '/admin/galerien', '/admin/seiten', '/admin/papierkorb', '/admin/fotografen');
+    $verw = $on('/admin/users', '/admin/log', '/admin/account');
+?>
   <nav class="nav" aria-label="Verwaltung">
-    <a href="/admin">Übersicht</a>
-    <a href="/admin/fotos">Fotos</a>
-    <a href="/admin/galerien">Galerien</a>
-    <a href="/admin/seiten">Seiten</a>
-    <a href="/admin/veroeffentlichen">Veröffentlichen</a>
-    <a href="/admin/papierkorb">Papierkorb</a>
-<?php if (($user['role'] ?? '') === 'admin'): ?>    <a href="/admin/users">Konten</a>
+    <a href="/admin"<?= $cur($path === '/admin') ?>>Übersicht</a>
+    <details class="navgroup"<?= $inhalte ? ' data-active' : '' ?>>
+      <summary>Inhalte</summary>
+      <div class="navmenu">
+        <a href="/admin/fotos"<?= $cur($on('/admin/fotos')) ?>>Fotos</a>
+        <a href="/admin/galerien"<?= $cur($on('/admin/galerien')) ?>>Galerien</a>
+        <a href="/admin/seiten"<?= $cur($on('/admin/seiten')) ?>>Seiten</a>
+        <a href="/admin/papierkorb"<?= $cur($on('/admin/papierkorb')) ?>>Papierkorb</a>
+      </div>
+    </details>
+    <a href="/admin/einstellungen"<?= $cur($on('/admin/einstellungen')) ?>>Einstellungen</a>
+    <details class="navgroup"<?= $verw ? ' data-active' : '' ?>>
+      <summary>Verwaltung</summary>
+      <div class="navmenu">
+<?php if (($user['role'] ?? '') === 'admin'): ?>        <a href="/admin/users"<?= $cur($on('/admin/users')) ?>>Konten</a>
 <?php endif; ?>
-    <a href="/admin/log">Protokoll</a>
-    <a href="/admin/account">Mein Konto</a>
+        <a href="/admin/log"<?= $cur($on('/admin/log')) ?>>Protokoll</a>
+        <a href="/admin/account"<?= $cur($on('/admin/account')) ?>>Mein Konto</a>
+      </div>
+    </details>
   </nav>
+  <a class="btn small publish" href="/admin/veroeffentlichen"<?= $cur($on('/admin/veroeffentlichen')) ?>>Veröffentlichen</a>
 <?php endif; ?>
   <div class="tools">
     <div class="pill" role="group" aria-label="Design"><button type="button" data-design-set="lurohome" aria-pressed="true">luro</button><button type="button" data-design-set="rothe" aria-pressed="false">rothe.it</button></div>

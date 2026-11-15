@@ -12,6 +12,15 @@ final class Router
     /** @var list<array{method:string,pattern:string,regex:string,handler:callable}> */
     private array $routes = [];
 
+    /** @var (callable(Request):Response)|null */
+    private $fallback = null;
+
+    /** Antwort für unbekannte Pfade (statt des schlichten Textes). */
+    public function fallback(callable $handler): void
+    {
+        $this->fallback = $handler;
+    }
+
     public function get(string $path, callable $handler): void
     {
         $this->add('GET', $path, $handler);
@@ -42,6 +51,6 @@ final class Router
             $params = array_filter($m, 'is_string', ARRAY_FILTER_USE_KEY);
             return ($r['handler'])($request, $params);
         }
-        return Response::notFound();
+        return $this->fallback !== null ? ($this->fallback)($request) : Response::notFound();
     }
 }

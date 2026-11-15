@@ -33,6 +33,17 @@ final class AdminController
         $this->router = new Router();
         $r = fn (string $m, string $path, string $handler, bool $public = false, ?string $role = null) => $this->add($m, $path, $handler, $public, $role);
         // Ausgenommen von der Sitzungsprüfung (feste Liste):
+        // Unbekannte Adressen unter /admin: mit Sitzung die normale Fehlerseite im Verwaltungsrahmen, sonst schlichtes 404.
+        // Die Sitzung wird dabei nie angefasst (kein Abmelden bei 404).
+        $this->router->fallback(function (Request $req): Response {
+            $sess = $this->transportOk($req) ? $this->fullSession($req) : null;
+            if ($sess === null) {
+                return Response::notFound();
+            }
+            $this->flash = null;
+            $this->navPath = $req->path();
+            return $this->missing($sess, 'Seite nicht gefunden');
+        });
         $r('GET', '/admin/login', 'loginForm', true);
         $r('POST', '/admin/login', 'loginPost', true);
         $r('GET', '/admin/login/totp', 'totpForm', true);
@@ -119,6 +130,7 @@ final class AdminController
                 }
             }
             $this->flash = $this->flashFrom($req);
+            $this->navPath = $req->path();
             return $this->{$handler}($req, $params, $sess);
         };
         $method === 'GET' ? $this->router->get($path, $wrapped) : $this->router->post($path, $wrapped);
@@ -187,7 +199,7 @@ final class AdminController
     /** @param array<string,mixed> $data @param array<string,mixed>|null $sess */
     private function page(string $template, array $data, int $status = 200, ?array $sess = null): Response
     {
-        $data += ['flash' => $this->flash, 'banners' => $this->banners($sess), 'user' => $sess, 'csrf' => $sess['csrf_token'] ?? ''];
+        $data += ['flash' => $this->flash, 'banners' => $this->banners($sess), 'user' => $sess, 'navPath' => $this->navPath, 'csrf' => $sess['csrf_token'] ?? ''];
         return Response::html($this->view->render($template, $data), $status)->withHeaders([
             'Cache-Control' => 'no-store',
             'Pragma' => 'no-cache',

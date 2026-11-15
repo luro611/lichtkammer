@@ -41,7 +41,7 @@ trait SitePages
             return $this->pages($req, [], $sess, $e->getMessage(), 400);
         }
         $this->auditLog('page_saved', $sess, 'page=' . $id, $req);
-        return $this->done('/admin/seiten/' . $id, 'page');
+        return $this->done('/admin/seiten/' . $id, 'pagecreated');
     }
 
     private function pageForm(int $id, ?array $sess, ?string $error = null, int $status = 200, ?array $draft = null): Response
@@ -68,7 +68,7 @@ trait SitePages
             return $this->pageForm($id, $sess, $e->getMessage(), 400, $f);
         }
         $this->auditLog('page_saved', $sess, 'page=' . $id, $req);
-        return $this->done('/admin/seiten/' . $id, 'page');
+        return $this->done($req->input('weiter') === 'liste' ? '/admin/seiten' : '/admin/seiten/' . $id, 'page');
     }
 
     public function pageDelete(Request $req, array $p, ?array $sess): Response

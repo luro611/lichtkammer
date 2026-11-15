@@ -115,7 +115,7 @@ check('asset: fehlende Datei ohne Version', $vw->asset('/assets/nix.js') === '/a
 check('layout: CSS und JS mit Version', str_contains($vw->render('error', ['title' => 'T', 'detail' => null]), 'href="/assets/css/app.css'));
 
 // --- Marke: Verwaltung heißt Lichtkammer, öffentliche Seite trägt den Seitennamen und "Powered by Lichtkammer" ---
-check('Admin-Kopf fest Lichtkammer', str_contains(file_get_contents(__DIR__ . '/../app/templates/layout.php'), '<a class="brand" href="/">Lichtkammer</a>'));
+check('Admin-Kopf fest Lichtkammer', str_contains(file_get_contents(__DIR__ . '/../app/templates/layout.php'), '">Lichtkammer</a>') && str_contains(file_get_contents(__DIR__ . '/../app/templates/layout.php'), '<a class="brand"'));
 check('Seitenfuß: Powered by Lichtkammer', str_contains(file_get_contents(__DIR__ . '/../app/templates/site/layout.php'), 'Powered by Lichtkammer'));
 
 // --- Aufräumen und Ergebnis ---

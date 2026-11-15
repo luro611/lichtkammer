@@ -1,6 +1,23 @@
 // Verwaltung: Rückfrage bei heiklen Knöpfen, „alle auswählen“, Ziehen zum Sortieren.
 // Ohne dieses Skript funktioniert alles weiter (Pfeile, Formulare). Ausgabe nur über textContent.
 (function () {
+  // Aufklappmenüs im Kopf: nur eines offen, Esc und Klick daneben schließen (ohne Skript bleiben sie per Klick bedienbar).
+  var groups = Array.prototype.slice.call(document.querySelectorAll('.navgroup'));
+  groups.forEach(function (g) {
+    g.addEventListener('toggle', function () {
+      if (g.open) { groups.forEach(function (o) { if (o !== g) { o.open = false; } }); }
+    });
+  });
+  document.addEventListener('click', function (e) {
+    groups.forEach(function (g) { if (g.open && !g.contains(e.target)) { g.open = false; } });
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') { return; }
+    groups.forEach(function (g) {
+      if (g.open) { g.open = false; var s = g.querySelector('summary'); if (s && g.contains(document.activeElement)) { s.focus(); } }
+    });
+  });
+
   document.addEventListener('click', function (e) {
     var t = e.target;
     while (t && t !== document && !(t.getAttribute && t.getAttribute('data-confirm'))) { t = t.parentNode; }
