@@ -25,7 +25,7 @@ Testinstallation unter **`lichtkammer.br-foto.com`** (statt `neu.br-foto.com` au
 | Speicherplatz | rund 1,5 TB frei |
 | Ordner über dem Webroot | Per **FTP nicht erreichbar**: Der FTP-Benutzer ist auf den Ordner der Subdomain beschränkt (Wurzel = Webroot). **PHP kann aber** oberhalb schreiben: Docroot `/www/htdocs/v119013/lichtkammer.br-foto.com/`, der Elternordner `/www/htdocs/v119013` ist für PHP les- und schreibbar. |
 | Schreibtest im Webroot | erfolgreich (Datei anlegen und löschen) |
-| HTTPS für die Subdomain | **noch nicht eingerichtet.** Der Server liefert nur das Zertifikat `*.kasserver.com`, daher Zertifikatsfehler. Im KAS muss für `lichtkammer.br-foto.com` ein Let's-Encrypt-Zertifikat aktiviert werden (Lutz). Bis dahin ist die Subdomain nur per HTTP erreichbar; Anmeldung, `Secure`-Cookies und HSTS lassen sich erst danach testen. |
+| HTTPS für die Subdomain | **aktiv** (Let's Encrypt, gültig bis 13.02.2027, geprüft am 15.11.2026). `Secure`-Cookies, HSTS und Anmeldung sind damit testbar. |
 
 ### Folgerungen für den Plan
 
@@ -36,5 +36,4 @@ Testinstallation unter **`lichtkammer.br-foto.com`** (statt `neu.br-foto.com` au
 5. **Wichtig:** Backups vom Homeserver per FTPS erreichen den Datenordner über dem Webroot **nicht**. Entweder ein Export in den Webroot (geschützt) oder ein Abruf über einen geschützten Admin-Endpunkt. Das ist in Schritt 3 und 8 zu entscheiden.
 
 ### Noch offen von Lutz
-- Zertifikat für `lichtkammer.br-foto.com` im KAS aktivieren.
-- Optional: im KAS prüfen, ob der Zielordner der Subdomain frei wählbar ist.
+- Optional: im KAS prüfen, ob der Zielordner der Subdomain frei wählbar ist (z. B. `public/`).
