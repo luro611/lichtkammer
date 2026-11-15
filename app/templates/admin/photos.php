@@ -37,4 +37,4 @@
   </ul>
 <?php endif; ?>
 </section>
-<script src="/assets/js/upload.js" defer></script>
+<script src="<?= $e($asset('/assets/js/upload.js')) ?>" defer></script>

@@ -1,4 +1,4 @@
-<?php /** @var string $title @var string $content @var \Lichtkammer\Config $config @var callable $e */
+<?php /** @var string $title @var string $content @var \Lichtkammer\Config $config @var callable $e @var callable $asset */
 $user = $user ?? null;
 $banners = $banners ?? [];
 $csrf = $csrf ?? '';
@@ -11,8 +11,8 @@ $csrf = $csrf ?? '';
 <title><?= $e($title) ?></title>
 <?php if ($config->noindex()): ?><meta name="robots" content="noindex,nofollow">
 <?php endif; ?>
-<link rel="stylesheet" href="/assets/css/app.css">
-<script src="/assets/js/design.js"></script>
+<link rel="stylesheet" href="<?= $e($asset('/assets/css/app.css')) ?>">
+<script src="<?= $e($asset('/assets/js/design.js')) ?>"></script>
 </head>
 <body>
 <header class="bar"><div class="shell">

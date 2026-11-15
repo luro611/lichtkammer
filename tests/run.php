@@ -105,6 +105,15 @@ foreach (['auth_unit.php', 'auth_flow.php', 'auth_race.php', 'design.php', 'medi
     }
 }
 
+// --- Asset-Adressen mit Version (Browser-Cache nach Upload) ---
+mkdir($tmp . '/webroot/assets/css', 0777, true);
+file_put_contents($tmp . '/webroot/assets/css/app.css', 'x');
+touch($tmp . '/webroot/assets/css/app.css', 1700000000);
+$vw = new \Lichtkammer\View(__DIR__ . '/../app/templates', Config::load($tmp . '/webroot/app', $tmp . '/webroot', []));
+check('asset: Version aus Änderungszeit', $vw->asset('/assets/css/app.css') === '/assets/css/app.css?v=1700000000');
+check('asset: fehlende Datei ohne Version', $vw->asset('/assets/nix.js') === '/assets/nix.js');
+check('layout: CSS und JS mit Version', str_contains($vw->render('error', ['title' => 'T', 'detail' => null]), 'href="/assets/css/app.css'));
+
 // --- Aufräumen und Ergebnis ---
 exec('rm -rf ' . escapeshellarg($tmp));
 echo ($fails === 0 ? 'OK' : 'FEHLGESCHLAGEN') . ": $count Prüfungen, $fails Fehler\n";
