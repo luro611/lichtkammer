@@ -27,17 +27,18 @@ $csrf = $csrf ?? '';
   <nav class="nav" aria-label="Verwaltung">
     <a href="/admin"<?= $cur($path === '/admin') ?>>Übersicht</a>
     <details class="navgroup"<?= $inhalte ? ' data-active' : '' ?>>
-      <summary>Inhalte</summary>
+      <summary>Inhalte<?= $inhalte ? '<span class="sr"> (aktuell)</span>' : '' ?></summary>
       <div class="navmenu">
         <a href="/admin/fotos"<?= $cur($on('/admin/fotos')) ?>>Fotos</a>
         <a href="/admin/galerien"<?= $cur($on('/admin/galerien')) ?>>Galerien</a>
         <a href="/admin/seiten"<?= $cur($on('/admin/seiten')) ?>>Seiten</a>
+        <a href="/admin/fotografen"<?= $cur($on('/admin/fotografen')) ?>>Fotografen</a>
         <a href="/admin/papierkorb"<?= $cur($on('/admin/papierkorb')) ?>>Papierkorb</a>
       </div>
     </details>
     <a href="/admin/einstellungen"<?= $cur($on('/admin/einstellungen')) ?>>Einstellungen</a>
     <details class="navgroup"<?= $verw ? ' data-active' : '' ?>>
-      <summary>Verwaltung</summary>
+      <summary>Verwaltung<?= $verw ? '<span class="sr"> (aktuell)</span>' : '' ?></summary>
       <div class="navmenu">
 <?php if (($user['role'] ?? '') === 'admin'): ?>        <a href="/admin/users"<?= $cur($on('/admin/users')) ?>>Konten</a>
 <?php endif; ?>
