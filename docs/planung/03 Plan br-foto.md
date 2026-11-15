@@ -176,16 +176,16 @@ Jeder Schritt wird einzeln beauftragt, in einer eigenen, kurzen Sitzung (bauen m
 | 3 | **Datenmodell und Bildpipeline** | SQLite-Schema mit Migrationen, Upload in Stücken, Varianten, EXIF, GPS-Entfernung, Dublettenprüfung | mittel |
 | 4 | **Bildverwaltung** | Galerien, Sortieren, Titelbild, Mehrfachbearbeitung, Alt-Text-Pflicht, Papierkorb, Suche | mittel |
 | 5 | **Öffentliche Seite** | Start, Galerien, Justified-Raster, Lightbox, Seiten, hell/dunkel, Vorschau, Veröffentlichen mit Rückgängig | mittel |
-| 6 | **Passkey** | WebAuthn zusätzlich zu TOTP, mit Fable-Prüfung | **hoch** |
 | 7 | **Umzug** | Importskript, Import, Weiterleitungen, Durchsicht mit beiden Fotografen auf `lichtkammer.` | mittel |
 | 8 | **Härtung und Livegang** | Sicherheitsprüfung, Lighthouse, Sicherung vom Homeserver eingerichtet, Umschalten im KAS, WordPress noch als Rückweg aufbewahrt | **hoch** |
+| 6 | **Passkey** | WebAuthn zusätzlich zu TOTP, mit Fable-Prüfung. **Reihenfolge geändert (Lutz, 16.11.2026): erst nach Schritt 8, also nach dem Livegang.** Bis dahin Passwort plus TOTP | **hoch** |
 | 9 | **Phase 2** | Ausstellungen, Schlagworte, Galerie mit Passwort usw. nach Wunsch | – |
 
 ## 12. Offene Fragen
 
 1. **Apple-Rahmen:** Gelten die runderen Rahmen nur für br-foto, oder soll sich die allgemeine Designregel (2 px) überall ändern?
 2. **Repos:** System in `lichtkammer` und Inhalt/Betrieb in `br-foto` getrennt, wie in Abschnitt 10 vorgeschlagen?
-3. **Passkey gleich mit oder nach dem Livegang?** Vorschlag: TOTP zum Start, Passkey als Schritt 6 vor dem Livegang.
+3. **Passkey gleich mit oder nach dem Livegang?** Entschieden (Lutz, 16.11.2026): TOTP zum Start, Passkey als Schritt 6 erst nach dem Livegang (Schritt 8). Der Admin ist bis dahin nur mit Passwort und TOTP geschützt.
 4. **Marke:** Öffentlich BR-Foto als Marke, luro nur als kleine Wortmarke in der Fußzeile und das Siegel auf der Anmeldeseite. Einverstanden, und ist die zweite Person damit einverstanden?
 5. **Namen der Fotografen:** Schreibweise auf der neuen Seite vor dem Umzug prüfen.
 6. **Welche Galerien und Seiten ziehen um?** Alles, oder wird beim Umzug ausgemistet?
