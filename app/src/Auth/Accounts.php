@@ -8,6 +8,7 @@ final class Accounts
 {
     public function __construct(
         private readonly Database $db,
+        private readonly Keys $keys,
         private readonly SessionStore $sessions,
         private readonly Audit $audit,
         private readonly Clock $clock,
@@ -31,7 +32,7 @@ final class Accounts
         $this->db->tx(function () use ($raw, $role, $adminId, $now, $ipPrefix): void {
             $this->db->run(
                 'INSERT INTO invites(token_hash, purpose, role, expires_at, created_by, created_at) VALUES(?,?,?,?,?,?)',
-                [hash('sha256', $raw), 'new_account', $role, $now + Enrollment::INVITE_TTL, $adminId, $now],
+                [$this->keys->hmac('ids', $raw), 'new_account', $role, $now + Enrollment::INVITE_TTL, $adminId, $now],
             );
             $this->audit->log('invite_created', $adminId, 'role=' . $role, $ipPrefix);
         });
@@ -61,7 +62,7 @@ final class Accounts
             $this->sessions->destroyForUser($targetId);
             $this->db->run(
                 'INSERT INTO invites(token_hash, purpose, user_id, role, expires_at, created_by, created_at) VALUES(?,?,?,?,?,?,?)',
-                [hash('sha256', $raw), 'reenroll', $targetId, $t['role'], $now + Enrollment::INVITE_TTL, $adminId, $now],
+                [$this->keys->hmac('ids', $raw), 'reenroll', $targetId, $t['role'], $now + Enrollment::INVITE_TTL, $adminId, $now],
             );
             $this->audit->log('account_reset', $targetId, 'by=' . $adminId, $ipPrefix);
             return true;
@@ -86,6 +87,7 @@ final class Accounts
             $this->db->run('UPDATE users SET disabled_at = ? WHERE id = ?', [$disabled ? $this->clock->now() : null, $targetId]);
             if ($disabled) {
                 $this->sessions->destroyForUser($targetId);
+                $this->voidInvitesBy($targetId);
             }
             $this->audit->log($disabled ? 'account_disabled' : 'account_enabled', $targetId, 'by=' . $adminId, $ipPrefix);
             return null;
@@ -106,20 +108,36 @@ final class Accounts
                 return 'Das ist der letzte aktive Administrator.';
             }
             $this->db->run('UPDATE users SET role = ? WHERE id = ?', [$role, $targetId]);
+            if ($role !== 'admin') {
+                $this->voidInvitesBy($targetId);
+            }
             $this->audit->log('role_changed', $targetId, 'role=' . $role . ',by=' . $adminId, $ipPrefix);
             return null;
         });
     }
 
+    /** Andere Administratoren, die sich auch anmelden können (aktiv und mit bestätigtem TOTP). */
     private function otherActiveAdmins(int $exceptId): int
     {
-        return (int) $this->db->value("SELECT COUNT(*) FROM users WHERE role = 'admin' AND disabled_at IS NULL AND id <> ?", [$exceptId]);
+        return (int) $this->db->value("SELECT COUNT(*) FROM users WHERE role = 'admin' AND disabled_at IS NULL AND totp_confirmed_at IS NOT NULL AND id <> ?", [$exceptId]);
     }
 
-    public function endSessions(int $adminId, int $targetId, string $ipPrefix): int
+    /** Offene Einladungen eines gesperrten oder herabgestuften Administrators gelten nicht mehr. */
+    private function voidInvitesBy(int $userId): void
     {
-        $n = $this->sessions->destroyForUser($targetId);
-        $this->audit->log('sessions_ended', $targetId, 'by=' . $adminId . ',n=' . $n, $ipPrefix);
-        return $n;
+        $this->db->run("UPDATE invites SET used_at = ? WHERE created_by = ? AND purpose = 'new_account' AND used_at IS NULL", [$this->clock->now(), $userId]);
+    }
+
+    /** @return int|null Zahl der beendeten Sitzungen, null wenn es das Konto nicht gibt */
+    public function endSessions(int $adminId, int $targetId, string $ipPrefix): ?int
+    {
+        return $this->db->tx(function () use ($adminId, $targetId, $ipPrefix): ?int {
+            if ($this->db->value('SELECT 1 FROM users WHERE id = ?', [$targetId]) === null) {
+                return null;
+            }
+            $n = $this->sessions->destroyForUser($targetId);
+            $this->audit->log('sessions_ended', $targetId, 'by=' . $adminId . ',n=' . $n, $ipPrefix);
+            return $n;
+        });
     }
 }

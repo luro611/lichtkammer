@@ -162,6 +162,7 @@ $db2 = Database::open($dbFile);
 check('Schema: zweites Öffnen führt nichts erneut aus (Daten bleiben)', $db2->value("SELECT v FROM meta WHERE k='probe'") === '1' && Schema::version($db2) === count(Schema::migrations()));
 check('Schema: Foreign Keys an', (int) $db->value('PRAGMA foreign_keys') === 1);
 check('Schema: busy_timeout 5000', (int) $db->value('PRAGMA busy_timeout') === 5000);
+check('Schema: recursive_triggers an (A5)', (int) $db->value('PRAGMA recursive_triggers') === 1);
 
 // --- Protokoll ---
 $clock = new Clock(TEST_START);
@@ -232,6 +233,13 @@ for ($i = 0; $i < 20; $i++) {
     $a2->log('login_ok', 1);
 }
 check('Protokoll: 20 Einträge lückenlos', $a2->verify()['ok'] && $a2->verify()['count'] === 23);
+$replaced = false;
+try {
+    $db3->run("INSERT OR REPLACE INTO audit_log(id, at, user_id, event, detail, ip_prefix, chain) VALUES(1, 1, NULL, 'logout', '', '', 'x')");
+    $replaced = true;
+} catch (\PDOException) {
+}
+check('Protokoll: INSERT OR REPLACE wird vom Trigger abgewiesen (A5)', !$replaced && $a2->verify()['ok']);
 
 // --- Wiederherstellungscodes ---
 $rc = new RecoveryCodes($db, $keys, $clock);
@@ -243,6 +251,14 @@ check('Codes: gültiger Code wird akzeptiert (auch klein/ohne Strich)', $rc->con
 check('Codes: derselbe Code nur einmal', !$rc->consume(1, $codes[0]));
 check('Codes: falscher Code scheitert', !$rc->consume(1, 'ZZZZZ-ZZZZZ'));
 check('Codes: Code eines anderen Kontos scheitert', !$rc->consume(2, $codes[1]));
+$db->run("INSERT OR IGNORE INTO users(id, username, role, password_hash, created_at, webauthn_handle) VALUES(2, 'u2','editor','x',1,'h2')");
+$db->run('INSERT INTO recovery_codes(user_id, code_hash) SELECT 2, code_hash FROM recovery_codes WHERE user_id = 1 AND used_at IS NULL LIMIT 1');
+$anyCopied = false;
+foreach (array_slice($codes, 1) as $cc) {
+    $anyCopied = $anyCopied || $rc->consume(2, $cc);
+}
+check('Codes: in ein anderes Konto kopierter Hash gilt dort nicht (A6)', !$anyCopied && (int) $db->value('SELECT COUNT(*) FROM recovery_codes WHERE user_id = 2 AND used_at IS NULL') === 1);
+$db->run('DELETE FROM recovery_codes WHERE user_id = 2');
 check('Codes: ein Code verbraucht, neun übrig', $rc->remaining(1) === 9);
 $new = $rc->regenerate(1);
 check('Codes: Neuerzeugung entwertet alle alten', !$rc->consume(1, $codes[2]) && $rc->remaining(1) === 10 && $rc->consume(1, $new[0]));

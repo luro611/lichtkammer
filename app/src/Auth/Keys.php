@@ -10,6 +10,7 @@ namespace Lichtkammer\Auth;
  */
 final class Keys
 {
+    /** HKDF-Kontexte. 'ids': Sitzungs-, Zwischenzeilen- und Token-Kennungen (keyed, damit die Datei allein keine gültige Zeile ergibt). */
     public const CTX = ['totp', 'recovery', 'audit', 'ratelimit', 'csrf', 'ids'];
 
     /** @var array<string,string> */

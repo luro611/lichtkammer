@@ -15,7 +15,6 @@ final class Passwords
 
     /** @var array{memory_cost:int,time_cost:int,threads:int} */
     private array $options;
-    private ?string $dummy = null;
     /** Anzahl der Hash-Prüfungen in diesem Prozess (Tests, Bremse). */
     public int $verifications = 0;
     /** @var array<string,true>|null */
@@ -125,11 +124,21 @@ final class Passwords
         return password_verify(self::normalize($password), $hash);
     }
 
-    /** Scheinprüfung für unbekannte Konten mit denselben Parametern wie echte Hashes. */
-    public function verifyDummy(string $password): void
+    /**
+     * Scheinprüfung für unbekannte Konten mit denselben Parametern wie echte Hashes.
+     * Der Scheinhash wird einmal erzeugt und vom Aufrufer gespeichert (meta), damit ein unbekannter
+     * Name nicht doppelt so lange braucht wie ein bekannter (Prüfung 08, A1).
+     *
+     * @param string|null $stored gespeicherter Scheinhash oder null
+     * @return string der benutzte Hash (neu, wenn keiner da war oder die Parameter sich geändert haben)
+     */
+    public function verifyDummy(string $password, ?string $stored = null): string
     {
-        $this->dummy ??= password_hash(bin2hex(random_bytes(16)), PASSWORD_ARGON2ID, $this->options);
-        $this->verify($password, $this->dummy);
+        $hash = $stored !== null && $stored !== '' && !$this->needsRehash($stored)
+            ? $stored
+            : password_hash(bin2hex(random_bytes(16)), PASSWORD_ARGON2ID, $this->options);
+        $this->verify($password, $hash);
+        return $hash;
     }
 
     public function needsRehash(string $hash): bool

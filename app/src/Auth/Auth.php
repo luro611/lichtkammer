@@ -22,6 +22,16 @@ final class Auth
     ) {
     }
 
+    /** Scheinprüfung mit einem in meta gespeicherten Hash: ein Argon2-Lauf wie bei bekanntem Namen. */
+    private function verifyDummy(string $password): void
+    {
+        $stored = $this->db->value("SELECT v FROM meta WHERE k = 'dummy_hash'");
+        $used = $this->passwords->verifyDummy($password, is_string($stored) ? $stored : null);
+        if ($used !== $stored) {
+            $this->db->run("INSERT INTO meta(k, v) VALUES('dummy_hash', ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v", [$used]);
+        }
+    }
+
     /**
      * Stufe 1. Gleiche Antwort, gleicher Zeitaufwand und gleiche Zähler für unbekannte, gesperrte,
      * deaktivierte und TOTP-lose Konten.
@@ -48,7 +58,7 @@ final class Auth
         if ($user !== null) {
             $passwordOk = $this->passwords->verify($password, (string) $user['password_hash']);
         } else {
-            $this->passwords->verifyDummy($password);
+            $this->verifyDummy($password);
             $passwordOk = false;
         }
         $usable = $user !== null && $passwordOk && $user['disabled_at'] === null && $user['totp_confirmed_at'] !== null;

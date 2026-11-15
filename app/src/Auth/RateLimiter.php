@@ -41,11 +41,13 @@ final class RateLimiter
             $this->db->run('DELETE FROM login_attempts WHERE at < ?', [$now - self::WINDOW]);
 
             foreach ($rules as $r) {
-                $row = $this->db->one('SELECT COUNT(*) AS n, MAX(at) AS last FROM login_attempts WHERE kind = ? AND key_hash = ? AND at >= ?', [$r['kind'], $r['key'], $now - self::WINDOW]);
+                $row = $this->db->one('SELECT COUNT(*) AS n, MIN(at) AS first, MAX(at) AS last FROM login_attempts WHERE kind = ? AND key_hash = ? AND at >= ?', [$r['kind'], $r['key'], $now - self::WINDOW]);
                 $n = (int) ($row['n'] ?? 0);
+                $first = (int) ($row['first'] ?? 0);
                 $last = (int) ($row['last'] ?? 0);
                 if ($r['lock'] !== null && $n >= $r['lock']) {
-                    return ['ok' => false, 'retry' => max(1, $last + self::WINDOW - $now), 'ids' => [], 'reason' => 'locked', 'locked_now' => []];
+                    // Die Sperre endet, wenn der erste der gezählten Versuche aus dem Fenster fällt.
+                    return ['ok' => false, 'retry' => max(1, $first + self::WINDOW - $now), 'ids' => [], 'reason' => 'locked', 'locked_now' => []];
                 }
                 $delayFrom = $r['kind'] === 'user' ? self::DELAY_ONLY_USER : self::DELAY_FROM;
                 if ($r['delay'] && $n >= $delayFrom) {

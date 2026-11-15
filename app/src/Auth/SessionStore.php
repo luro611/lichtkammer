@@ -5,7 +5,7 @@ namespace Lichtkammer\Auth;
 
 /**
  * Eigene Sitzungsverwaltung in SQLite (nicht PHP-Dateisitzungen). Cookie enthält 32 Zufallsbytes,
- * in der Datenbank steht nur der SHA-256-Hash.
+ * in der Datenbank steht nur ein keyed HMAC (Kontext ids): Wer nur die Datei schreiben kann, kann keine Sitzung einfügen.
  */
 final class SessionStore
 {
@@ -15,15 +15,16 @@ final class SessionStore
 
     public function __construct(
         private readonly Database $db,
+        private readonly Keys $keys,
         private readonly Clock $clock,
         private readonly int $idle,
         private readonly int $absolute,
     ) {
     }
 
-    public static function hashId(string $raw): string
+    public function hashId(string $raw): string
     {
-        return hash('sha256', $raw);
+        return $this->keys->hmac('ids', $raw);
     }
 
     /** @return array{id:string,csrf:string} neue Sitzungs-ID (roh, fürs Cookie) und CSRF-Token */
@@ -34,7 +35,7 @@ final class SessionStore
         $now = $this->clock->now();
         $this->db->run(
             'INSERT INTO sessions(id_hash, user_id, stage, csrf_token, created_at, last_seen_at, ip_prefix, ua_hash) VALUES(?,?,?,?,?,?,?,?)',
-            [self::hashId($raw), $userId, $stage, $csrf, $now, $now, $ipPrefix, hash('sha256', $userAgent)],
+            [$this->hashId($raw), $userId, $stage, $csrf, $now, $now, $ipPrefix, hash('sha256', $userAgent)],
         );
         return ['id' => $raw, 'csrf' => $csrf];
     }
@@ -50,7 +51,7 @@ final class SessionStore
         if (preg_match('/^[0-9a-f]{64}$/', $raw) !== 1) {
             return null;
         }
-        $hash = self::hashId($raw);
+        $hash = $this->hashId($raw);
         $row = $this->db->one(
             'SELECT s.*, u.username, u.display_name, u.role, u.disabled_at, u.totp_confirmed_at
              FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.id_hash = ?',
@@ -75,7 +76,7 @@ final class SessionStore
 
     public function destroy(string $raw): void
     {
-        $this->db->run('DELETE FROM sessions WHERE id_hash = ?', [self::hashId($raw)]);
+        $this->db->run('DELETE FROM sessions WHERE id_hash = ?', [$this->hashId($raw)]);
     }
 
     public function destroyForUser(int $userId, ?string $exceptRaw = null): int
@@ -83,13 +84,13 @@ final class SessionStore
         if ($exceptRaw === null) {
             return $this->db->run('DELETE FROM sessions WHERE user_id = ?', [$userId])->rowCount();
         }
-        return $this->db->run('DELETE FROM sessions WHERE user_id = ? AND id_hash <> ?', [$userId, self::hashId($exceptRaw)])->rowCount();
+        return $this->db->run('DELETE FROM sessions WHERE user_id = ? AND id_hash <> ?', [$userId, $this->hashId($exceptRaw)])->rowCount();
     }
 
     /** Zählt einen falschen Code in einer password_ok-Sitzung; ab 5 wird sie gelöscht. */
     public function noteTotpFailure(string $raw): bool
     {
-        $hash = self::hashId($raw);
+        $hash = $this->hashId($raw);
         $this->db->run('UPDATE sessions SET totp_failures = totp_failures + 1 WHERE id_hash = ?', [$hash]);
         $n = (int) ($this->db->value('SELECT totp_failures FROM sessions WHERE id_hash = ?', [$hash]) ?? 0);
         if ($n >= self::MAX_TOTP_FAILURES) {

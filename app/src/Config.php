@@ -64,6 +64,8 @@ final class Config
             $value = trim($value);
             if (strlen($value) >= 2 && ($value[0] === '"' || $value[0] === "'") && $value[-1] === $value[0]) {
                 $value = substr($value, 1, -1);
+            } elseif (preg_match('/\s#/', $value) === 1) {
+                $value = trim((string) preg_split('/\s#/', $value, 2)[0]); // Kommentar hinter dem Wert
             }
             if (preg_match('/^[A-Z][A-Z0-9_]*$/', $key) === 1) {
                 $out[$key] = $value;

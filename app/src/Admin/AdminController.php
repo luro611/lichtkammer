@@ -229,8 +229,9 @@ final class AdminController
     {
         $ps = $this->passwordSession($req);
         $sidName = $this->s->cookies->name('lk_sid');
+        $clearSid = fn (Response $r): Response => $req->cookie($sidName) !== '' ? $r->withCookie($this->s->cookies->clear('lk_sid')) : $r;
         if ($ps === null) {
-            return Response::redirect('/admin/login')->withCookie($this->s->cookies->clear('lk_sid'));
+            return $clearSid(Response::redirect('/admin/login')); // ohne Cookie nichts löschen (fremdes POST könnte sonst abmelden)
         }
         $next = self::safeNext($req->input('next'));
         $show = fn (string $err, int $status): Response => $this->page('admin/totp', ['title' => 'Zweiter Schritt', 'error' => $err, 'next' => $next, 'csrf' => $ps['csrf_token']], $status);
@@ -241,7 +242,7 @@ final class AdminController
         return match ($res['status']) {
             'ok' => Response::redirect($res['recovery'] ? '/admin/account?neu=1' : $next)->withCookie($this->sessionCookie((string) $res['sid'])),
             'blocked' => $show('Die Anmeldung ist gerade nicht möglich. Bitte in ein paar Minuten noch einmal versuchen.', 429),
-            'expired' => Response::redirect('/admin/login')->withCookie($this->s->cookies->clear('lk_sid')),
+            'expired' => $clearSid(Response::redirect('/admin/login')),
             default => $show('Der Code stimmt nicht. Bitte noch einmal versuchen.', 401),
         };
     }
@@ -507,6 +508,9 @@ final class AdminController
                 return $this->usersPage($sess, $this->config->baseUrl() . '/admin/invite/' . $token, 'Konto zurückgesetzt: TOTP, Wiederherstellungscodes und Sitzungen sind ungültig. Der Link gilt 24 Stunden und einmal.');
             case 'sessions':
                 $n = $this->s->accounts->endSessions($admin, $target, $ip);
+                if ($n === null) {
+                    return Response::notFound();
+                }
                 return $this->usersPage($sess, null, $n . ' Sitzung(en) beendet.');
             case 'role':
                 $err = $this->s->accounts->setRole($admin, $target, $req->input('role'), $ip);

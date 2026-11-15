@@ -61,6 +61,10 @@ check('Parser: Kleinbuchstaben-/fremde Schlüssel erlaubt nur A-Z', isset($p['A'
 check('Parser: Leerzeichen und Quotes', ($p['LK_X'] ?? null) === 'y z');
 check('Parser: leerer Wert', ($p['LK_EMPTY'] ?? null) === '');
 check('Parser: Schlüssel mit Leerzeichen verworfen', !isset($p['LK_BAD KEY']));
+$p = Config::parseEnvFile("LK_SESSION_IDLE=3600        # Leerlauf\nLK_URL=https://a.de/#x\nLK_Q=\"a # b\"\n");
+check('Parser: Kommentar hinter dem Wert wird abgeschnitten (A9)', ($p['LK_SESSION_IDLE'] ?? null) === '3600');
+check('Parser: # ohne Leerzeichen davor bleibt Teil des Werts', ($p['LK_URL'] ?? null) === 'https://a.de/#x');
+check('Parser: # in Anführungszeichen bleibt', ($p['LK_Q'] ?? null) === 'a # b');
 
 // --- Request / HTTPS hinter Reverse-Proxy ---
 $plain = Config::load($tmp . '/docker/app', $tmp . '/docker/public', []);

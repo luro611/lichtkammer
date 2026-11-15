@@ -32,6 +32,7 @@ final class Database
         }
         $pdo->exec('PRAGMA busy_timeout = 5000');
         $pdo->exec('PRAGMA foreign_keys = ON');
+        $pdo->exec('PRAGMA recursive_triggers = ON'); // sonst umgeht INSERT OR REPLACE den DELETE-Trigger von audit_log
         $pdo->exec('PRAGMA journal_mode = ' . ($wal ? 'WAL' : 'DELETE'));
         if ($isNew && $file !== ':memory:') {
             @chmod($file, 0600);

@@ -21,9 +21,10 @@ final class RecoveryCodes
         return strtr($s, ['O' => '0', 'I' => '1', 'L' => '1']);
     }
 
-    private function hash(string $normalized): string
+    /** An das Konto gebunden: ein Code-Hash lässt sich nicht in die Zeile eines anderen Kontos kopieren. */
+    private function hash(int $userId, string $normalized): string
     {
-        return $this->keys->hmac('recovery', $normalized);
+        return $this->keys->hmac('recovery', $userId . '|' . $normalized);
     }
 
     /** @return list<string> neue Codes im Klartext ("XXXXX-XXXXX"); ersetzt alle bisherigen des Kontos */
@@ -37,7 +38,7 @@ final class RecoveryCodes
                 for ($j = 0; $j < 10; $j++) {
                     $code .= self::ALPHABET[random_int(0, 31)];
                 }
-                $this->db->run('INSERT INTO recovery_codes(user_id, code_hash) VALUES(?,?)', [$userId, $this->hash($code)]);
+                $this->db->run('INSERT INTO recovery_codes(user_id, code_hash) VALUES(?,?)', [$userId, $this->hash($userId, $code)]);
                 $out[] = substr($code, 0, 5) . '-' . substr($code, 5);
             }
             return $out;
@@ -58,7 +59,7 @@ final class RecoveryCodes
         } else {
             $valid = true;
         }
-        $candidate = $this->hash($norm);
+        $candidate = $this->hash($userId, $norm);
         return $this->db->tx(function () use ($userId, $candidate, $valid): bool {
             $found = null;
             foreach ($this->db->all('SELECT id, code_hash FROM recovery_codes WHERE user_id = ? AND used_at IS NULL', [$userId]) as $row) {

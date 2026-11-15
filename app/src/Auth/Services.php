@@ -39,14 +39,14 @@ final class Services
         $db = Database::open($dataDir . '/lichtkammer.sqlite', $config->sqliteWal());
         $passwords = new Passwords($config->appDir . '/resources/common-passwords.txt', $argonOptions);
         $limiter = new RateLimiter($db, $keys, $clock);
-        $sessions = new SessionStore($db, $clock, $config->sessionIdleSeconds(), $config->sessionAbsoluteSeconds());
+        $sessions = new SessionStore($db, $keys, $clock, $config->sessionIdleSeconds(), $config->sessionAbsoluteSeconds());
         $audit = new Audit($db, $keys, $clock);
         $recovery = new RecoveryCodes($db, $keys, $clock);
         $cookies = new Cookies($config);
         $preCsrf = new PreCsrf($keys, $clock);
         $auth = new Auth($config, $db, $keys, $passwords, $limiter, $sessions, $audit, $recovery, $clock);
         $enrollment = new Enrollment($config, $db, $keys, $passwords, $limiter, $sessions, $audit, $recovery, $clock);
-        $accounts = new Accounts($db, $sessions, $audit, $clock);
+        $accounts = new Accounts($db, $keys, $sessions, $audit, $clock);
         return new self($config, $clock, $db, $keys, $passwords, $limiter, $sessions, $audit, $recovery, $cookies, $preCsrf, $auth, $enrollment, $accounts, $dataDir);
     }
 }

@@ -40,7 +40,17 @@ final class Enrollment
             && (int) $this->db->value('SELECT COUNT(*) FROM users') === 0;
     }
 
-    private static function tokenHash(string $token): string
+    /** Kennung von Einladungen und Zwischenzeilen: keyed HMAC, nie reines SHA-256 (Prüfung 08, A6). */
+    private function tokenHash(string $token): string
+    {
+        return $this->keys->hmac('ids', $token);
+    }
+
+    /**
+     * Markierung „Notfall-Token verbraucht“ in meta: absichtlich ohne Schlüssel, damit sie eine
+     * Schlüsselrotation überlebt (sonst gälte ein verbrauchtes LK_RESET_TOKEN danach wieder). Das Token steht ohnehin in .env.
+     */
+    private static function markerHash(string $token): string
     {
         return hash('sha256', $token);
     }
@@ -49,7 +59,7 @@ final class Enrollment
     {
         $t = $this->config->resetToken();
         return strlen($t) >= 32
-            && $this->db->value("SELECT 1 FROM meta WHERE k = ?", ['reset_used:' . self::tokenHash($t)]) === null;
+            && $this->db->value("SELECT 1 FROM meta WHERE k = ?", ['reset_used:' . self::markerHash($t)]) === null;
     }
 
     /** Warnungen: ein vergessenes, schon benutztes Token steht noch in .env. @return list<string> */
@@ -60,7 +70,7 @@ final class Enrollment
             $w[] = 'In app/.env steht noch LK_SETUP_TOKEN, obwohl die Einrichtung abgeschlossen ist. Bitte die Zeile löschen.';
         }
         $r = $this->config->resetToken();
-        if ($r !== '' && $this->db->value("SELECT 1 FROM meta WHERE k = ?", ['reset_used:' . self::tokenHash($r)]) !== null) {
+        if ($r !== '' && $this->db->value("SELECT 1 FROM meta WHERE k = ?", ['reset_used:' . self::markerHash($r)]) !== null) {
             $w[] = 'In app/.env steht noch ein benutztes LK_RESET_TOKEN. Bitte die Zeile löschen.';
         }
         return $w;
@@ -116,7 +126,7 @@ final class Enrollment
         }
         $row = $this->db->one(
             'SELECT i.*, u.username AS target_name FROM invites i LEFT JOIN users u ON u.id = i.user_id WHERE i.token_hash = ? AND i.used_at IS NULL AND i.expires_at > ?',
-            [self::tokenHash($token), $this->clock->now()],
+            [$this->tokenHash($token), $this->clock->now()],
         );
         return $row;
     }
@@ -161,7 +171,7 @@ final class Enrollment
     private function createPending(string $purpose, ?int $inviteId, string $username, string $role, string $password): string
     {
         $raw = bin2hex(random_bytes(32));
-        $idHash = hash('sha256', $raw);
+        $idHash = $this->tokenHash($raw);
         $secret = Totp::newSecret();
         $now = $this->clock->now();
         $this->db->run(
@@ -179,7 +189,7 @@ final class Enrollment
         if (preg_match('/^[0-9a-f]{64}$/', $raw) !== 1) {
             return null;
         }
-        $row = $this->db->one('SELECT * FROM pending_enrollments WHERE id_hash = ?', [hash('sha256', $raw)]);
+        $row = $this->db->one('SELECT * FROM pending_enrollments WHERE id_hash = ?', [$this->tokenHash($raw)]);
         if ($row === null) {
             return null;
         }
@@ -199,7 +209,7 @@ final class Enrollment
 
     public function cancel(string $raw): void
     {
-        $this->db->run('DELETE FROM pending_enrollments WHERE id_hash = ?', [hash('sha256', $raw)]);
+        $this->db->run('DELETE FROM pending_enrollments WHERE id_hash = ?', [$this->tokenHash($raw)]);
     }
 
     /**
@@ -320,9 +330,9 @@ final class Enrollment
                 $this->revokeCredentials((int) $user['id']);
                 $this->db->run(
                     'INSERT INTO invites(token_hash, purpose, user_id, role, expires_at, created_by, created_at) VALUES(?,?,?,?,?,NULL,?)',
-                    [self::tokenHash($raw), 'reenroll', $user['id'], $user['role'], $this->clock->now() + self::INVITE_TTL, $this->clock->now()],
+                    [$this->tokenHash($raw), 'reenroll', $user['id'], $user['role'], $this->clock->now() + self::INVITE_TTL, $this->clock->now()],
                 );
-                $this->db->run('INSERT INTO meta(k,v) VALUES(?, ?)', ['reset_used:' . self::tokenHash($token), (string) $this->clock->now()]);
+                $this->db->run('INSERT INTO meta(k,v) VALUES(?, ?)', ['reset_used:' . self::markerHash($token), (string) $this->clock->now()]);
                 $this->audit->log('emergency_reset', (int) $user['id'], '', $ip['prefix']);
             });
             $this->limiter->release($gate['ids']);

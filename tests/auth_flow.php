@@ -142,7 +142,7 @@ check('Alte password_ok-ID funktioniert nicht mehr', (static function () use ($m
     return $x->get('/admin')->status === 303;
 })());
 check('Volle Sitzung: /admin 200', lk_in($b));
-check('Sitzung nur als Hash gespeichert', $cnt($m, 'SELECT COUNT(*) FROM sessions WHERE id_hash = ?', [$sid2]) === 0 && $cnt($m, 'SELECT COUNT(*) FROM sessions WHERE id_hash = ?', [hash('sha256', $sid2)]) === 1);
+check('Sitzung nur als Hash gespeichert', $cnt($m, 'SELECT COUNT(*) FROM sessions WHERE id_hash = ?', [$sid2]) === 0 && $cnt($m, 'SELECT COUNT(*) FROM sessions WHERE id_hash = ?', [$m['app']->services()->sessions->hashId($sid2)]) === 1 && $cnt($m, 'SELECT COUNT(*) FROM sessions WHERE id_hash = ?', [hash('sha256', $sid2)]) === 0);
 check('Anmeldung erscheint im Protokoll, ohne Passwort/Code', $cnt($m, "SELECT COUNT(*) FROM audit_log WHERE event='login_ok'") === 1);
 check('Login-Seite leitet bei vorhandener Sitzung weiter', $b->get('/admin/login')->status === 303);
 
@@ -204,6 +204,22 @@ $b2 = new TestBrowser($m['app'], $m['config']);
 $b2->post('/admin/login', ['_csrf' => TestBrowser::csrf($b2->get('/admin/login')), 'username' => 'lutz', 'password' => TEST_PASSWORD]);
 $again = $b2->post('/admin/login/totp', ['_csrf' => TestBrowser::csrf($b2->get('/admin/login/totp')), 'code' => $codes[0]]);
 check('Wiederherstellungscode ein zweites Mal abgelehnt', $again->status === 401);
+
+// --- Prüfung 08, A1: unbekannter Name kostet genau einen Argon2-Lauf (Scheinhash in meta) ---
+$svcA1 = $m['app']->services();
+$svcA1->db->run("DELETE FROM meta WHERE k='dummy_hash'");
+$xa = new TestBrowser($m['app'], $m['config'], '198.51.100.77');
+$xa->post('/admin/login', ['_csrf' => TestBrowser::csrf($xa->get('/admin/login')), 'username' => 'niemand', 'password' => 'x']);
+$dummy1 = $svcA1->db->value("SELECT v FROM meta WHERE k='dummy_hash'");
+check('A1: Scheinhash liegt nach dem ersten unbekannten Versuch in meta (Argon2id)', is_string($dummy1) && str_starts_with($dummy1, '$argon2id$'));
+$svcA1->db->run('DELETE FROM login_attempts');
+$v0 = $svcA1->passwords->verifications;
+$xa->post('/admin/login', ['_csrf' => TestBrowser::csrf($xa->get('/admin/login')), 'username' => 'niemand', 'password' => 'x']);
+check('A1: zweiter unbekannter Versuch: eine Prüfung, Scheinhash unverändert', $svcA1->passwords->verifications - $v0 === 1 && $svcA1->db->value("SELECT v FROM meta WHERE k='dummy_hash'") === $dummy1);
+$svcA1->db->run("UPDATE meta SET v = ? WHERE k='dummy_hash'", [password_hash('x', PASSWORD_ARGON2ID, ['memory_cost' => 16, 'time_cost' => 1, 'threads' => 1])]);
+$svcA1->db->run('DELETE FROM login_attempts');
+$xa->post('/admin/login', ['_csrf' => TestBrowser::csrf($xa->get('/admin/login')), 'username' => 'niemand', 'password' => 'x']);
+check('A1: Scheinhash mit alten Parametern wird erneuert', $svcA1->db->value("SELECT v FROM meta WHERE k='dummy_hash'") !== $dummy1 && password_needs_rehash((string) $svcA1->db->value("SELECT v FROM meta WHERE k='dummy_hash'"), PASSWORD_ARGON2ID, TEST_ARGON) === false);
 
 // --- Gleichbehandlung: unbekannt / falsches Passwort / gesperrt / ohne TOTP ---
 $m['clock']->advance(31);
@@ -267,6 +283,20 @@ check('Aussperr-Falle: echter Benutzer von anderer Adresse wird NICHT ausgesperr
 check('Sperre meldet sich im Protokoll', $cnt($m, "SELECT COUNT(*) FROM audit_log WHERE event='login_locked'") >= 1);
 $m['clock']->advance(901);
 check('Sperre nach 15 Minuten aufgehoben', $att($m, 'lutz', '192.0.2.50', TEST_PASSWORD) === 303);
+// B1: Die angezeigte Restzeit passt zum Ende der Sperre (ab dem ersten gezählten Versuch)
+$svcB1 = $m['app']->services();
+$svcB1->db->run('DELETE FROM login_attempts');
+$kB1 = $svcB1->limiter->key('userip', 'b1');
+$tB1 = $m['clock']->now();
+for ($i = 0; $i < 10; $i++) {
+    $svcB1->db->run('INSERT INTO login_attempts(kind, key_hash, at) VALUES(?,?,?)', ['userip', $kB1, $tB1 + $i * 10]);
+}
+$m['clock']->advance(200);
+$gB1 = $svcB1->limiter->gate([['kind' => 'userip', 'key' => $kB1, 'lock' => Lichtkammer\Auth\RateLimiter::LOCK_AT, 'delay' => true]], false, 100, 10);
+check('B1: Restzeit der Sperre = 900 s ab dem ersten Versuch', !$gB1['ok'] && $gB1['reason'] === 'locked' && $gB1['retry'] === 700);
+$m['clock']->advance(701);
+check('B1: nach der angezeigten Restzeit ist wieder ein Versuch möglich', $svcB1->limiter->gate([['kind' => 'userip', 'key' => $kB1, 'lock' => Lichtkammer\Auth\RateLimiter::LOCK_AT, 'delay' => true]], false, 100, 10)['ok']);
+$svcB1->db->run('DELETE FROM login_attempts');
 
 // --- Globale Bremse und Buchung vor dem Hash ---
 $mg = lk_make($f . '/brake', ['LK_GLOBAL_BRAKE_LIMIT' => '5']);
@@ -332,7 +362,7 @@ check('Admin angemeldet für Einladungstest', lk_in($admin));
 $inv = $admin->post('/admin/users/invite', ['_csrf' => TestBrowser::csrf($admin->get('/admin/users')), 'role' => 'editor']);
 preg_match('#https://lk\.test(/admin/invite/[0-9a-f]{64})#', $inv->body, $mm);
 $link = $mm[1] ?? '';
-check('Einladung: Link erzeugt, nur als Hash gespeichert', $link !== '' && $cnt($m, 'SELECT COUNT(*) FROM invites WHERE token_hash = ?', [hash('sha256', substr($link, strlen('/admin/invite/')))]) === 1);
+check('Einladung: Link erzeugt, nur als Hash gespeichert', $link !== '' && $cnt($m, 'SELECT COUNT(*) FROM invites WHERE token_hash = ?', [$m['app']->services()->keys->hmac('ids', substr($link, strlen('/admin/invite/')))]) === 1 && $cnt($m, 'SELECT COUNT(*) FROM invites WHERE token_hash = ?', [hash('sha256', substr($link, strlen('/admin/invite/')))]) === 0);
 $guest = new TestBrowser($m['app'], $m['config'], '203.0.113.50');
 $gp = $guest->get($link);
 check('Einladung: GET zeigt Formular, verbraucht nichts, Referrer-Policy no-referrer', $gp->status === 200 && str_contains($gp->body, 'name="username"') && ($gp->headers['Referrer-Policy'] ?? '') === 'no-referrer' && $cnt($m, 'SELECT COUNT(*) FROM invites WHERE used_at IS NOT NULL') === 0);
@@ -370,6 +400,27 @@ check('Rolle: letzten Administrator nicht herabstufen', $svc->accounts->setRole(
 check('Editor sperren geht', $adm->post('/admin/users/' . $sonjaId . '/disable', ['_csrf' => $cs])->status === 200 && !lk_in($ed));
 check('Gesperrtes Konto: laufende Sitzung sofort ungültig, Anmeldung scheitert', !lk_in($ed) && $att($m, 'sonja', '203.0.113.60', 'Wiesenblume-Abendrot-42') === 401);
 $adm->post('/admin/users/' . $sonjaId . '/enable', ['_csrf' => $cs]);
+
+// Prüfung 08: A3 fremder POST ohne Cookie darf das Sitzungs-Cookie nicht löschen (erzwungene Abmeldung)
+$foreign = (new TestBrowser($m['app'], $m['config']))->post('/admin/login/totp', ['code' => '000000']);
+check('A3: POST /admin/login/totp ohne Cookie setzt kein Lösch-Cookie', $foreign->status === 303 && $foreign->cookies === []);
+// A4: Sitzungen eines unbekannten Kontos beenden → 404, kein Fehler 500
+check('A4: Sitzungen beenden für Konto 999 → 404', $adm->post('/admin/users/999/sessions', ['_csrf' => $cs])->status === 404);
+// A7: Einladungen eines gesperrten Administrators werden ungültig
+$svc->db->run("INSERT INTO users(username, role, password_hash, totp_confirmed_at, totp_secret_enc, created_at, webauthn_handle) VALUES('zweitadmin','admin',?,1,'x',1,'h')", [$svc->passwords->hash(TEST_PASSWORD)]);
+$zweitId = (int) $svc->db->value("SELECT id FROM users WHERE username='zweitadmin'");
+$tokZ = $svc->accounts->createInvite($zweitId, 'admin', '');
+check('A7: Einladung des zweiten Admins gilt', $svc->enrollment->invite($tokZ) !== null);
+check('A7: zweiten Admin sperren geht (Lutz bleibt)', $svc->accounts->setDisabled(1, $zweitId, true, '') === null);
+check('A7: seine offene Einladung ist danach ungültig', $svc->enrollment->invite($tokZ) === null);
+$svc->accounts->setDisabled(1, $zweitId, false, '');
+$tokZ2 = $svc->accounts->createInvite($zweitId, 'editor', '');
+check('A7: Herabstufen entwertet Einladungen ebenso', $svc->accounts->setRole(1, $zweitId, 'editor', '') === null && $svc->enrollment->invite($tokZ2) === null);
+$svc->accounts->setRole(1, $zweitId, 'admin', '');
+// A8: ein Admin ohne bestätigtes TOTP zählt nicht als Ersatz
+$svc->db->run('UPDATE users SET totp_confirmed_at = NULL, totp_secret_enc = NULL WHERE id = ?', [$zweitId]);
+check('A8: letzter anmeldefähiger Admin bleibt geschützt, obwohl ein zweiter (ohne TOTP) existiert', $svc->accounts->setRole($zweitId, 1, 'editor', '') === 'Das ist der letzte aktive Administrator.' && $svc->accounts->setDisabled($zweitId, 1, true, '') === 'Das ist der letzte aktive Administrator.');
+$svc->db->run('UPDATE users SET disabled_at = 1 WHERE id = ?', [$zweitId]);
 
 // --- Rücksetz-Link ---
 $m['clock']->advance(31);
@@ -436,6 +487,8 @@ check('Notfallroute: bekannter Name → Link, gleiche Seitenform', $known->statu
 check('Notfallroute: Konto sofort zurückgesetzt, Sitzungen weg', !lk_in($su['b']) && (int) $mr1['app']->services()->db->value('SELECT COUNT(*) FROM users WHERE totp_confirmed_at IS NULL') === 1);
 check('Notfallroute: danach wieder 404 (Token-Hash in meta)', $g->get('/admin/reset')->status === 404 && $g->post('/admin/reset', ['token' => TEST_RESET_TOKEN, 'username' => 'lutz'])->status === 404);
 check('Notfall-Rücksetzung steht im Protokoll', (int) $mr1['app']->services()->db->value("SELECT COUNT(*) FROM audit_log WHERE event='emergency_reset'") === 1);
+$mrRot = ['app' => new Lichtkammer\App(lk_config($f . '/reset1', ['LK_RESET_TOKEN' => TEST_RESET_TOKEN, 'LK_APP_KEY' => lk_key('neu'), 'LK_APP_KEY_PREVIOUS' => lk_key()]), new Lichtkammer\Auth\Clock(TEST_START + 1000), TEST_ARGON)];
+check('Notfallroute: verbrauchtes Token bleibt nach Schlüsselrotation verbraucht (404)', (new TestBrowser($mrRot['app'], lk_config($f . '/reset1', ['LK_RESET_TOKEN' => TEST_RESET_TOKEN, 'LK_APP_KEY' => lk_key('neu'), 'LK_APP_KEY_PREVIOUS' => lk_key()])))->get('/admin/reset')->status === 404);
 preg_match('#(/admin/invite/[0-9a-f]{64})#', $known->body, $ml);
 $gl = new TestBrowser($mr1['app'], $mr1['config'], '203.0.113.91');
 $lp = $gl->get($ml[1]);
