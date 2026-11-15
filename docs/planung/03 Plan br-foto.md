@@ -1,8 +1,10 @@
-# Plan: PHOTO-CMS für br-foto.com
+# Plan: Lichtkammer für br-foto.com
 
 Stand: 15.11.2026. Entwurf zur Freigabe, noch kein Code. Ersetzt in Teilen das Ausgangskonzept (`01 Konzept PHOTO-CMS.md`), siehe Abschnitt 2.
 
 ## 1. Auftrag in einem Satz
+
+Name des Systems: **Lichtkammer** (früher PHOTO-CMS), Lizenz **AGPL-3.0-or-later**, Open Source.
 
 br-foto.com wird von WordPress (Catch Themes „Fotografie“) auf ein eigenes, schlankes PHP-System bei all-inkl.com umgestellt: öffentlich so klar und ruhig wie rothe.it, mit Bildverwaltung für genau zwei Personen, Anmeldung mit Passwort plus TOTP und optional Passkey.
 
@@ -145,8 +147,8 @@ Grundlage ist die Designsprache von rothe.it und lurohome.de (`Webseiten/lurohom
 ## 10. Repositories
 
 Vorschlag:
-- `luro611/photo-cms` (dieses Repo): das System selbst, ohne Inhalte und ohne Bezug zu Personen, später Open Source
-- `luro611/br-foto` (gibt es schon): Einstellungen, Weiterleitungen, Importskript und `deploy.sh` für br-foto.com. Es spielt eine bestimmte Version von photo-cms ein.
+- `luro611/lichtkammer` (dieses Repo): das System selbst, ohne Inhalte und ohne Bezug zu Personen, später Open Source
+- `luro611/br-foto` (gibt es schon): Einstellungen, Weiterleitungen, Importskript und `deploy.sh` für br-foto.com. Es spielt eine bestimmte Version von Lichtkammer ein.
 
 ## 11. Schritte
 
@@ -168,7 +170,7 @@ Jeder Schritt wird einzeln beauftragt, in einer eigenen, kurzen Sitzung (bauen m
 ## 12. Offene Fragen
 
 1. **Apple-Rahmen:** Gelten die runderen Rahmen nur für br-foto, oder soll sich die allgemeine Designregel (2 px) überall ändern?
-2. **Repos:** System in `photo-cms` und Inhalt/Betrieb in `br-foto` getrennt, wie in Abschnitt 10 vorgeschlagen?
+2. **Repos:** System in `lichtkammer` und Inhalt/Betrieb in `br-foto` getrennt, wie in Abschnitt 10 vorgeschlagen?
 3. **Passkey gleich mit oder nach dem Livegang?** Vorschlag: TOTP zum Start, Passkey als Schritt 6 vor dem Livegang.
 4. **Marke:** Öffentlich BR-Foto als Marke, luro nur als kleine Wortmarke in der Fußzeile und das Siegel auf der Anmeldeseite. Einverstanden, und ist die zweite Person damit einverstanden?
 5. **Namen der Fotografen:** Schreibweise auf der neuen Seite vor dem Umzug prüfen.
@@ -176,4 +178,4 @@ Jeder Schritt wird einzeln beauftragt, in einer eigenen, kurzen Sitzung (bauen m
 7. **Gibt es bessere Originale** als die 1920-px-Fassungen bei WordPress, z. B. auf dem NAS?
 8. **EXIF öffentlich:** Kamera und Objektiv zeigen ja oder nein? GPS bleibt immer verborgen.
 9. **Arbeitsgerät der zweiten Person:** Mac, iPad oder Windows? Davon hängt ab, wie wir Passkeys und Uploads testen.
-10. **Projektname** bleibt PHOTO-CMS oder bekommt einen eigenen Namen vor dem Open-Source-Release?
+10. ~~Projektname~~ entschieden: Lichtkammer, AGPL-3.0-or-later (15.11.2026).

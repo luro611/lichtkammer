@@ -1,6 +1,6 @@
-# PHOTO-CMS (Arbeitsname)
+# Lichtkammer
 
-Schlankes Foto-CMS für ausschließlich eigene Bilder. Admin und Build laufen auf dem Homeserver, die öffentliche Seite wird statisch nach `dist/` erzeugt und inkrementell zu all-inkl.com übertragen.
+Schlankes Open-Source-Foto-CMS für ausschließlich eigene Bilder (früherer Arbeitsname PHOTO-CMS). Erste Installation: br-foto.com, Plan in `docs/planung/03 Plan br-foto.md`. Admin und Build laufen auf dem Homeserver, die öffentliche Seite wird statisch nach `dist/` erzeugt und inkrementell zu all-inkl.com übertragen.
 
 ## Stand
 
@@ -13,12 +13,13 @@ Liegt unter `docs/planung/`:
 
 - `01 Konzept PHOTO-CMS.md`: Ausgangskonzept mit Architektur, Datenmodell, Themes, Bildpipeline, Roadmap und Prompt-Plan (Schritte 0 bis 10)
 - `02 Offene Fragen.md`: Fragen, die vor oder in Schritt 0 zu klären sind
+- `03 Plan br-foto.md`: aktueller Plan (alles auf all-inkl, PHP und SQLite, TOTP und Passkey), ersetzt Konzept 01 in Teilen
 
 ## Projekt-Eckdaten
 
-- **Name:** Arbeitsname PHOTO-CMS, endgültiger Name noch offen.
+- **Name:** Lichtkammer (Entscheidung von Lutz, 15.11.2026). Repo `luro611/lichtkammer`, Ordner und Repo werden nach Schritt 0 umbenannt.
 - **Plattform:** GitHub unter `luro611/…` (privat bis zum Release). Nicht Codeberg.
-- **Lizenz:** noch offen (Konzept: MIT oder AGPL; PermLens nutzt GPL-3.0-or-later).
+- **Lizenz:** AGPL-3.0-or-later (Entscheidung von Lutz, 15.11.2026). Open Source für die Allgemeinheit.
 - **Versionen:** 0.x bis zum öffentlichen Release, dann 1.0.0.
 - **Ziele:** Homeserver-LXC und all-inkl.com. Keine Lizenzkosten.
 - **Nutzer:** Lutz (technisch, Einrichtung und Veröffentlichung) und eine zweite, nicht-technische Person (Projekte, Alben, Fotos).
