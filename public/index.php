@@ -8,6 +8,9 @@ use Lichtkammer\Router;
 use Lichtkammer\SecurityHeaders;
 use Lichtkammer\View;
 
+// Fehler beim Start (Konfiguration, Autoloader) nie anzeigen; in Entwicklung wird unten freigegeben.
+ini_set('display_errors', '0');
+
 // all-inkl: app/ liegt neben index.php im Webroot (per .htaccess gesperrt).
 // Docker/Entwicklung: app/ liegt neben public/.
 $appDir = is_dir(__DIR__ . '/app') ? __DIR__ . '/app' : dirname(__DIR__) . '/app';

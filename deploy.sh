@@ -35,10 +35,13 @@ LFTP_PASSWORD=$(security find-generic-password -a "$FTP_USER" -s "$DIENST" -w 2>
   security add-generic-password -U -a $FTP_USER -s $DIENST -w"
 export LFTP_PASSWORD
 
-MOPTS="--reverse --overwrite --verbose --exclude-glob .DS_Store --exclude-glob .env --exclude-glob media/*"
+MOPTS="--reverse --overwrite --verbose --exclude-glob .DS_Store --exclude-glob .env --exclude ^media/"
 (( JETZT )) || MOPTS+=" --dry-run"
+# media/ (Fotos) wird nie übertragen, nur die PHP-Sperre media/.htaccess (ein Glob wie media/* würde sie mit ausschließen).
+MEDIA_HTACCESS="mkdir -p -f media; put -O media public/media/.htaccess"
+(( JETZT )) || MEDIA_HTACCESS="echo 'Probelauf: media/.htaccess würde übertragen'"
 # Der FTP-Benutzer der Domain sieht nur ihren Ordner: public/ liegt im Webroot, app/ darin als /app
-lftp -c "set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate true; set net:max-retries 2; set cmd:fail-exit true; open --user $FTP_USER --env-password ftp://$FTP_HOST; mirror $MOPTS public/ /; mirror $MOPTS app/ /app"
+lftp -c "set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate true; set net:max-retries 2; set cmd:fail-exit true; open --user $FTP_USER --env-password ftp://$FTP_HOST; mirror $MOPTS public/ /; mirror $MOPTS app/ /app; $MEDIA_HTACCESS"
 unset LFTP_PASSWORD
 
 if (( ! JETZT )); then
