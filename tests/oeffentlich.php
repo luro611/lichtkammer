@@ -137,7 +137,7 @@ check('Öffentlich: eine h1 je Seite', substr_count($home->body, '<h1') === 1 &&
 $all = $home->body . $list->body . $gal->body . $imp->body;
 check('Öffentlich: ohne Inline-Style, Inline-Skript, Ereignisattribute', !preg_match('~\sstyle=|<script(?![^>]*\ssrc=)|\son[a-z]+=~i', $all));
 preg_match_all('~(?:src|href)="(https?://[^"]+)"~', $all, $ext);
-check('Öffentlich: einzige fremde Adresse ist lurohome.de (sonst nur die eigene Basis-Adresse)', array_values(array_filter(array_unique($ext[1]), static fn (string $u): bool => !str_starts_with($u, 'https://lk.test/'))) === ['https://lurohome.de']);
+check('Öffentlich: einzige fremde Adresse ist lurohome.de (sonst nur die eigene Basis-Adresse)', array_values(array_filter(array_unique($ext[1]), static fn (string $u): bool => !str_starts_with($u, 'https://lk.test/'))) === ['https://lurohome.de/lichtkammer/', 'https://lurohome.de'] || array_values(array_filter(array_unique($ext[1]), static fn (string $u): bool => !str_starts_with($u, 'https://lk.test/'))) === ['https://lurohome.de', 'https://lurohome.de/lichtkammer/']);
 check('Öffentlich: Sprung-Adresse der Kacheln verlinkt die große Datei (ohne Skript nutzbar)', preg_match('/<a id="foto-\d+" href="\/media\/[0-9a-f\/-]+-\d+\.jpg"/', $gal->body) === 1);
 check('Öffentlich: Filter ab Start verborgen, Skript im Kopf mit defer', str_contains($list->body, 'data-filters hidden') && str_contains($list->body, 'site.js') && str_contains($list->body, 'defer'));
 check('Öffentlich: Karten tragen Filterwerte', str_contains($list->body, 'data-jahre="2019 2021"') && str_contains($list->body, 'data-orte="lissabon porto"') && str_contains($list->body, 'data-fotografen="' . $ph . '"'));

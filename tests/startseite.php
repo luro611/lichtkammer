@@ -190,7 +190,7 @@ check('Zuordnung: Alt-Text nur bei leeren Feldern aus dem Galerienamen; vorhande
 // --- Kopfzeile: Seitenname und Veröffentlichen-Knopf ---
 $svc->settings->save('br.foto', '', 0);
 $hd = $b->get('/admin/galerien')->body;
-check('Admin: Kopfzeile zeigt den Seitennamen statt „Lichtkammer“, Plattform im Fuß', preg_match('~<a class="brand"[^>]*>br\.foto</a>~', $hd) === 1 && str_contains($hd, 'Lichtkammer 0.'));
+check('Admin: Kopfzeile zeigt den Seitennamen statt „Lichtkammer“, Plattform im Fuß', preg_match('~<a class="brand"[^>]*>br\.foto</a>~', $hd) === 1 && str_contains($hd, '>Lichtkammer</a> 0.'));
 $pubx = $b->get('/admin/veroeffentlichen');
 $b->post('/admin/veroeffentlichen', ['_csrf' => $csrf]);
 $clean = $b->get('/admin/galerien')->body;

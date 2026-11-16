@@ -45,8 +45,8 @@ $fav = $h->favicon();
 <?php foreach ($nav['footer'] as $pg): ?>    <a href="<?= $e($h->url('/' . $pg['slug'] . '/')) ?>"><?= $e($pg['title']) ?></a>
 <?php endforeach; ?>  </nav>
 <?php endif; ?>
-  <span class="mono">Powered by Lichtkammer</span>
-  <span>Website: <a class="luro" href="https://lurohome.de" aria-label="luro · lurohome.de">lu<em>ro</em></a></span>
+  <span class="mono">Powered by <a href="https://lurohome.de/lichtkammer/" target="_blank" rel="noopener">Lichtkammer</a></span>
+  <span><a class="luro" href="https://lurohome.de" target="_blank" rel="noopener" aria-label="luro · lurohome.de (öffnet in neuem Fenster)">lu<em>ro</em></a></span>
 </div></footer>
 </body>
 </html>

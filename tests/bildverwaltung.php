@@ -334,7 +334,7 @@ check('Endgültig löschen: Pfad mit .. löscht nichts außerhalb der Originale'
 check('Flash: nur feste Meldungen, kein freier Text aus der Adresse', !str_contains($b2->get('/admin/galerien?m=%3Cscript%3E')->body, '<script>') && !str_contains($b2->get('/admin/galerien?m=Hallo')->body, 'Hallo') && str_contains($b2->get('/admin/galerien?m=created')->body, 'Galerie angelegt'));
 $all = $b2->get('/admin/fotos')->body . $b2->get("/admin/galerien/$g1")->body . $b2->get('/admin/galerien')->body . $b2->get('/admin/papierkorb')->body . $b2->get('/admin/fotografen')->body . $b2->get("/admin/fotos/$p1")->body . $b2->get("/admin/galerien/$g1/hinzufuegen")->body;
 check('Seiten: ohne Inline-Skript und Inline-Stil (CSP)', !preg_match('~\sstyle=|<script(?![^>]*\ssrc=)|\sonclick=|\sonchange=~i', $all));
-check('Seiten: Skript und Stil nur lokal', !preg_match('~(src|href)="https?://(?!lurohome\.de")~', $all));
+check('Seiten: Skript und Stil nur lokal', !preg_match('~(src|href)="https?://(?!lurohome\.de[/"])~', $all));
 $js = (string) file_get_contents(dirname(__DIR__) . '/public/assets/js/admin.js');
 check('admin.js: ohne innerHTML/eval/Fremdquellen', !preg_match('~eval\(|innerHTML|document\.write|https?://~', $js));
 check('Protokoll: neue Ereignisse nur mit Nummern, Kette intakt', $svc->audit->verify()['ok'] && (int) $db->value("SELECT COUNT(*) FROM audit_log WHERE event IN ('gallery_saved','gallery_deleted','gallery_published','photos_saved','photos_trashed','photos_restored','photos_purged') AND detail GLOB '*[^a-z0-9_:.=,/-]*'") === 0);
