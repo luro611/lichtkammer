@@ -267,7 +267,7 @@ final class Renderer
         if ($pair['light'] === null) {
             return '';
         }
-        return '<img class="logo logo-light flogo" src="' . self::h((string) $pair['light']) . '" alt="" height="22"><img class="logo logo-dark flogo" src="' . self::h((string) $pair['dark']) . '" alt="" aria-hidden="true" height="22">';
+        return '<img class="logo logo-light flogo" src="' . self::h((string) $pair['light']) . '" alt="' . self::h($this->name()) . '" height="22"><img class="logo logo-dark flogo" src="' . self::h((string) $pair['dark']) . '" alt="" aria-hidden="true" height="22">';
     }
 
     public function favicon(): string

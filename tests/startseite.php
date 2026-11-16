@@ -309,4 +309,4 @@ check('Startseiten-Fotos: Fotos im Papierkorb erscheinen nicht', !str_contains($
 $svc->catalog->restore([$a1]);
 // Logo im Fuß neben dem Urheberhinweis
 $svc->settings->chooseLogos(['light' => $ls[1]['id'], 'dark' => $ls[1]['id'], 'favicon' => '']);
-check('Fuß: Logo steht beim Urheberhinweis', preg_match('~<span class="mono copy"><img class="logo logo-light flogo"~', $b->get('/admin/vorschau')->body) === 1);
+check('Fuß: Logo steht beim Urheberhinweis', preg_match('~<span class="mono copy"><span>© \d{4}</span><img class="logo logo-light flogo"[^>]*alt="br\.foto"~', $b->get('/admin/vorschau')->body) === 1);

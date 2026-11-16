@@ -62,7 +62,7 @@ $csrf = $csrf ?? '';
 <main class="shell"><?= $content ?></main>
 <footer class="foot"><div class="shell">
   <span class="mono"><a href="https://lurohome.de/lichtkammer/" target="_blank" rel="noopener">Lichtkammer</a> <?= $e(\Lichtkammer\Config::VERSION) ?></span>
-  <span><a class="luro" href="https://lurohome.de" target="_blank" rel="noopener" aria-label="luro · lurohome.de (öffnet in neuem Fenster)">lu<em>ro</em></a></span>
+  <span><a class="luro" href="https://lurohome.de" target="_blank" rel="noopener" aria-label="lurohome.de (öffnet in neuem Fenster)">lu<em>ro</em>home</a></span>
 </div></footer>
 <?php if ($user !== null): ?></div></div>
 <script src="<?= $e($asset('/assets/js/admin.js')) ?>" defer></script>

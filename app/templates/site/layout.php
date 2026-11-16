@@ -40,13 +40,13 @@ $fav = $h->favicon();
 <?= $page['body'] ?>
 </main>
 <footer class="foot"><div class="wrap foot-in">
-  <span class="mono copy"><?= $h->footerLogo() ?><span>© <?= $e(gmdate('Y')) ?> <?= $e($site) ?></span></span>
+  <span class="mono copy"><span>© <?= $e(gmdate('Y')) ?></span><?php $fl = $h->footerLogo(); ?><?= $fl !== '' ? $fl : '<span>' . $e($site) . '</span>' ?></span>
 <?php if ($nav['footer'] !== []): ?>  <nav aria-label="Rechtliches und mehr">
 <?php foreach ($nav['footer'] as $pg): ?>    <a href="<?= $e($h->url('/' . $pg['slug'] . '/')) ?>"><?= $e($pg['title']) ?></a>
 <?php endforeach; ?>  </nav>
 <?php endif; ?>
   <span class="mono">Powered by <a href="https://lurohome.de/lichtkammer/" target="_blank" rel="noopener">Lichtkammer</a></span>
-  <span><a class="luro" href="https://lurohome.de" target="_blank" rel="noopener" aria-label="luro · lurohome.de (öffnet in neuem Fenster)">lu<em>ro</em></a></span>
+  <span><a class="luro" href="https://lurohome.de" target="_blank" rel="noopener" aria-label="lurohome.de (öffnet in neuem Fenster)">lu<em>ro</em>home</a></span>
 </div></footer>
 </body>
 </html>
