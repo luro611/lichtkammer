@@ -90,6 +90,9 @@ final class AdminController
         $r('POST', '/admin/seiten/{id}/speichern', 'pageSave');
         $r('POST', '/admin/seiten/{id}/loeschen', 'pageDelete');
         $r('POST', '/admin/seiten/{id}/bewegen', 'pageMove');
+        $r('POST', '/admin/seiten/{id}/verlinken', 'pageNav');
+        $r('GET', '/admin/startseite', 'homeEdit');
+        $r('POST', '/admin/startseite', 'homeSave');
         $r('GET', '/admin/einstellungen', 'siteSettings');
         $r('POST', '/admin/einstellungen', 'siteSettingsSave');
         $r('GET', '/admin/veroeffentlichen', 'publishPage');

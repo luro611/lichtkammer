@@ -25,6 +25,7 @@
   });
 
   document.addEventListener('change', function (e) {
+    if (e.target.hasAttribute && e.target.hasAttribute('data-autosubmit') && e.target.form) { e.target.form.submit(); return; }
     var id = e.target.getAttribute && e.target.getAttribute('data-select-all');
     if (!id) { return; }
     var boxes = document.querySelectorAll('input[type=checkbox][name="ids[]"]');

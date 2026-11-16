@@ -90,22 +90,48 @@ final class Pages
         $this->db->run('DELETE FROM pages WHERE id = ?', [$id]);
     }
 
+    public function setNav(int $id, string $nav): void
+    {
+        if (!in_array($nav, ['main', 'footer', 'none'], true) || $this->get($id) === null) {
+            return;
+        }
+        $this->db->run('UPDATE pages SET nav = ?, updated_at = ? WHERE id = ?', [$nav, $this->clock->now(), $id]);
+    }
+
+    /** Gleiche sort_order-Werte (Altbestand, Import) werden einmal sauber durchnummeriert. */
+    private function normalize(): void
+    {
+        $rows = $this->all();
+        $orders = array_map(static fn (array $p): int => (int) $p['sort_order'], $rows);
+        if (count(array_unique($orders)) === count($orders)) {
+            return;
+        }
+        $this->db->tx(function () use ($rows): void {
+            foreach ($rows as $n => $p) {
+                $this->db->run('UPDATE pages SET sort_order = ? WHERE id = ?', [$n + 1, $p['id']]);
+            }
+        });
+    }
+
+    /** Reihenfolge nur innerhalb der Gruppe (Menü, Fußzeile, nicht verlinkt): Menü und Fußzeile haben so getrennte Reihenfolgen. */
     public function move(int $id, string $direction): void
     {
-        $ids = array_map('intval', array_column($this->all(), 'id'));
-        $i = array_search($id, $ids, true);
-        if ($i === false) {
+        $this->normalize();
+        $cur = $this->get($id);
+        if ($cur === null) {
             return;
         }
-        $j = $direction === 'hoch' ? $i - 1 : $i + 1;
-        if ($j < 0 || $j >= count($ids)) {
+        $group = array_values(array_filter($this->all(), static fn (array $p): bool => $p['nav'] === $cur['nav']));
+        $i = array_search($id, array_map(static fn (array $p): int => (int) $p['id'], $group), true);
+        $j = $i === false ? -1 : ($direction === 'hoch' ? $i - 1 : $i + 1);
+        if ($i === false || $j < 0 || $j >= count($group)) {
             return;
         }
-        [$ids[$i], $ids[$j]] = [$ids[$j], $ids[$i]];
-        $this->db->tx(function () use ($ids): void {
-            foreach ($ids as $pos => $pid) {
-                $this->db->run('UPDATE pages SET sort_order = ? WHERE id = ?', [$pos + 1, $pid]);
-            }
+        $a = $group[$i];
+        $b = $group[$j];
+        $this->db->tx(function () use ($a, $b): void { // die beiden tauschen ihre Plätze, alle anderen bleiben
+            $this->db->run('UPDATE pages SET sort_order = ? WHERE id = ?', [(int) $b['sort_order'], $a['id']]);
+            $this->db->run('UPDATE pages SET sort_order = ? WHERE id = ?', [(int) $a['sort_order'], $b['id']]);
         });
     }
 }

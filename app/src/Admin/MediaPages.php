@@ -39,6 +39,9 @@ trait MediaPages
         'pagecreated' => 'Seite angelegt. Jetzt Text eintragen und speichern.',
         'pagedeleted' => 'Seite gelöscht.',
         'settings' => 'Einstellungen gespeichert.',
+        'homesaved' => 'Startseite gespeichert. Sichtbar wird sie mit dem Veröffentlichen.',
+        'homereset' => 'Die feste Startseite ist wieder aktiv.',
+        'pagenav' => 'Verlinkung geändert. Sichtbar wird das mit dem Veröffentlichen.',
         'person' => 'Fotografen gespeichert.',
         'imported' => 'Importpaket gelöscht ({n} Dateien). Die übernommenen Inhalte bleiben unverändert.',
     ];
