@@ -269,9 +269,12 @@ final class Importer
             return ['status' => 'failed', 'message' => $e->getMessage()];
         }
         $id = $r['photo_id'];
-        $status = $r['duplicate'] ? 'duplicate' : 'ok';
-        $message = $r['duplicate'] ? 'Gleiches Bild war schon vorhanden.' : '';
-        if (!$r['duplicate']) {
+        // Brach ein früherer Lauf (Fenster geschlossen, Zeitlimit) nach dem Ablegen, aber vor dem Verarbeiten ab, ist das Foto
+        // „Dublette“ eines unfertigen Fotos: dann jetzt nachholen, sonst bliebe es ohne Bildvarianten.
+        $unfinished = $r['duplicate'] && !$r['in_trash'] && (string) $this->db->value('SELECT status FROM photos WHERE id = ?', [$id]) !== 'ready';
+        $status = $r['duplicate'] && !$unfinished ? 'duplicate' : 'ok';
+        $message = $r['duplicate'] && !$unfinished ? 'Gleiches Bild war schon vorhanden.' : '';
+        if (!$r['duplicate'] || $unfinished) {
             $res = $this->library->process($id);
             if ($res['status'] === 'failed') {
                 $map($id, 'Fehler: ' . $res['error']);
@@ -280,7 +283,7 @@ final class Importer
             }
         }
         $this->fields($id, $p);
-        $map($id, $r['duplicate'] ? 'Doppelt: gleicher Inhalt wie Foto ' . $id : '');
+        $map($id, $r['duplicate'] && !$unfinished ? 'Doppelt: gleicher Inhalt wie Foto ' . $id : '');
         return ['status' => $status, 'message' => $message];
     }
 

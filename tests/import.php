@@ -140,6 +140,13 @@ check('Import: Fotografen angelegt und zugeordnet', (int) $db->value('SELECT COU
     && $db->value('SELECT photographer_id FROM photos WHERE id = ?', [(int) $map[103]['local_id']]) === null);
 check('Import: Paketdatei bleibt unverändert, Original liegt getrennt im Speicher', hash_file('sha256', $imp . '/bilder/101-anna.jpg') === $origSha && $row1['original_path'] !== 'bilder/101-anna.jpg' && is_file($m['config']->originalsDir() . '/' . $row1['original_path']));
 check('Import: Schritte sind wiederholbar (nichts doppelt)', json_decode($b->request('POST', '/admin/import/schritt', [], $H)->body, true)['done'] === true && (int) $db->value('SELECT COUNT(*) FROM photos') === 3);
+// Abbruch zwischen Ablegen und Verarbeiten (Fenster geschlossen): beim Fortsetzen wird das Foto nachverarbeitet, nicht als Dublette übersprungen
+$db->run('DELETE FROM photo_variants WHERE photo_id = ?', [$p1]);
+$db->run("UPDATE photos SET status = 'pending' WHERE id = ?", [$p1]);
+$db->run("DELETE FROM import_map WHERE kind = 'photo' AND wp_id = 101");
+$resume = json_decode($b->request('POST', '/admin/import/schritt', [], $H)->body, true);
+check('Import: nach Abbruch wird das unfertige Foto beim Fortsetzen verarbeitet (nicht „Dublette“)', $resume['status'] === 'ok' && $db->value('SELECT status FROM photos WHERE id = ?', [$p1]) === 'ready'
+    && (int) $db->value('SELECT COUNT(*) FROM photo_variants WHERE photo_id = ?', [$p1]) >= 3 && (int) $db->value('SELECT COUNT(*) FROM photos') === 3);
 
 // --- Abschluss ---
 $fin = json_decode($b->request('POST', '/admin/import/abschluss', [], $H)->body, true);
