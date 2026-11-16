@@ -1,4 +1,4 @@
-<?php /** @var callable $e @var array<string,mixed> $plan @var list<array<string,mixed>> $releases @var ?string $current @var ?string $error @var ?string $ok @var string $csrf */
+<?php /** @var callable $e @var array<string,mixed> $plan @var list<array<string,mixed>> $releases @var ?string $current @var ?string $error @var ?string $ok @var string $csrf @var list<array<string,mixed>> $drafts @var list<array<string,mixed>> $draftGalleries */
 $fmt = static fn (string $id): string => preg_match('/^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})/', $id, $m) === 1 ? "$m[3].$m[2].$m[1], $m[4]:$m[5] UTC" : $id;
 ?>
 <section class="hero">
@@ -20,6 +20,16 @@ $fmt = static fn (string $id): string => preg_match('/^(\d{4})(\d{2})(\d{2})-(\d
   <ul class="changes">
 <?php foreach ($plan['changes'] as $c): ?>    <li><span class="badge"><?= $e($c['kind']) ?></span> <?= $e($c['label']) ?></li>
 <?php endforeach; ?>  </ul>
+<?php endif; ?>
+<?php if ($drafts !== [] || $draftGalleries !== []): ?>
+  <div class="notice" role="note"><strong>Noch nicht online, weil der Status „Entwurf“ ist:</strong>
+    <ul>
+<?php foreach ($drafts as $d): ?>      <li>Seite <a href="/admin/seiten/<?= (int) $d['id'] ?>"><?= $e((string) $d['title']) ?></a></li>
+<?php endforeach; ?>
+<?php foreach ($draftGalleries as $d): ?>      <li>Galerie <a href="/admin/galerien/<?= (int) $d['id'] ?>"><?= $e((string) $d['title']) ?></a></li>
+<?php endforeach; ?>
+    </ul>
+    <span class="small">Zum Veröffentlichen dort den Status auf „veröffentlichen“ stellen und speichern.</span></div>
 <?php endif; ?>
   <p class="mono small muted"><?= (int) $plan['galleries'] ?> Galerie(n), <?= (int) $plan['photos'] ?> Foto(s), <?= (int) $plan['files'] ?> Dateien</p>
   <form method="post" action="/admin/veroeffentlichen">

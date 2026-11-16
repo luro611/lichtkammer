@@ -212,6 +212,8 @@ $db->run("INSERT INTO pages (slug,title,body,blocks,status,nav,sort_order,create
 $tr = $b->get('/admin/papierkorb')->body;
 check('Papierkorb: nennt die Seiten, die das Foto verwenden (maskiert)', str_contains($tr, 'Wird verwendet auf: Zeigt &lt;Foto&gt;') && !str_contains($tr, 'Zeigt <Foto>'));
 $svc->catalog->restore([$q3]);
+$pubT = $b->get('/admin/veroeffentlichen')->body;
+check('Veröffentlichen: Entwurfsseiten werden mit Namen genannt (maskiert)', str_contains($pubT, 'Noch nicht online') && str_contains($pubT, 'Zeigt &lt;Foto&gt;') && !str_contains($pubT, 'Zeigt <Foto>'));
 $tr2 = $b->get('/admin/papierkorb')->body;
 check('Papierkorb: nach dem Wiederherstellen kein Hinweis mehr', !str_contains($tr2, 'Wird verwendet auf'));
 
