@@ -38,8 +38,8 @@
       case 'heading': return { t: t, level: 2, text: '', style: 'normal' };
       case 'text': return { t: t, text: '', style: 'normal' };
       case 'imagetext': return { t: t, photo: 0, alt: '', decor: false, caption: '', text: '', side: 'links', style: 'normal' };
-      case 'carousel': return { t: t, photos: [], auto: false, interval: 6, ratio: '3-2' };
-      case 'hero': return { t: t, photo: 0, alt: '', decor: true, title: '' };
+      case 'carousel': return { t: t, photos: [], auto: false, interval: 6, ratio: '3-2', span: 'box' };
+      case 'hero': return { t: t, photo: 0, alt: '', decor: true, title: '', span: 'box', height: 'normal', fx: 50, fy: 50 };
       case 'galleries': return { t: t, title: 'Galerien', limit: 0 };
       case 'image': return { t: t, photo: 0, alt: '', decor: false, caption: '', width: 'normal', href: '' };
       case 'gallery': return { t: t, photos: [], cols: 3 };
@@ -394,6 +394,40 @@
     body.appendChild(labelled('Link beim Anklicken (optional)', input(b, 'href', 500)));
   }
 
+  // Bildausschnitt: Klick auf das Bild (oder die Regler) legt fest, welcher Punkt beim Zuschneiden im Bild bleibt.
+  function focusPicker(obj) {
+    var p = photos[obj.photo];
+    if (!p || !p.u) { return null; }
+    if (typeof obj.fx !== 'number') { obj.fx = 50; }
+    if (typeof obj.fy !== 'number') { obj.fy = 50; }
+    var wrap = el('div', 'bfocus');
+    wrap.appendChild(el('p', 'small muted', 'Ausschnitt: Auf das Bild klicken, was im Mittelpunkt bleiben soll. Bei breiten oder flachen Formaten wird der Rest abgeschnitten.'));
+    var box = el('div', 'bfocusbox');
+    var im = el('img');
+    im.src = p.u;
+    im.alt = '';
+    box.appendChild(im);
+    var dot = el('span', 'bfocusdot');
+    box.appendChild(dot);
+    var rx = el('input'), ry = el('input');
+    function place() { dot.style.left = obj.fx + '%'; dot.style.top = obj.fy + '%'; rx.value = obj.fx; ry.value = obj.fy; }
+    box.addEventListener('click', function (e) {
+      var r = box.getBoundingClientRect();
+      obj.fx = Math.max(0, Math.min(100, Math.round(((e.clientX - r.left) / r.width) * 10) * 10));
+      obj.fy = Math.max(0, Math.min(100, Math.round(((e.clientY - r.top) / r.height) * 10) * 10));
+      dirty = true;
+      place();
+    });
+    wrap.appendChild(box);
+    [[rx, 'fx', 'Waagerecht (links bis rechts)'], [ry, 'fy', 'Senkrecht (oben bis unten)']].forEach(function (a) {
+      a[0].type = 'range'; a[0].min = 0; a[0].max = 100; a[0].step = 10;
+      a[0].addEventListener('input', function () { obj[a[1]] = Number(a[0].value); dirty = true; place(); });
+      wrap.appendChild(labelled(a[2], a[0]));
+    });
+    place();
+    return wrap;
+  }
+
   function fillHero(body, b) {
     var row = el('div', 'bphoto');
     row.appendChild(thumb(b.photo));
@@ -415,7 +449,13 @@
     row.appendChild(side);
     body.appendChild(row);
     body.appendChild(labelled('Überschrift auf dem Bild', input(b, 'title', 200)));
-    if (b.photo) { body.appendChild(altRow(b)); }
+    body.appendChild(labelled('Breite', select(b, 'span', [['box', 'Im Seitenrahmen mit runden Ecken'], ['voll', 'Über die ganze Fensterbreite']])));
+    body.appendChild(labelled('Höhe', select(b, 'height', [['niedrig', 'Niedrig'], ['normal', 'Normal'], ['hoch', 'Hoch (fast bildschirmfüllend)']])));
+    if (b.photo) {
+      var fp = focusPicker(b);
+      if (fp) { body.appendChild(fp); }
+      body.appendChild(altRow(b));
+    }
   }
 
   function fillGallery(body, b, carousel) {
@@ -429,7 +469,8 @@
       al.appendChild(document.createTextNode(' Automatisch weiterblättern (nicht bei „weniger Bewegung“ im System)'));
       body.appendChild(al);
       body.appendChild(labelled('Wechsel nach', select(b, 'interval', [[4, '4 Sekunden'], [6, '6 Sekunden'], [8, '8 Sekunden'], [12, '12 Sekunden']], Number)));
-      body.appendChild(labelled('Format', select(b, 'ratio', [['3-2', 'Standard (3:2)'], ['16-9', 'Breit (16:9)'], ['21-9', 'Sehr breit (21:9)']])));
+      body.appendChild(labelled('Format', select(b, 'ratio', [['3-2', 'Standard (3:2)'], ['16-9', 'Breit (16:9)'], ['2-1', 'Sehr breit (2:1)'], ['21-9', 'Panorama (21:9)'], ['3-1', 'Schmales Band (3:1)']])));
+      body.appendChild(labelled('Breite', select(b, 'span', [['box', 'Im Seitenrahmen mit runden Ecken'], ['voll', 'Über die ganze Fensterbreite']])));
     } else {
       body.appendChild(labelled('Spalten', select(b, 'cols', [[2, '2 Spalten'], [3, '3 Spalten'], [4, '4 Spalten']], Number)));
     }
@@ -439,6 +480,13 @@
       li.appendChild(thumb(p.photo));
       var side = el('div', 'bgalside');
       side.appendChild(altRow(p, !carousel));
+      if (carousel) {
+        var fd = el('details', 'bfocusdet');
+        fd.appendChild(el('summary', 'small', 'Bildausschnitt wählen'));
+        var fpp = focusPicker(p);
+        if (fpp) { fd.appendChild(fpp); }
+        side.appendChild(fd);
+      }
       var tools = el('div', 'btools');
       var u = btn('↑', '', function () { reorder(b.photos, i, -1, b); }, 'Foto ' + (i + 1) + ' nach vorn');
       var d = btn('↓', '', function () { reorder(b.photos, i, 1, b); }, 'Foto ' + (i + 1) + ' nach hinten');

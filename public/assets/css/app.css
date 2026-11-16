@@ -228,3 +228,9 @@ body.app{padding-inline:0}
 .logoprev{display:flex;align-items:center;justify-content:center;min-height:90px;border-radius:var(--r-input);padding:10px}
 .logoprev.on-light{background:#fbf8f4}.logoprev.on-dark{background:#1d1b1a}
 .logoprev img{max-width:100%;max-height:70px;height:auto;width:auto}
+
+/* Bildausschnitt im Editor */
+.bfocusbox{position:relative;display:inline-block;max-width:360px;cursor:crosshair;border:1px solid var(--line);border-radius:var(--r-input);overflow:hidden;line-height:0}
+.bfocusbox img{display:block;max-width:100%;height:auto}
+.bfocusdot{position:absolute;width:22px;height:22px;margin:-11px 0 0 -11px;border:3px solid #fff;border-radius:50%;background:var(--accent);box-shadow:0 0 0 1px rgba(0,0,0,.5);pointer-events:none}
+.bfocus input[type=range]{width:100%;max-width:360px}

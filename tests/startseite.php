@@ -78,7 +78,7 @@ $home = [
 $sv = $b->post('/admin/startseite', ['_csrf' => $csrf, 'blocks' => $J($home)]);
 check('Startseite speichern: Weiterleitung, geprüfte Form in den Einstellungen', $sv->status === 303 && str_contains((string) $db->value("SELECT v FROM site_settings WHERE k = 'home_blocks'"), '"t":"carousel"'));
 $pv = $b->get('/admin/vorschau')->body;
-check('Vorschau Startseite: Titelbild mit Überschrift (maskiert), Wortmarke, Seitenaufbau aus Blöcken', str_contains($pv, 'homeblocks') && str_contains($pv, '<h1>Licht &lt;b&gt;und&lt;/b&gt; Schatten</h1>') && str_contains($pv, 'class="hero-pic"') && !str_contains($pv, '<b>und'));
+check('Vorschau Startseite: Titelbild mit Überschrift (maskiert), Wortmarke, Seitenaufbau aus Blöcken', str_contains($pv, 'homeblocks') && str_contains($pv, '<h1>Licht &lt;b&gt;und&lt;/b&gt; Schatten</h1>') && str_contains($pv, 'class="hero-pic px50 py50"') && !str_contains($pv, '<b>und'));
 check('Vorschau Startseite: Karussell mit Rollen, Folien, Format, Automatik und Intervall', str_contains($pv, 'data-carousel data-auto="5"') && str_contains($pv, 'aria-roledescription="Karussell"') && substr_count($pv, 'class="bcar-slide"') === 3
     && str_contains($pv, 'aria-label="Folie 2 von 3"') && str_contains($pv, 'bcar r-16-9') && str_contains($pv, 'alt="Treppe"'));
 check('Vorschau Startseite: Bild und Text rechts auf Fläche, Text groß', str_contains($pv, 'class="bit bit-rechts s-flaeche"') && str_contains($pv, '<strong>zeigen</strong>') && str_contains($pv, 'bt-text s-gross'));
@@ -265,3 +265,18 @@ $b->post('/admin/veroeffentlichen', ['_csrf' => $csrf]);
 check('Veröffentlichen ohne Auswahl lässt Entwürfe unverändert', $db->value("SELECT status FROM galleries WHERE id = ?", [$gx]) === 'draft');
 $b->post('/admin/veroeffentlichen', ['_csrf' => $csrf, 'entwuerfe' => '1']);
 check('Veröffentlichen mit Auswahl stellt Seiten und Galerien auf „veröffentlicht“ und erzeugt die Seite', $db->value("SELECT status FROM galleries WHERE id = ?", [$gx]) === 'published' && (int) $db->value("SELECT COUNT(*) FROM pages WHERE status <> 'published'") === 0);
+
+// --- Titelbild: Breite, Höhe, Ausschnitt; Karussell voll ---
+$h2 = Blocks::parse($J([['t' => 'hero', 'photo' => 1, 'title' => 'x', 'span' => 'voll', 'height' => 'hoch', 'fx' => 33, 'fy' => 140], ['t' => 'hero', 'photo' => 1, 'span' => 'x', 'height' => '<', 'fx' => 'a']]), null, true);
+check('Titelbild: Breite und Höhe aus Positivliste, Ausschnitt in Zehnerschritten 0 bis 100, Vorgabe Mitte', $h2[0]['span'] === 'voll' && $h2[0]['height'] === 'hoch' && $h2[0]['fx'] === 30 && $h2[0]['fy'] === 100 && $h2[1]['span'] === 'box' && $h2[1]['height'] === 'normal' && $h2[1]['fx'] === 50);
+$c2 = Blocks::parse($J([['t' => 'carousel', 'span' => 'voll', 'ratio' => '3-1', 'photos' => [['photo' => 1, 'alt' => 'a', 'fx' => 20, 'fy' => 80]]]]))[0];
+check('Karussell: volle Breite, schmales Format, Ausschnitt je Foto', $c2['span'] === 'voll' && $c2['ratio'] === '3-1' && $c2['photos'][0]['fx'] === 20 && $c2['photos'][0]['fy'] === 80);
+$b->post('/admin/startseite', ['_csrf' => $csrf, 'blocks' => $J([
+    ['t' => 'hero', 'photo' => $a1, 'title' => 'Voll', 'span' => 'voll', 'height' => 'hoch', 'fx' => 20, 'fy' => 70],
+    ['t' => 'carousel', 'span' => 'voll', 'ratio' => '3-1', 'photos' => [['photo' => $a1, 'alt' => 'a', 'fx' => 90, 'fy' => 10], ['photo' => $a2, 'alt' => 'b']]],
+])]);
+$pf = $b->get('/admin/vorschau')->body;
+check('Vorschau: Titelbild volle Breite, hoch, Ausschnitt als Klassen (keine Inline-Stile)', str_contains($pf, 'class="hero hh-hoch w-voll"') && str_contains($pf, 'hero-pic px20 py70') && !str_contains($pf, 'style='));
+check('Vorschau: Karussell volle Breite und Ausschnitt je Foto', str_contains($pf, 'bcar r-3-1 w-voll') && str_contains($pf, 'px90 py10') && str_contains($pf, 'px50 py50'));
+$cssT = (string) file_get_contents(dirname(__DIR__) . '/public/assets/css/site.css');
+check('CSS: Ausschnittsklassen px0 bis px100 und py0 bis py100 vorhanden', str_contains($cssT, '.px0{--px:0%}') && str_contains($cssT, '.py100{--py:100%}') && str_contains($cssT, '.hero.w-voll'));

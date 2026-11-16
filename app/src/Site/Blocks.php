@@ -30,9 +30,11 @@ final class Blocks
         'button' => ['normal', 'mitte'],
         'imagetext' => ['normal', 'flaeche'],
     ];
-    public const RATIOS = ['3-2', '16-9', '21-9'];
+    public const RATIOS = ['3-2', '16-9', '21-9', '2-1', '3-1'];
     /** Typen, die nur auf der Startseite erlaubt sind. */
     public const HOME_ONLY = ['hero'];
+    public const HERO_HEIGHTS = ['normal', 'niedrig', 'hoch'];
+    public const SPAN = ['box', 'voll'];
 
     /**
      * Prüft Eingabe-JSON und gibt die bereinigten Blöcke zurück. Leere Text-, Überschrift- und Zitatblöcke werden entfernt.
@@ -158,7 +160,9 @@ final class Blocks
                 if (!$hasPhoto && $title === '') {
                     return null;
                 }
-                return ['t' => 'hero', 'photo' => $hasPhoto ? self::photoId($hp, $db, $where) : 0, 'alt' => $s('alt', 250), 'decor' => ($b['decor'] ?? true) !== false, 'title' => $title];
+                return ['t' => 'hero', 'photo' => $hasPhoto ? self::photoId($hp, $db, $where) : 0, 'alt' => $s('alt', 250), 'decor' => ($b['decor'] ?? true) !== false, 'title' => $title,
+                    'span' => self::pick($b['span'] ?? null, self::SPAN), 'height' => self::pick($b['height'] ?? null, self::HERO_HEIGHTS),
+                    'fx' => self::focus($b['fx'] ?? 50), 'fy' => self::focus($b['fy'] ?? 50)];
             case 'carousel':
                 $list = $b['photos'] ?? null;
                 if (!is_array($list) || !array_is_list($list) || $list === []) {
@@ -173,12 +177,13 @@ final class Blocks
                         throw new MediaException("$where: ungültiges Foto im Karussell.");
                     }
                     $photos[] = ['photo' => self::photoId($p['photo'] ?? null, $db, $where),
-                        'alt' => isset($p['alt']) && is_string($p['alt']) ? Galleries::clip($p['alt'], 250) : '', 'decor' => ($p['decor'] ?? false) === true];
+                        'alt' => isset($p['alt']) && is_string($p['alt']) ? Galleries::clip($p['alt'], 250) : '', 'decor' => ($p['decor'] ?? false) === true,
+                        'fx' => self::focus($p['fx'] ?? 50), 'fy' => self::focus($p['fy'] ?? 50)];
                 }
                 $iv = (int) ($b['interval'] ?? 6);
                 $ratio = $b['ratio'] ?? '3-2';
                 return ['t' => 'carousel', 'photos' => $photos, 'auto' => ($b['auto'] ?? false) === true, 'interval' => max(3, min(15, $iv)),
-                    'ratio' => in_array($ratio, self::RATIOS, true) ? $ratio : '3-2'];
+                    'ratio' => in_array($ratio, self::RATIOS, true) ? $ratio : '3-2', 'span' => self::pick($b['span'] ?? null, self::SPAN)];
             case 'galleries':
                 return ['t' => 'galleries', 'title' => $s('title', 100), 'limit' => max(0, min(24, (int) ($b['limit'] ?? 0)))];
             case 'columns':
@@ -199,6 +204,18 @@ final class Blocks
                 return $sides['left'] === [] && $sides['right'] === [] ? null : ['t' => 'columns'] + $sides;
         }
         throw new MediaException("$where: unbekannter Blocktyp.");
+    }
+
+    /** Wert aus der Liste, sonst der erste Eintrag (Vorgabe). @param list<string> $list */
+    private static function pick(mixed $v, array $list): string
+    {
+        return is_string($v) && in_array($v, $list, true) ? $v : $list[0];
+    }
+
+    /** Bildausschnitt (Schwerpunkt) in Zehnerschritten 0 bis 100, Vorgabe 50. */
+    private static function focus(mixed $v): int
+    {
+        return is_numeric($v) ? (int) (round(max(0, min(100, (float) $v)) / 10) * 10) : 50;
     }
 
     private static function photoId(mixed $v, ?Database $db, string $where): int
@@ -422,9 +439,10 @@ final class Blocks
                 if ($p === null) {
                     return '<section class="hero nohero"><div class="hero-text">' . $title . "</div></section>\n";
                 }
+                $hc = 'hero hh-' . $h($b['height'] ?? 'normal') . (($b['span'] ?? 'box') === 'voll' ? ' w-voll' : '');
                 $blur = (string) ($p['blur_data_uri'] ?? '') !== '' ? '<img class="blur" src="' . $h((string) $p['blur_data_uri']) . '" alt="" aria-hidden="true">' : '';
-                return '<section class="hero"><div class="hero-img">' . $blur
-                    . $r->picture($p, ['sizes' => '(min-width:1200px) 1160px, 100vw', 'maxw' => 2400, 'loading' => 'eager', 'priority' => true, 'alt' => $b['decor'] ? '' : $b['alt'], 'class' => 'hero-pic'])
+                return '<section class="' . $hc . '"><div class="hero-img">' . $blur
+                    . $r->picture($p, ['sizes' => ($b['span'] ?? 'box') === 'voll' ? '100vw' : '(min-width:1200px) 1160px, 100vw', 'maxw' => 2400, 'loading' => 'eager', 'priority' => true, 'alt' => $b['decor'] ? '' : $b['alt'], 'class' => 'hero-pic ' . self::fcls($b)])
                     . '</div><div class="hero-text">' . $title . "</div></section>\n";
             case 'carousel':
                 $slides = '';
@@ -437,13 +455,13 @@ final class Blocks
                     }
                     $n++;
                     $slides .= '<figure class="bcar-slide" role="group" aria-roledescription="Folie" aria-label="Folie ' . $n . ' von %TOTAL%">'
-                        . $r->picture($p, ['sizes' => '(min-width:1200px) 1160px, 100vw', 'maxw' => 2000, 'alt' => $e['decor'] ? '' : $e['alt'], 'loading' => $n === 1 ? 'eager' : 'lazy']) . "</figure>\n";
+                        . $r->picture($p, ['sizes' => ($b['span'] ?? 'box') === 'voll' ? '100vw' : '(min-width:1200px) 1160px, 100vw', 'maxw' => ($b['span'] ?? 'box') === 'voll' ? 2400 : 2000, 'alt' => $e['decor'] ? '' : $e['alt'], 'loading' => $n === 1 ? 'eager' : 'lazy', 'class' => self::fcls($e)]) . "</figure>\n";
                 }
                 if ($n === 0) {
                     return '';
                 }
                 $slides = str_replace('%TOTAL%', (string) $n, $slides);
-                return '<section class="bcar r-' . $h($b['ratio']) . '" data-carousel' . ($b['auto'] ? ' data-auto="' . (int) $b['interval'] . '"' : '')
+                return '<section class="bcar r-' . $h($b['ratio']) . (($b['span'] ?? 'box') === 'voll' ? ' w-voll' : '') . '" data-carousel' . ($b['auto'] ? ' data-auto="' . (int) $b['interval'] . '"' : '')
                     . ' role="group" aria-roledescription="Karussell" aria-label="Bildergalerie mit ' . $n . ' Fotos">'
                     . '<div class="bcar-track" tabindex="0" aria-label="Fotos, mit den Pfeiltasten blättern">' . "\n" . $slides . "</div></section>\n";
             case 'galleries':
@@ -459,6 +477,12 @@ final class Blocks
                 return '<div class="bcols"><div>' . "\n" . $side($b['left']) . '</div><div>' . "\n" . $side($b['right']) . "</div></div>\n";
         }
         return '';
+    }
+
+    /** Klassen für den Bildausschnitt (px0 bis px100, py0 bis py100). @param array<string,mixed> $o */
+    private static function fcls(array $o): string
+    {
+        return 'px' . self::focus($o['fx'] ?? 50) . ' py' . self::focus($o['fy'] ?? 50);
     }
 
     /** CSS-Klasse für den Stil (nur bei Abweichung von „normal“); nur Werte aus der Positivliste. @param array<string,mixed> $b */
