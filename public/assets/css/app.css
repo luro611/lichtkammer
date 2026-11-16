@@ -194,3 +194,27 @@ button:disabled{opacity:.35;cursor:default}
 .ptile:hover{border-color:var(--accent)}.ptile[aria-pressed="true"]{border-color:var(--accent);outline:2px solid var(--accent)}
 .ptile img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;border-radius:var(--r-input)}
 @media (max-width:600px){.bcolsedit{grid-template-columns:1fr}.bhead .bsummary{flex-basis:100%;order:5}}
+
+/* Seitenleiste der Verwaltung */
+body.app{padding-inline:0}
+.frame{display:grid;grid-template-columns:230px minmax(0,1fr);flex:1;min-height:100vh}
+.side{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;display:flex;flex-direction:column;gap:14px;padding:22px 18px;border-right:1px solid var(--line);background:var(--surface)}
+.side .brand{font-size:30px;line-height:1.1;overflow-wrap:anywhere}
+.side .btn.publish,.side .btn.published{text-align:center;justify-content:center}
+.side .btn.published{color:var(--muted)}
+.sidenav{display:flex;flex-direction:column;gap:2px;flex:1}
+.sidenav a{color:var(--ink);text-decoration:none;font:600 13px var(--f-nav);letter-spacing:.04em;padding:8px 10px;border-radius:var(--r-input)}
+.sidenav a:hover{background:var(--soft)}
+.sidenav a[aria-current="page"]{background:var(--soft);color:var(--accent-strong);box-shadow:inset 2px 0 0 var(--accent)}
+.sidenav a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sidehead{margin:16px 0 4px;padding-inline:10px;font:600 11px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.sidefoot{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.sidefoot .tools{margin:0}
+.content{display:flex;flex-direction:column;min-width:0;padding-inline:clamp(16px,3vw,40px)}
+.content .banner{margin-inline:calc(-1 * clamp(16px,3vw,40px));padding-inline:clamp(16px,3vw,40px)}
+@media (max-width:860px){
+  .frame{grid-template-columns:1fr}
+  .side{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:14px 16px;gap:10px}
+  .sidenav{flex-direction:row;flex-wrap:wrap;gap:2px 6px;align-items:center}
+  .sidehead{margin:0 0 0 8px;padding:0}
+}

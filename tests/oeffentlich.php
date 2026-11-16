@@ -220,10 +220,10 @@ check('Admin-Seiten laden: Seitenliste, Einstellungen, Veröffentlichen', $b->ge
 
 // --- Menü, Rückmeldung, 404 ohne Abmelden ---
 $dash = $b->get('/admin')->body;
-check('Menü: Gruppen Inhalte und Verwaltung, Einstellungen sichtbar, Veröffentlichen als Knopf', substr_count($dash, '<details class="navgroup"') === 2 && str_contains($dash, 'href="/admin/einstellungen"')
+check('Menü (Seitenleiste): Gruppen Inhalte, Seite und Verwaltung, Einstellungen sichtbar, Veröffentlichen als Knopf', substr_count($dash, 'class="sidehead"') === 3 && str_contains($dash, 'href="/admin/einstellungen"')
     && str_contains($dash, 'class="btn small publish" href="/admin/veroeffentlichen"') && str_contains($dash, 'href="/admin/papierkorb"') && str_contains($dash, 'href="/admin/account"'));
 check('Menü: Konten nur für Administratoren, Marke führt in die Verwaltung', str_contains($dash, 'href="/admin/users"') && str_contains($dash, 'class="brand" href="/admin"'));
-check('Menü: aktuelle Seite markiert, Gruppe als aktiv', str_contains($b->get('/admin/seiten')->body, '<details class="navgroup" data-active>') && str_contains($b->get('/admin/einstellungen')->body, 'href="/admin/einstellungen" aria-current="page"'));
+check('Menü: aktuelle Seite markiert, Gruppe als aktiv', str_contains($b->get('/admin/seiten')->body, 'href="/admin/seiten" aria-current="page"') && str_contains($b->get('/admin/einstellungen')->body, 'href="/admin/einstellungen" aria-current="page"'));
 $nf = $b->get('/admin/seiten/9999');
 check('404 im Admin: bekannte Seite fehlt → Fehlerseite im Rahmen, Abmelden-Knopf noch da', $nf->status === 404 && str_contains($nf->body, 'action="/admin/logout"'));
 check('404 im Admin: Sitzung bleibt bestehen', $b->get('/admin')->status === 200 && $b->get('/admin/seiten')->status === 200);
