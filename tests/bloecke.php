@@ -208,7 +208,12 @@ check('Fotoauswahl: Suche mit Platzhaltern findet nichts Falsches', count(json_d
 $svc->catalog->trash([$q3]);
 check('Fotoauswahl: Fotos im Papierkorb fehlen', count(json_decode($b->get('/admin/fotos/auswahl')->body, true)['rows']) === 2);
 check('Fotoauswahl: ohne Anmeldung abgewiesen, Adresse kollidiert nicht mit /admin/fotos/{id}', $anon->get('/admin/fotos/auswahl')->status === 303 && $b->get('/admin/fotos/auswahl')->status === 200);
+$db->run("INSERT INTO pages (slug,title,body,blocks,status,nav,sort_order,created_at,updated_at) VALUES ('papierkorbtest','Zeigt <Foto>','', ?, 'draft','none',0,1,1)", [Blocks::encode([['t' => 'image', 'photo' => $q3, 'alt' => 'x', 'size' => 'full', 'caption' => '', 'link' => '', 'decor' => false]])]);
+$tr = $b->get('/admin/papierkorb')->body;
+check('Papierkorb: nennt die Seiten, die das Foto verwenden (maskiert)', str_contains($tr, 'Wird verwendet auf: Zeigt &lt;Foto&gt;') && !str_contains($tr, 'Zeigt <Foto>'));
 $svc->catalog->restore([$q3]);
+$tr2 = $b->get('/admin/papierkorb')->body;
+check('Papierkorb: nach dem Wiederherstellen kein Hinweis mehr', !str_contains($tr2, 'Wird verwendet auf'));
 
 // Editor-Skript: keine unsichere Ausgabe, keine Fremdadressen
 $js = (string) file_get_contents(dirname(__DIR__) . '/public/assets/js/page-editor.js');

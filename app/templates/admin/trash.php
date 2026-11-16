@@ -19,7 +19,10 @@
       <tbody>
 <?php foreach ($rows as $r): ?>
         <tr><td><input type="checkbox" name="ids[]" value="<?= (int) $r['id'] ?>" aria-label="<?= $e((string) $r['original_name']) ?> auswählen"></td>
-          <td class="wrap"><?= $e((string) ($r['title'] !== '' ? $r['title'] : $r['original_name'])) ?> <span class="mono small muted"><?= $e((string) $r['original_name']) ?></span></td>
+          <td class="wrap"><?= $e((string) ($r['title'] !== '' ? $r['title'] : $r['original_name'])) ?> <span class="mono small muted"><?= $e((string) $r['original_name']) ?></span>
+<?php if (!empty($r['pages'])): ?>
+            <br><span class="small muted">Wird verwendet auf: <?= $e(implode(', ', $r['pages'])) ?>. Dort fehlt das Bild, bis es wiederhergestellt ist.</span>
+<?php endif; ?></td>
           <td class="mono small"><?= $e(gmdate('Y-m-d', (int) $r['deleted_at'])) ?></td>
           <td class="mono small"><?= (int) $r['days_left'] ?> Tage</td></tr>
 <?php endforeach; ?>

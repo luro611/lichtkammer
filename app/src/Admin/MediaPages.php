@@ -7,6 +7,7 @@ use Lichtkammer\Media\Catalog;
 use Lichtkammer\Media\MediaException;
 use Lichtkammer\Request;
 use Lichtkammer\Response;
+use Lichtkammer\Site\Blocks;
 
 /**
  * Bildverwaltung (Schritt 4): Galerien, Mediathek, Mehrfachbearbeitung, Papierkorb, Fotografen.
@@ -380,7 +381,33 @@ trait MediaPages
     public function trash(Request $req, array $p, ?array $sess): Response
     {
         $this->purgeExpired($req, $sess);
-        return $this->page('admin/trash', ['title' => 'Papierkorb', 'rows' => $this->s->catalog->trashed(), 'days' => Catalog::TRASH_DAYS], 200, $sess);
+        $rows = $this->s->catalog->trashed();
+        $used = $this->trashUsage(array_map(static fn(array $r): int => (int) $r['id'], $rows));
+        foreach ($rows as &$r) {
+            $r['pages'] = $used[(int) $r['id']] ?? [];
+        }
+        unset($r);
+        return $this->page('admin/trash', ['title' => 'Papierkorb', 'rows' => $rows, 'days' => Catalog::TRASH_DAYS], 200, $sess);
+    }
+
+    /** Seiten (Titel), die ein Foto im Papierkorb in ihren Blöcken verwenden. @param list<int> $ids @return array<int,list<string>> */
+    private function trashUsage(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+        $out = [];
+        foreach ($this->s->db->all("SELECT title, blocks FROM pages WHERE blocks <> '' ORDER BY title") as $pg) {
+            try {
+                $used = Blocks::photoIds(Blocks::decode((string) $pg['blocks']));
+            } catch (MediaException) {
+                continue;
+            }
+            foreach (array_intersect($used, $ids) as $id) {
+                $out[$id][] = (string) $pg['title'];
+            }
+        }
+        return $out;
     }
 
     public function trashAction(Request $req, array $p, ?array $sess): Response
