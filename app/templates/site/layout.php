@@ -18,7 +18,7 @@ $fav = $h->favicon();
 <meta property="og:url" content="<?= $e($canonical) ?>">
 <?php if ($ogImage !== ''): ?><meta property="og:image" content="<?= $e($ogImage) ?>">
 <?php endif; endif; ?>
-<?php if ($fav !== ''): ?><link rel="icon" href="<?= $e($fav) ?>" type="image/svg+xml">
+<?php if ($fav !== ''): ?><link rel="icon" href="<?= $e($fav) ?>" type="<?= $e(preg_match('~^data:([a-z+/]+);~', $fav, $fm) === 1 ? $fm[1] : 'image/svg+xml') ?>">
 <?php endif; ?>
 <link rel="stylesheet" href="<?= $e($asset('/assets/css/site.css')) ?>">
 <script src="<?= $e($asset('/assets/js/site-theme.js')) ?>"></script>

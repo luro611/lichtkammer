@@ -200,3 +200,44 @@ $dirty = $b->get('/admin/galerien')->body;
 check('Veröffentlichen: nach einer Änderung wieder der Knopf „Veröffentlichen“', str_contains($dirty, 'btn small publish') && !str_contains($dirty, '✓ Veröffentlicht'));
 $b->get('/admin/veroeffentlichen');
 check('Veröffentlichen: Seite „Veröffentlichen“ gleicht den Kopf an (Entwurfsseite ist keine Änderung)', str_contains($b->get('/admin/galerien')->body, '✓ Veröffentlicht'));
+
+// --- Logos ---
+$svgOk = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="#c75d3b"/><text x="1" y="9">br</text></svg>';
+$svgDark = str_replace('#c75d3b', '#e47a55', $svgOk);
+$du = static fn (string $mime, string $bytes): string => 'data:' . $mime . ';base64,' . base64_encode($bytes);
+$up = static fn (string $name, string $data) => $b->post('/admin/logos', ['_csrf' => $csrf, 'name' => $name, 'daten' => $data]);
+check('Logos: Seite erreichbar, ohne Anmeldung nicht', $b->get('/admin/logos')->status === 200 && $anon->get('/admin/logos')->status === 303);
+check('Logos: einfaches SVG wird angenommen', $up('br-hell.svg', $du('image/svg+xml', $svgOk))->status === 303 && count($svc->settings->logos()) === 1);
+$up('br-dunkel.svg', $du('image/svg+xml', $svgDark));
+foreach ([
+    'Skript' => '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>',
+    'Ereignis' => '<svg xmlns="http://www.w3.org/2000/svg"><rect onclick="x()" width="1" height="1"/></svg>',
+    'Verweis nach außen' => '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><use xlink:href="https://evil.de/x.svg#a"/></svg>',
+    'eingebettetes Bild' => '<svg xmlns="http://www.w3.org/2000/svg"><image href="data:image/png;base64,AAAA"/></svg>',
+    'foreignObject' => '<svg xmlns="http://www.w3.org/2000/svg"><foreignObject><div/></foreignObject></svg>',
+    'DOCTYPE' => '<!DOCTYPE svg [<!ENTITY a "b">]><svg xmlns="http://www.w3.org/2000/svg"/>',
+    'CSS-Adresse' => '<svg xmlns="http://www.w3.org/2000/svg"><rect style="fill:url(https://evil.de/a)" width="1" height="1"/></svg>',
+    'kein SVG' => '<html><body>x</body></html>',
+] as $why => $bad) {
+    check("Logos: SVG mit $why wird abgelehnt", $up('x.svg', $du('image/svg+xml', $bad))->status === 400);
+}
+check('Logos: Typ und Inhalt müssen zusammenpassen, zu große Dateien und fremde Typen werden abgelehnt', $up('x.png', $du('image/png', 'kein bild'))->status === 400
+    && $up('x.svg', $du('image/svg+xml', str_pad($svgOk, 310000, ' ')))->status === 400 && $up('x.gif', $du('image/gif', 'GIF89a'))->status === 400 && count($svc->settings->logos()) === 2);
+check('Logos: JPEG wird am Inhalt erkannt', $up('foto.jpg', $du('image/jpeg', lk_jpeg(40, 20)))->status === 303 && count($svc->settings->logos()) === 3);
+$ls = $svc->settings->logos();
+$idL = $ls[0]['id'];
+$idD = $ls[1]['id'];
+$b->post('/admin/logos/zuordnen', ['_csrf' => $csrf, 'light' => $idL, 'dark' => $idD, 'favicon' => $idL]);
+$ch = $svc->settings->logoChoice();
+check('Logos: Auswahl für hell, dunkel und Favicon gespeichert', $ch['light'] === $idL && $ch['dark'] === $idD && $ch['favicon'] === $idL);
+$pubH = $b->get('/admin/vorschau')->body;
+check('Logos: öffentliche Seite zeigt Hell- und Dunkel-Logo und Favicon als Data-URL, kein Seitenname als Schrift', substr_count($pubH, 'class="logo logo-light"') === 1 && substr_count($pubH, 'class="logo logo-dark"') === 1 && str_contains($pubH, 'rel="icon" href="data:image/svg+xml;base64,') && str_contains($pubH, 'type="image/svg+xml"'));
+$adm = $b->get('/admin/galerien')->body;
+check('Logos: Verwaltung zeigt das Logo in der Seitenleiste', str_contains($adm, 'class="logo logo-light"') && str_contains($adm, 'class="logo logo-dark"') && str_contains($adm, 'rel="icon"'));
+$b->post('/admin/logos/zuordnen', ['_csrf' => $csrf, 'light' => $idL, 'dark' => '', 'favicon' => '']);
+check('Logos: nur ein Logo gewählt gilt für beide Modi', preg_match_all('~class="logo logo-(light|dark)" src="(data:[^"]+)"~', $b->get('/admin/vorschau')->body, $mm) === 2 && $mm[2][0] === $mm[2][1]);
+$b->post("/admin/logos/$idL/loeschen", ['_csrf' => $csrf]);
+check('Logos: gelöschtes Logo verschwindet samt Auswahl, ohne Logo wieder der Name als Schrift', count($svc->settings->logos()) === 2 && $svc->settings->logoChoice()['light'] === '' && !str_contains($b->get('/admin/vorschau')->body, 'class="logo logo-light"'));
+check('Logos: ungültige Kennung beim Löschen ist wirkungslos', $b->post('/admin/logos/..%2Fx/loeschen', ['_csrf' => $csrf])->status < 500 && count($svc->settings->logos()) === 2);
+$js2 = (string) file_get_contents(dirname(__DIR__) . '/public/assets/js/logos.js');
+check('Logo-Skript: kein innerHTML, keine fremden Adressen', !preg_match('~innerHTML|eval\(|https?://~', $js2));

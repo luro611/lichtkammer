@@ -244,6 +244,10 @@ final class Renderer
     public function brand(): string
     {
         $name = $this->name();
+        $pair = $this->settings->logoPair();
+        if ($pair['light'] !== null) { // im Admin gewählte(s) Logo(s)
+            return '<img class="logo logo-light" src="' . self::h((string) $pair['light']) . '" alt="' . self::h($name) . '" height="40"><img class="logo logo-dark" src="' . self::h((string) $pair['dark']) . '" alt="" aria-hidden="true" height="40">';
+        }
         $pub = $this->config->publicDir . '/brand';
         if (is_file($pub . '/logo.svg')) {
             $dark = is_file($pub . '/logo-dark.svg') ? '/brand/logo-dark.svg' : '/brand/logo.svg';
@@ -258,6 +262,10 @@ final class Renderer
 
     public function favicon(): string
     {
+        $id = $this->settings->logoChoice()['favicon'];
+        if ($id !== '' && ($uri = $this->settings->logoUri($id)) !== null) {
+            return $uri;
+        }
         return is_file($this->config->publicDir . '/brand/favicon.svg') ? '/brand/favicon.svg' : '';
     }
 

@@ -34,7 +34,7 @@ img,picture{display:block;max-width:100%}
 .head{display:flex;align-items:center;gap:20px;padding-block:12px}
 .brand{font:400 28px/1 var(--f-display);letter-spacing:-.03em;color:var(--ink);text-decoration:none;display:inline-flex;align-items:center}
 .brand .dot{color:var(--accent)}
-.logo{height:28px;width:auto}.logo-dark{display:none}
+.logo{height:34px;width:auto}.logo-dark{display:none}
 :root[data-theme="dark"] .logo-light{display:none}:root[data-theme="dark"] .logo-dark{display:block}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .logo-light{display:none}:root:not([data-theme="light"]) .logo-dark{display:block}}
 .menu{display:flex;gap:6px;flex:1;flex-wrap:wrap}

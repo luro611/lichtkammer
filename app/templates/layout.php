@@ -11,6 +11,8 @@ $csrf = $csrf ?? '';
 <title><?= $e($title) ?></title>
 <?php if ($config->noindex()): ?><meta name="robots" content="noindex,nofollow">
 <?php endif; ?>
+<?php if (!empty($favicon)): ?><link rel="icon" href="<?= $e($favicon) ?>" type="<?= $e(preg_match('~^data:([a-z+/]+);~', $favicon, $fm) === 1 ? $fm[1] : 'image/svg+xml') ?>">
+<?php endif; ?>
 <link rel="stylesheet" href="<?= $e($asset('/assets/css/app.css')) ?>">
 <script src="<?= $e($asset('/assets/js/design.js')) ?>"></script>
 </head>
@@ -29,13 +31,13 @@ $csrf = $csrf ?? '';
     $cur = static fn (bool $active): string => $active ? ' aria-current="page"' : '';
     $groups = [
         'Inhalte' => [['/admin/fotos', 'Fotos'], ['/admin/galerien', 'Galerien'], ['/admin/fotografen', 'Fotografen'], ['/admin/papierkorb', 'Papierkorb']],
-        'Seite' => [['/admin/startseite', 'Startseite'], ['/admin/seiten', 'Seiten'], ['/admin/einstellungen', 'Einstellungen']],
+        'Seite' => [['/admin/startseite', 'Startseite'], ['/admin/seiten', 'Seiten'], ['/admin/logos', 'Logos'], ['/admin/einstellungen', 'Einstellungen']],
         'Verwaltung' => array_merge(($user['role'] ?? '') === 'admin' ? [['/admin/users', 'Konten'], ['/admin/import', 'Import']] : [], [['/admin/log', 'Protokoll'], ['/admin/account', 'Mein Konto']]),
     ];
 ?>
 <div class="frame">
 <aside class="side">
-  <a class="brand" href="/admin"><?= $e($siteName ?? 'Lichtkammer') ?></a>
+  <a class="brand" href="/admin"<?= !empty($logoPair['light']) ? ' aria-label="' . $e($siteName ?? 'Lichtkammer') . ', Übersicht"' : '' ?>><?php if (!empty($logoPair['light'])): ?><img class="logo logo-light" src="<?= $e($logoPair['light']) ?>" alt="" height="44"><img class="logo logo-dark" src="<?= $e($logoPair['dark']) ?>" alt="" height="44"><?php else: ?><?= $e($siteName ?? 'Lichtkammer') ?><?php endif; ?></a>
   <a class="btn small <?= !empty($publishDirty) ? 'publish' : 'ghost published' ?>" href="/admin/veroeffentlichen"<?= $cur($on('/admin/veroeffentlichen')) ?><?= empty($publishDirty) ? ' title="Die öffentliche Seite ist auf dem aktuellen Stand."' : '' ?>><?= empty($publishDirty) ? '✓ Veröffentlicht' : 'Veröffentlichen' ?></a>
   <nav class="sidenav" aria-label="Verwaltung">
     <a href="/admin"<?= $cur($path === '/admin') ?>>Übersicht</a>

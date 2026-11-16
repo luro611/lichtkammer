@@ -95,6 +95,10 @@ final class AdminController
         $r('POST', '/admin/seiten/{id}/verlinken', 'pageNav');
         $r('GET', '/admin/startseite', 'homeEdit');
         $r('POST', '/admin/startseite', 'homeSave');
+        $r('GET', '/admin/logos', 'logosPage');
+        $r('POST', '/admin/logos', 'logoAdd');
+        $r('POST', '/admin/logos/zuordnen', 'logoChoose');
+        $r('POST', '/admin/logos/{id}/loeschen', 'logoDelete');
         $r('GET', '/admin/einstellungen', 'siteSettings');
         $r('POST', '/admin/einstellungen', 'siteSettingsSave');
         $r('GET', '/admin/veroeffentlichen', 'publishPage');
@@ -143,7 +147,7 @@ final class AdminController
             $this->flash = $this->flashFrom($req);
             $this->navPath = $req->path();
             $res = $this->{$handler}($req, $params, $sess);
-            if ($req->method() === 'POST' && $res->status < 400 && preg_match('~^/admin/(fotos|galerien|seiten|startseite|einstellungen|fotografen|papierkorb|import)(/|$)~', $req->path()) === 1) {
+            if ($req->method() === 'POST' && $res->status < 400 && preg_match('~^/admin/(fotos|galerien|seiten|startseite|logos|einstellungen|fotografen|papierkorb|import)(/|$)~', $req->path()) === 1) {
                 $this->setSiteDirty(true); // Inhalt kann sich geändert haben; genau wird es beim Öffnen von „Veröffentlichen“ geprüft
             }
             return $res;
@@ -225,7 +229,7 @@ final class AdminController
     /** @param array<string,mixed> $data @param array<string,mixed>|null $sess */
     private function page(string $template, array $data, int $status = 200, ?array $sess = null): Response
     {
-        $data += ['siteName' => $this->s->settings->all()['site_name'], 'publishDirty' => $sess !== null && $this->siteDirty(), 'flash' => $this->flash, 'banners' => $this->banners($sess), 'user' => $sess, 'navPath' => $this->navPath, 'csrf' => $sess['csrf_token'] ?? ''];
+        $data += ['siteName' => $this->s->settings->all()['site_name'], 'logoPair' => $this->s->settings->logoPair(), 'favicon' => ($fid = $this->s->settings->logoChoice()['favicon']) !== '' ? $this->s->settings->logoUri($fid) : null, 'publishDirty' => $sess !== null && $this->siteDirty(), 'flash' => $this->flash, 'banners' => $this->banners($sess), 'user' => $sess, 'navPath' => $this->navPath, 'csrf' => $sess['csrf_token'] ?? ''];
         return Response::html($this->view->render($template, $data), $status)->withHeaders([
             'Cache-Control' => 'no-store',
             'Pragma' => 'no-cache',

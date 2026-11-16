@@ -139,6 +139,49 @@ trait SitePages
         return $this->done('/admin/seiten', 'pagenav');
     }
 
+    // --- Logos ---
+
+    private function logosView(?array $sess, ?string $error = null, int $status = 200): Response
+    {
+        $set = $this->s->settings;
+        $logos = [];
+        foreach ($set->logos() as $l) {
+            $l['uri'] = $set->logoUri($l['id']);
+            $logos[] = $l;
+        }
+        return $this->page('admin/logos', ['title' => 'Logos', 'logos' => $logos, 'choice' => $set->logoChoice(), 'roles' => \Lichtkammer\Site\Settings::LOGO_ROLES, 'error' => $error], $status, $sess);
+    }
+
+    public function logosPage(Request $req, array $p, ?array $sess): Response
+    {
+        return $this->logosView($sess);
+    }
+
+    public function logoAdd(Request $req, array $p, ?array $sess): Response
+    {
+        try {
+            $this->s->settings->addLogo($req->input('name'), $req->input('daten'));
+        } catch (MediaException $e) {
+            return $this->logosView($sess, $e->getMessage(), 400);
+        }
+        $this->auditLog('settings_saved', $sess, 'settings=logo_added', $req);
+        return $this->done('/admin/logos', 'logoadded');
+    }
+
+    public function logoChoose(Request $req, array $p, ?array $sess): Response
+    {
+        $this->s->settings->chooseLogos(['light' => $req->input('light'), 'dark' => $req->input('dark'), 'favicon' => $req->input('favicon')]);
+        $this->auditLog('settings_saved', $sess, 'settings=logo_chosen', $req);
+        return $this->done('/admin/logos', 'logochosen');
+    }
+
+    public function logoDelete(Request $req, array $p, ?array $sess): Response
+    {
+        $this->s->settings->deleteLogo((string) $p['id']);
+        $this->auditLog('settings_saved', $sess, 'settings=logo_deleted', $req);
+        return $this->done('/admin/logos', 'logodeleted');
+    }
+
     // --- Sammelzuordnung nach Galerie (Fotograf und Alt-Text) ---
 
     private function assignView(?array $sess, string $rules, bool $alt, bool $over, ?string $error = null, ?array $plan = null, ?string $ok = null, int $status = 200): Response
