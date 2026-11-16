@@ -34,7 +34,11 @@ $fmt = static fn (string $id): string => preg_match('/^(\d{4})(\d{2})(\d{2})-(\d
   <p class="mono small muted"><?= (int) $plan['galleries'] ?> Galerie(n), <?= (int) $plan['photos'] ?> Foto(s), <?= (int) $plan['files'] ?> Dateien</p>
   <form method="post" action="/admin/veroeffentlichen">
     <input type="hidden" name="_csrf" value="<?= $e($csrf) ?>">
+<?php if ($plan['changes'] === [] && $current !== null && $plan['errors'] === []): ?>
+    <button class="btn ghost" type="button" disabled aria-disabled="true">✓ Alles veröffentlicht, keine Änderungen</button>
+<?php else: ?>
     <button class="btn" type="submit"<?= $plan['errors'] !== [] ? ' disabled' : '' ?>>Jetzt veröffentlichen</button>
+<?php endif; ?>
   </form>
 </section>
 <section>

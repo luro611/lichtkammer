@@ -241,3 +241,12 @@ check('Logos: gelöschtes Logo verschwindet samt Auswahl, ohne Logo wieder der N
 check('Logos: ungültige Kennung beim Löschen ist wirkungslos', $b->post('/admin/logos/..%2Fx/loeschen', ['_csrf' => $csrf])->status < 500 && count($svc->settings->logos()) === 2);
 $js2 = (string) file_get_contents(dirname(__DIR__) . '/public/assets/js/logos.js');
 check('Logo-Skript: kein innerHTML, keine fremden Adressen', !preg_match('~innerHTML|eval\(|https?://~', $js2));
+
+// --- Veröffentlichen-Seite: Knopf je nach Stand ---
+$svc->settings->save('br.foto', '', 0);
+$b->post('/admin/veroeffentlichen', ['_csrf' => $csrf]);
+$pg = $b->get('/admin/veroeffentlichen')->body;
+check('Veröffentlichen-Seite: ohne Änderungen kein „Jetzt veröffentlichen“, sondern „✓ Alles veröffentlicht“', str_contains($pg, 'Alles veröffentlicht, keine Änderungen') && !str_contains($pg, 'Jetzt veröffentlichen</button>'));
+$b->post('/admin/seiten', ['_csrf' => $csrf, 'title' => 'Wieder neu']);
+$b->post('/admin/seiten/' . (int) $db->value("SELECT id FROM pages WHERE slug = 'wieder-neu'") . '/speichern', ['_csrf' => $csrf, 'title' => 'Wieder neu', 'slug' => 'wieder-neu', 'body' => 'Text', 'status' => 'published', 'nav' => 'main']);
+check('Veröffentlichen-Seite: mit Änderungen wieder „Jetzt veröffentlichen“', str_contains($b->get('/admin/veroeffentlichen')->body, 'Jetzt veröffentlichen</button>'));
