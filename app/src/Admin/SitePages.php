@@ -254,8 +254,10 @@ trait SitePages
     private function publishView(?array $sess, ?string $error = null, ?string $ok = null, int $status = 200): Response
     {
         $b = $this->s->builder;
+        $plan = $b->plan();
+        $this->setSiteDirty($plan['changes'] !== [] || $b->current() === null);
         return $this->page('admin/publish', [
-            'title' => 'Veröffentlichen', 'plan' => $b->plan(), 'releases' => $b->releases(), 'current' => $b->current(), 'error' => $error, 'ok' => $ok,
+            'title' => 'Veröffentlichen', 'plan' => $plan, 'releases' => $b->releases(), 'current' => $b->current(), 'error' => $error, 'ok' => $ok,
             'drafts' => $this->s->db->all("SELECT id, title FROM pages WHERE status <> 'published' ORDER BY title"),
             'draftGalleries' => $this->s->db->all("SELECT id, title FROM galleries WHERE status <> 'published' ORDER BY title"),
         ], $status, $sess);

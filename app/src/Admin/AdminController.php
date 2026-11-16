@@ -142,7 +142,11 @@ final class AdminController
             }
             $this->flash = $this->flashFrom($req);
             $this->navPath = $req->path();
-            return $this->{$handler}($req, $params, $sess);
+            $res = $this->{$handler}($req, $params, $sess);
+            if ($req->method() === 'POST' && $res->status < 400 && preg_match('~^/admin/(fotos|galerien|seiten|startseite|einstellungen|fotografen|papierkorb|import)(/|$)~', $req->path()) === 1) {
+                $this->setSiteDirty(true); // Inhalt kann sich geändert haben; genau wird es beim Öffnen von „Veröffentlichen“ geprüft
+            }
+            return $res;
         };
         $method === 'GET' ? $this->router->get($path, $wrapped) : $this->router->post($path, $wrapped);
     }
@@ -153,6 +157,17 @@ final class AdminController
     }
 
     // --- Hilfen ---
+
+    /** Gibt es Änderungen, die noch nicht veröffentlicht sind? Unbekannt (noch nie geprüft) zählt als ja. */
+    private function siteDirty(): bool
+    {
+        return (string) ($this->s->db->value("SELECT v FROM meta WHERE k = 'site_dirty'") ?? '1') !== '0';
+    }
+
+    private function setSiteDirty(bool $dirty): void
+    {
+        $this->s->db->run("INSERT INTO meta(k, v) VALUES('site_dirty', ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v", [$dirty ? '1' : '0']);
+    }
 
     private function transportOk(Request $req): bool
     {
@@ -210,7 +225,7 @@ final class AdminController
     /** @param array<string,mixed> $data @param array<string,mixed>|null $sess */
     private function page(string $template, array $data, int $status = 200, ?array $sess = null): Response
     {
-        $data += ['flash' => $this->flash, 'banners' => $this->banners($sess), 'user' => $sess, 'navPath' => $this->navPath, 'csrf' => $sess['csrf_token'] ?? ''];
+        $data += ['siteName' => $this->s->settings->all()['site_name'], 'publishDirty' => $sess !== null && $this->siteDirty(), 'flash' => $this->flash, 'banners' => $this->banners($sess), 'user' => $sess, 'navPath' => $this->navPath, 'csrf' => $sess['csrf_token'] ?? ''];
         return Response::html($this->view->render($template, $data), $status)->withHeaders([
             'Cache-Control' => 'no-store',
             'Pragma' => 'no-cache',

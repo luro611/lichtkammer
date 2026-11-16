@@ -186,3 +186,17 @@ $ap = $b->post('/admin/galerien/zuordnung', ['_csrf' => $csrf, 'regeln' => $rule
 $who = static fn (int $id): string => (string) $db->value('SELECT ph.name FROM photos p JOIN photographers ph ON ph.id = p.photographer_id WHERE p.id = ?', [$id]);
 check('Zuordnung: Fotografen gesetzt (erste Galerie gewinnt bei Foto in zwei Galerien), Rest bekommt die Restregel', $ap->status === 200 && $who($a1) === 'Lutz' && $who($a2) === 'Mathias und Lutz' && $who($a3) === 'Mathias');
 check('Zuordnung: Alt-Text nur bei leeren Feldern aus dem Galerienamen; vorhandene bleiben', (string) $db->value('SELECT alt_text FROM photos WHERE id = ?', [$a3]) === 'Foto aus der Galerie „Kiew 2007/03“' && (string) $db->value('SELECT alt_text FROM photos WHERE id = ?', [$a1]) === 'Boote im Hafen');
+
+// --- Kopfzeile: Seitenname und Veröffentlichen-Knopf ---
+$svc->settings->save('br.foto', '', 0);
+$hd = $b->get('/admin/galerien')->body;
+check('Admin: Kopfzeile zeigt den Seitennamen statt „Lichtkammer“, Plattform im Fuß', preg_match('~<a class="brand"[^>]*>br\.foto</a>~', $hd) === 1 && str_contains($hd, 'Lichtkammer 0.'));
+$pubx = $b->get('/admin/veroeffentlichen');
+$b->post('/admin/veroeffentlichen', ['_csrf' => $csrf]);
+$clean = $b->get('/admin/galerien')->body;
+check('Veröffentlichen: nach dem Veröffentlichen steht im Kopf „✓ Veröffentlicht“ statt des Knopfs', str_contains($clean, '✓ Veröffentlicht') && !str_contains($clean, 'btn small publish'));
+$b->post('/admin/seiten', ['_csrf' => $csrf, 'title' => 'Neu']);
+$dirty = $b->get('/admin/galerien')->body;
+check('Veröffentlichen: nach einer Änderung wieder der Knopf „Veröffentlichen“', str_contains($dirty, 'btn small publish') && !str_contains($dirty, '✓ Veröffentlicht'));
+$b->get('/admin/veroeffentlichen');
+check('Veröffentlichen: Seite „Veröffentlichen“ gleicht den Kopf an (Entwurfsseite ist keine Änderung)', str_contains($b->get('/admin/galerien')->body, '✓ Veröffentlicht'));

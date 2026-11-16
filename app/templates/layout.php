@@ -16,7 +16,7 @@ $csrf = $csrf ?? '';
 </head>
 <body>
 <header class="bar"><div class="shell">
-  <a class="brand" href="<?= $user !== null ? '/admin' : '/' ?>">Lichtkammer</a>
+  <a class="brand" href="<?= $user !== null ? '/admin' : '/' ?>"><?= $e($siteName ?? 'Lichtkammer') ?></a>
 <?php if ($user !== null):
     $path = (string) ($navPath ?? '');
     $on = static fn (string ...$prefixes): bool => array_reduce($prefixes, static fn (bool $c, string $p): bool => $c || $path === $p || str_starts_with($path, $p . '/'), false);
@@ -49,7 +49,7 @@ $csrf = $csrf ?? '';
       </div>
     </details>
   </nav>
-  <a class="btn small publish" href="/admin/veroeffentlichen"<?= $cur($on('/admin/veroeffentlichen')) ?>>Veröffentlichen</a>
+  <a class="btn small <?= !empty($publishDirty) ? 'publish' : 'ghost published' ?>" href="/admin/veroeffentlichen"<?= $cur($on('/admin/veroeffentlichen')) ?><?= empty($publishDirty) ? ' title="Die öffentliche Seite ist auf dem aktuellen Stand."' : '' ?>><?= empty($publishDirty) ? '✓ Veröffentlicht' : 'Veröffentlichen' ?></a>
 <?php endif; ?>
   <div class="tools">
     <div class="pill" role="group" aria-label="Design"><button type="button" data-design-set="lurohome" aria-pressed="true">luro</button><button type="button" data-design-set="rothe" aria-pressed="false">rothe.it</button></div>
@@ -64,7 +64,7 @@ $csrf = $csrf ?? '';
 <?php endforeach; ?>
 <main class="shell"><?= $content ?></main>
 <footer class="foot"><div class="shell">
-  <span class="mono">Version <?= $e(\Lichtkammer\Config::VERSION) ?></span>
+  <span class="mono">Lichtkammer <?= $e(\Lichtkammer\Config::VERSION) ?></span>
   <span>Website: <a class="luro" href="https://lurohome.de" aria-label="luro · lurohome.de">lu<em>ro</em></a></span>
 </div></footer>
 <?php if ($user !== null): ?><script src="<?= $e($asset('/assets/js/admin.js')) ?>" defer></script>
