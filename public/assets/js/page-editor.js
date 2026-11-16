@@ -13,6 +13,7 @@
   var state = Array.isArray(init.blocks) ? init.blocks : [];
   var photos = init.photos && typeof init.photos === 'object' ? init.photos : {};
   var isHome = !!init.home;
+  var homePhotos = Array.isArray(init.homePhotos) ? init.homePhotos : [];
   var pickUrl = root.getAttribute('data-pick-url') || '';
   var dirty = false, submitting = false, uid = 0, focusId = null, focusSel = '';
 
@@ -42,7 +43,7 @@
       case 'carousel': return { t: t, photos: [], auto: false, interval: 6, ratio: '3-2', span: 'box' };
       case 'hero': return { t: t, photo: 0, alt: '', decor: true, title: '', show: true, span: 'box', height: 'normal', fx: 50, fy: 50 };
       case 'galleries': return { t: t, title: 'Galerien', limit: 0 };
-      case 'homephotos': return { t: t, mode: 'karussell', span: 'voll', ratio: '16-9', auto: true, interval: 6, limit: 8, height: 'normal' };
+      case 'homephotos': return { t: t, focus: {}, mode: 'karussell', span: 'voll', ratio: '16-9', auto: true, interval: 6, limit: 8, height: 'normal' };
       case 'image': return { t: t, photo: 0, alt: '', decor: false, caption: '', width: 'normal', href: '' };
       case 'gallery': return { t: t, photos: [], cols: 3 };
       case 'quote': return { t: t, text: '', by: '', style: 'normal' };
@@ -325,6 +326,21 @@
         aul.appendChild(au);
         aul.appendChild(document.createTextNode(' Automatisch weiterblättern (Karussell)'));
         body.appendChild(aul);
+        if (!b.focus || typeof b.focus !== 'object') { b.focus = {}; }
+        body.appendChild(el('h4', null, 'Ausschnitt je Foto'));
+        if (!homePhotos.length) {
+          body.appendChild(el('p', 'warn small', 'Noch kein Foto mit „Startseite“ markiert. In einer Galerie beim Foto auf „Startseite“ klicken.'));
+        }
+        homePhotos.forEach(function (hp) {
+          var o = b.focus[hp.id] || { fx: 50, fy: 50 };
+          o.photo = hp.id;
+          b.focus[hp.id] = o;
+          var fd = el('details', 'bfocusdet');
+          fd.appendChild(el('summary', 'small', hp.t || ('Foto ' + hp.id)));
+          var fpp = focusPicker(o);
+          if (fpp) { fd.appendChild(fpp); }
+          body.appendChild(fd);
+        });
         break;
       case 'galleries':
         body.appendChild(labelled('Überschrift über den Kacheln (leer = keine)', input(b, 'title', 100)));

@@ -334,3 +334,14 @@ $hb = Blocks::parse($J([['t' => 'hero', 'photo' => 0, 'title' => 'Hallo', 'show'
 check('Titelbild-Block: show ist ein Schalter (Vorgabe an)', $hb['show'] === false && Blocks::parse($J([['t' => 'hero', 'photo' => 0, 'title' => 'Hallo']]), null, true)[0]['show'] === true);
 $b->post('/admin/startseite', ['_csrf' => $csrf, 'blocks' => $J([['t' => 'hero', 'photo' => $a1, 'title' => 'Versteckt', 'show' => false]])]);
 check('Titelbild-Block: ausgeschaltet → <h1 class="sr">', str_contains($b->get('/admin/vorschau')->body, '<h1 class="sr">Versteckt</h1>'));
+
+// --- Ausschnitt je Startseiten-Foto ---
+$svc->galleries->setHome($a1, true);
+$svc->galleries->setHome($a2, true);
+$fo = Blocks::parse($J([['t' => 'homephotos', 'focus' => [(string) $a1 => ['fx' => 12, 'fy' => 88, 'photo' => 5], 'x' => ['fx' => 1], (string) $a2 => 'kaputt']]]))[0];
+check('Startseiten-Fotos: Ausschnitt je Foto geprüft (Zehnerschritte, nur Zahlen als Schlüssel)', array_keys((array) $fo['focus']) === [$a1] && ((array) $fo['focus'])[(string) $a1] === ['fx' => 10, 'fy' => 90]);
+$b->post('/admin/startseite', ['_csrf' => $csrf, 'blocks' => $J([['t' => 'homephotos', 'mode' => 'karussell', 'span' => 'voll', 'focus' => [(string) $a1 => ['fx' => 20, 'fy' => 80], (string) $a2 => ['fx' => 90, 'fy' => 10]]]])]);
+$fv = $b->get('/admin/vorschau')->body;
+check('Startseiten-Fotos: jedes Foto hat seinen eigenen Ausschnitt in der Ausgabe', str_contains($fv, 'px20 py80') && str_contains($fv, 'px90 py10'));
+$fe = $b->get('/admin/startseite')->body;
+check('Startseiten-Editor: markierte Fotos stehen für den Ausschnitt im Datenblock', str_contains($fe, '"homePhotos":[{"id":' . $a1) && str_contains($fe, '"focus"'));

@@ -82,7 +82,16 @@ trait SitePages
                 ? ['t' => '', 'a' => '', 'c' => '', 'u' => '', 'x' => 1]
                 : ['t' => (string) $row['title'], 'a' => (string) $row['alt_text'], 'c' => (string) $row['caption'], 'u' => $row['thumb'] ? '/media/' . $row['thumb'] : '', 'x' => 0];
         }
-        $editor = json_encode(['blocks' => $data['blocks'], 'photos' => (object) $photos, 'home' => $home], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_PARTIAL_OUTPUT_ON_ERROR);
+        $homePhotos = [];
+        if ($home) { // markierte Startseiten-Fotos (Schalter in der Galerie), für den Ausschnitt je Foto
+            foreach ($this->s->db->all('SELECT p.id, p.title, p.original_name, ' . Galleries::THUMB . " AS thumb FROM photos p WHERE p.on_home = 1 AND p.deleted_at IS NULL AND p.status = 'ready' ORDER BY p.id LIMIT 12") as $row) {
+                if ($row['thumb']) {
+                    $homePhotos[] = ['id' => (int) $row['id'], 't' => (string) ($row['title'] !== '' ? $row['title'] : $row['original_name']), 'u' => '/media/' . $row['thumb']];
+                    $photos[(int) $row['id']] ??= ['t' => (string) $row['title'], 'a' => '', 'c' => '', 'u' => '/media/' . $row['thumb'], 'x' => 0];
+                }
+            }
+        }
+        $editor = json_encode(['blocks' => $data['blocks'], 'photos' => (object) $photos, 'home' => $home, 'homePhotos' => $homePhotos], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_PARTIAL_OUTPUT_ON_ERROR);
         return [(string) $editor, Blocks::encode($data['blocks'])];
     }
 
