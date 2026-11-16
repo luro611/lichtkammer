@@ -166,7 +166,7 @@ final class Galleries
     public function photos(int $id): array
     {
         return $this->db->all(
-            'SELECT p.id, p.token, p.original_name, p.title, p.alt_text, p.status, p.error, p.width, p.height, p.taken_at, gp.position, ' . self::THUMB . ' AS thumb
+            'SELECT p.id, p.token, p.original_name, p.title, p.alt_text, p.status, p.error, p.width, p.height, p.taken_at, p.on_home, gp.position, ' . self::THUMB . ' AS thumb
              FROM gallery_photos gp JOIN photos p ON p.id = gp.photo_id WHERE gp.gallery_id = ? AND p.deleted_at IS NULL ORDER BY gp.position, p.id',
             [$id],
         );
@@ -288,6 +288,15 @@ final class Galleries
             throw new MediaException('Das Foto gehört nicht zu dieser Galerie.');
         }
         $this->db->run('UPDATE galleries SET cover_photo_id = ?, updated_at = ? WHERE id = ?', [$photoId, $this->clock->now(), $id]);
+    }
+
+    /** Schalter „Startseite“ eines Fotos (Block „Startseiten-Fotos“). */
+    public function setHome(int $photoId, bool $on): void
+    {
+        $n = $this->db->run('UPDATE photos SET on_home = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL', [$on ? 1 : 0, $this->clock->now(), $photoId])->rowCount();
+        if ($n === 0) {
+            throw new MediaException('Das Foto gibt es nicht (mehr).');
+        }
     }
 
     /** @param list<int> $order Galerien in neuer Reihenfolge */

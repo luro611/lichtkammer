@@ -40,7 +40,7 @@ $fav = $h->favicon();
 <?= $page['body'] ?>
 </main>
 <footer class="foot"><div class="wrap foot-in">
-  <span class="mono">© <?= $e(gmdate('Y')) ?> <?= $e($site) ?></span>
+  <span class="mono copy"><?= $h->footerLogo() ?><span>© <?= $e(gmdate('Y')) ?> <?= $e($site) ?></span></span>
 <?php if ($nav['footer'] !== []): ?>  <nav aria-label="Rechtliches und mehr">
 <?php foreach ($nav['footer'] as $pg): ?>    <a href="<?= $e($h->url('/' . $pg['slug'] . '/')) ?>"><?= $e($pg['title']) ?></a>
 <?php endforeach; ?>  </nav>

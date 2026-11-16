@@ -28,9 +28,10 @@
     imagetext: { name: 'Bild und Text', desc: 'Ein Foto neben einem Text, links oder rechts' },
     carousel: { name: 'Karussell', desc: 'Mehrere Fotos zum Durchblättern, auf Wunsch automatisch' },
     hero: { name: 'Titelbild', desc: 'Großes Bild mit Überschrift (nur Startseite)' },
+    homephotos: { name: 'Startseiten-Fotos', desc: 'Zeigt die Fotos, die in der Galerie mit „Startseite“ markiert sind (Karussell, Raster oder ein Bild)' },
     galleries: { name: 'Galerien-Kacheln', desc: 'Die Galerien als Kacheln mit Titelbild' }
   };
-  var ALL = (isHome ? ['hero'] : []).concat(['heading', 'text', 'imagetext', 'image', 'carousel', 'gallery', 'galleries', 'quote', 'rule', 'button', 'columns']);
+  var ALL = (isHome ? ['hero'] : []).concat(['heading', 'text', 'imagetext', 'image', 'homephotos', 'carousel', 'gallery', 'galleries', 'quote', 'rule', 'button', 'columns']);
   var SIMPLE = ['heading', 'text', 'image', 'quote', 'button'];
 
   function make(t) {
@@ -41,6 +42,7 @@
       case 'carousel': return { t: t, photos: [], auto: false, interval: 6, ratio: '3-2', span: 'box' };
       case 'hero': return { t: t, photo: 0, alt: '', decor: true, title: '', span: 'box', height: 'normal', fx: 50, fy: 50 };
       case 'galleries': return { t: t, title: 'Galerien', limit: 0 };
+      case 'homephotos': return { t: t, mode: 'karussell', span: 'voll', ratio: '16-9', auto: true, interval: 6, limit: 8, height: 'normal' };
       case 'image': return { t: t, photo: 0, alt: '', decor: false, caption: '', width: 'normal', href: '' };
       case 'gallery': return { t: t, photos: [], cols: 3 };
       case 'quote': return { t: t, text: '', by: '', style: 'normal' };
@@ -159,6 +161,7 @@
       case 'imagetext': return cut(b.text || b.alt);
       case 'hero': return cut(b.title);
       case 'galleries': return cut(b.title);
+      case 'homephotos': return 'Fotos mit Schalter „Startseite“';
       case 'carousel': case 'gallery': return (b.photos.length === 1 ? '1 Foto' : b.photos.length + ' Fotos');
       case 'button': return cut(b.label);
       case 'columns': return 'links ' + b.left.length + ', rechts ' + b.right.length + ' Blöcke';
@@ -306,6 +309,22 @@
         break;
       case 'hero':
         fillHero(body, b);
+        break;
+      case 'homephotos':
+        body.appendChild(el('p', 'small muted', 'Dieser Block zeigt die Fotos, die du in einer Galerie mit dem Knopf „Startseite“ markiert hast. So änderst du die Bilder der Startseite, ohne diese Seite zu bearbeiten.'));
+        body.appendChild(labelled('Darstellung', select(b, 'mode', [['karussell', 'Karussell (Diashow)'], ['raster', 'Raster'], ['titelbild', 'Ein großes Bild (das erste markierte)']])));
+        body.appendChild(labelled('Breite', select(b, 'span', [['box', 'Im Seitenrahmen mit runden Ecken'], ['voll', 'Über die ganze Fensterbreite']])));
+        body.appendChild(labelled('Format (Karussell)', select(b, 'ratio', [['3-2', 'Standard (3:2)'], ['16-9', 'Breit (16:9)'], ['2-1', 'Sehr breit (2:1)'], ['21-9', 'Panorama (21:9)'], ['3-1', 'Schmales Band (3:1)']])));
+        body.appendChild(labelled('Höhe (großes Bild)', select(b, 'height', [['niedrig', 'Niedrig'], ['normal', 'Normal'], ['hoch', 'Hoch']])));
+        body.appendChild(labelled('Höchstens so viele Fotos', select(b, 'limit', [[4, '4'], [6, '6'], [8, '8'], [12, '12']], Number)));
+        var au = el('input');
+        au.type = 'checkbox';
+        au.checked = !!b.auto;
+        au.addEventListener('change', function () { b.auto = au.checked; dirty = true; });
+        var aul = el('label', 'check');
+        aul.appendChild(au);
+        aul.appendChild(document.createTextNode(' Automatisch weiterblättern (Karussell)'));
+        body.appendChild(aul);
         break;
       case 'galleries':
         body.appendChild(labelled('Überschrift über den Kacheln (leer = keine)', input(b, 'title', 100)));

@@ -280,3 +280,33 @@ check('Vorschau: Titelbild volle Breite, hoch, Ausschnitt als Klassen (keine Inl
 check('Vorschau: Karussell volle Breite und Ausschnitt je Foto', str_contains($pf, 'bcar r-3-1 w-voll') && str_contains($pf, 'px90 py10') && str_contains($pf, 'px50 py50'));
 $cssT = (string) file_get_contents(dirname(__DIR__) . '/public/assets/css/site.css');
 check('CSS: Ausschnittsklassen px0 bis px100 und py0 bis py100 vorhanden', str_contains($cssT, '.px0{--px:0%}') && str_contains($cssT, '.py100{--py:100%}') && str_contains($cssT, '.hero.w-voll'));
+
+// --- Schalter „Startseite“ je Foto und Block „Startseiten-Fotos“ ---
+check('Schalter Startseite: Spalte on_home vorhanden (Migration 7), Vorgabe aus', (string) $db->value("SELECT name FROM pragma_table_info('photos') WHERE name = 'on_home'") === 'on_home' && (int) $db->value('SELECT COUNT(*) FROM photos WHERE on_home = 1') === 0);
+$gh = $svc->galleries->create('Startgalerie');
+$svc->galleries->addPhotos($gh, [$a1, $a2, $a3]);
+$gp = $b->get("/admin/galerien/$gh")->body;
+check('Galerie: jedes Foto hat den Knopf „Startseite“', substr_count($gp, '/startseite"') >= 3 && str_contains($gp, '>Startseite</button>'));
+$b->post("/admin/galerien/$gh/startseite", ['_csrf' => $csrf, 'foto' => (string) $a1, 'an' => '1']);
+$b->post("/admin/galerien/$gh/startseite", ['_csrf' => $csrf, 'foto' => (string) $a3, 'an' => '1']);
+$gp2 = $b->get("/admin/galerien/$gh")->body;
+check('Galerie: markierte Fotos tragen die Marke „Startseite“ und den Knopf zum Zurücknehmen', substr_count($gp2, 'badge cover">Startseite') === 2 && str_contains($gp2, 'Nicht mehr Startseite'));
+check('Galerie: Startseite-Schalter ohne Anmeldung abgewiesen, unbekanntes Foto abgelehnt', $anon->post("/admin/galerien/$gh/startseite", ['foto' => (string) $a1, 'an' => '1'])->status !== 200 && $b->post("/admin/galerien/$gh/startseite", ['_csrf' => $csrf, 'foto' => '99999', 'an' => '1'])->status === 400);
+$b->post('/admin/startseite', ['_csrf' => $csrf, 'blocks' => $J([['t' => 'homephotos', 'mode' => 'karussell', 'span' => 'voll', 'ratio' => '2-1', 'auto' => true, 'interval' => 5, 'limit' => 8]])]);
+$hv = $b->get('/admin/vorschau')->body;
+check('Startseiten-Fotos: Karussell zeigt genau die markierten Fotos (2), voll breit, mit Automatik', substr_count($hv, 'class="bcar-slide"') === 2 && str_contains($hv, 'bcar r-2-1 w-voll') && str_contains($hv, 'data-auto="5"') && str_contains($hv, 'alt="Boote im Hafen"'));
+$b->post('/admin/startseite', ['_csrf' => $csrf, 'blocks' => $J([['t' => 'homephotos', 'mode' => 'raster', 'limit' => 8]])]);
+check('Startseiten-Fotos: Raster mit Lightbox', str_contains($b->get('/admin/vorschau')->body, 'class="bgrid c3" data-lightbox'));
+$b->post('/admin/startseite', ['_csrf' => $csrf, 'blocks' => $J([['t' => 'homephotos', 'mode' => 'titelbild', 'span' => 'voll', 'height' => 'hoch']])]);
+check('Startseiten-Fotos: ein großes Bild (Titelbild-Darstellung)', str_contains($b->get('/admin/vorschau')->body, 'class="hero hh-hoch w-voll"'));
+$b->post("/admin/galerien/$gh/startseite", ['_csrf' => $csrf, 'foto' => (string) $a1, 'an' => '0']);
+$b->post("/admin/galerien/$gh/startseite", ['_csrf' => $csrf, 'foto' => (string) $a3, 'an' => '0']);
+check('Startseiten-Fotos: ohne markierte Fotos entfällt der Block ohne Fehler', !str_contains($b->get('/admin/vorschau')->body, 'class="hero') && $b->get('/admin/vorschau')->status === 200);
+$svc->catalog->trash([$a1]);
+$db->run('UPDATE photos SET on_home = 1 WHERE id = ?', [$a1]);
+$b->post('/admin/startseite', ['_csrf' => $csrf, 'blocks' => $J([['t' => 'homephotos', 'mode' => 'karussell']])]);
+check('Startseiten-Fotos: Fotos im Papierkorb erscheinen nicht', !str_contains($b->get('/admin/vorschau')->body, 'bcar-slide'));
+$svc->catalog->restore([$a1]);
+// Logo im Fuß neben dem Urheberhinweis
+$svc->settings->chooseLogos(['light' => $ls[1]['id'], 'dark' => $ls[1]['id'], 'favicon' => '']);
+check('Fuß: Logo steht beim Urheberhinweis', preg_match('~<span class="mono copy"><img class="logo logo-light flogo"~', $b->get('/admin/vorschau')->body) === 1);

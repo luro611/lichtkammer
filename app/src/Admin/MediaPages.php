@@ -42,6 +42,8 @@ trait MediaPages
         'logoadded' => 'Logo hochgeladen. Unten kannst du es auswählen.',
         'logochosen' => 'Logo-Auswahl gespeichert. Sichtbar wird es auf der öffentlichen Seite mit dem Veröffentlichen.',
         'logodeleted' => 'Logo gelöscht.',
+        'homeon' => 'Das Foto ist für die Startseite markiert. Es erscheint dort im Block „Startseiten-Fotos“ (Seite → Startseite).',
+        'homeoff' => 'Das Foto ist nicht mehr für die Startseite markiert.',
         'homesaved' => 'Startseite gespeichert. Sichtbar wird sie mit dem Veröffentlichen.',
         'homereset' => 'Die feste Startseite ist wieder aktiv.',
         'pagenav' => 'Verlinkung geändert. Sichtbar wird das mit dem Veröffentlichen.',
@@ -243,6 +245,17 @@ trait MediaPages
             return $this->galleryPage($id, $sess, $e->getMessage(), 400);
         }
         return $this->done('/admin/galerien/' . $id, 'sorted');
+    }
+
+    public function galleryHome(Request $req, array $p, ?array $sess): Response
+    {
+        $id = (int) $p['id'];
+        try {
+            $this->s->galleries->setHome((int) $req->input('foto'), $req->input('an') === '1');
+        } catch (MediaException $e) {
+            return $this->galleryPage($id, $sess, $e->getMessage(), 400);
+        }
+        return $this->done('/admin/galerien/' . $id, $req->input('an') === '1' ? 'homeon' : 'homeoff');
     }
 
     public function galleryCover(Request $req, array $p, ?array $sess): Response

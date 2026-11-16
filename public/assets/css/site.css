@@ -186,3 +186,5 @@ body.home,body.page{overflow-x:clip}
 .hero.w-voll,.bcar.w-voll{width:100vw;max-width:none;margin-inline:calc(50% - 50vw);border-radius:0}
 .bcar.w-voll .bcar-track{border-radius:0}
 .bcar.r-2-1 .bcar-slide{aspect-ratio:2/1}.bcar.r-3-1 .bcar-slide{aspect-ratio:3/1}
+
+.copy{display:inline-flex;align-items:center;gap:10px}.logo.flogo{height:22px;width:auto}

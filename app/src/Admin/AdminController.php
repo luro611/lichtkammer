@@ -86,6 +86,7 @@ final class AdminController
         $r('POST', '/admin/galerien/{id}/foto-bewegen', 'galleryPhotoMove');
         $r('POST', '/admin/galerien/{id}/sortieren', 'gallerySort');
         $r('POST', '/admin/galerien/{id}/titelbild', 'galleryCover');
+        $r('POST', '/admin/galerien/{id}/startseite', 'galleryHome');
         $r('GET', '/admin/seiten', 'pages');
         $r('POST', '/admin/seiten', 'pageCreate');
         $r('GET', '/admin/seiten/{id}', 'pageEdit');

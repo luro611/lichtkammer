@@ -184,6 +184,13 @@ final class Blocks
                 $ratio = $b['ratio'] ?? '3-2';
                 return ['t' => 'carousel', 'photos' => $photos, 'auto' => ($b['auto'] ?? false) === true, 'interval' => max(3, min(15, $iv)),
                     'ratio' => in_array($ratio, self::RATIOS, true) ? $ratio : '3-2', 'span' => self::pick($b['span'] ?? null, self::SPAN)];
+            case 'homephotos':
+                $mode = self::pick($b['mode'] ?? null, ['karussell', 'raster', 'titelbild']);
+                $iv = (int) ($b['interval'] ?? 6);
+                $ratio = $b['ratio'] ?? '3-2';
+                return ['t' => 'homephotos', 'mode' => $mode, 'span' => self::pick($b['span'] ?? null, self::SPAN), 'ratio' => in_array($ratio, self::RATIOS, true) ? $ratio : '3-2',
+                    'auto' => ($b['auto'] ?? false) === true, 'interval' => max(3, min(15, $iv)), 'limit' => max(1, min(self::MAX_PHOTOS, (int) ($b['limit'] ?? 8))),
+                    'height' => self::pick($b['height'] ?? null, self::HERO_HEIGHTS)];
             case 'galleries':
                 return ['t' => 'galleries', 'title' => $s('title', 100), 'limit' => max(0, min(24, (int) ($b['limit'] ?? 0)))];
             case 'columns':
@@ -464,6 +471,17 @@ final class Blocks
                 return '<section class="bcar r-' . $h($b['ratio']) . (($b['span'] ?? 'box') === 'voll' ? ' w-voll' : '') . '" data-carousel' . ($b['auto'] ? ' data-auto="' . (int) $b['interval'] . '"' : '')
                     . ' role="group" aria-roledescription="Karussell" aria-label="Bildergalerie mit ' . $n . ' Fotos">'
                     . '<div class="bcar-track" tabindex="0" aria-label="Fotos, mit den Pfeiltasten blättern">' . "\n" . $slides . "</div></section>\n";
+            case 'homephotos':
+                $list = $r->homePhotos((int) $b['limit']);
+                if ($list === []) {
+                    return '';
+                }
+                $ph = array_map(static fn (array $x): array => ['photo' => $x['id'], 'alt' => $x['alt'], 'decor' => false, 'fx' => 50, 'fy' => 50], $list);
+                return match ($b['mode']) {
+                    'raster' => self::one(['t' => 'gallery', 'photos' => $ph, 'cols' => 3], $r, false),
+                    'titelbild' => self::one(['t' => 'hero', 'photo' => $ph[0]['photo'], 'alt' => $ph[0]['alt'], 'decor' => false, 'title' => '', 'span' => $b['span'], 'height' => $b['height'], 'fx' => 50, 'fy' => 50], $r, false),
+                    default => self::one(['t' => 'carousel', 'photos' => $ph, 'auto' => $b['auto'], 'interval' => $b['interval'], 'ratio' => $b['ratio'], 'span' => $b['span']], $r, false),
+                };
             case 'galleries':
                 return $r->galleryCards((string) $b['title'], (int) $b['limit']);
             case 'columns':

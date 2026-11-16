@@ -58,12 +58,14 @@ $bulkBack = '/admin/galerien/' . $gid; ?>
     <button class="btn small ghost" type="submit" formaction="/admin/galerien/<?= $gid ?>/entfernen">Aus der Galerie entfernen</button>
     <button class="btn small ghost" type="submit" name="aktion" value="papierkorb" data-confirm="Die ausgewählten Fotos in den Papierkorb legen? Sie verschwinden damit aus allen Galerien.">In den Papierkorb</button>
   </form>
-  <p class="muted small">Reihenfolge ändern: Foto mit der Maus ziehen oder die Pfeile benutzen. Das Foto mit der Marke „Titelbild“ ist das Titelbild der Galerie; ohne Wahl gilt das erste.</p>
+  <p class="muted small">Reihenfolge ändern: Foto mit der Maus ziehen oder die Pfeile benutzen. Das Foto mit der Marke „Titelbild“ ist das Titelbild der Galerie; ohne Wahl gilt das erste. Mit „Startseite“ markierte Fotos zeigt der Block „Startseiten-Fotos“ auf der Startseite (Seite → Startseite).</p>
   <span class="visually-hidden" id="sortstatus" role="status" aria-live="polite"></span>
   <ul class="thumbs" data-sortable data-axis="x" data-url="/admin/galerien/<?= $gid ?>/reihenfolge" data-csrf="<?= $e($csrf) ?>">
 <?php foreach ($photos as $i => $ph): $formId = 'bulk'; $isCover = (int) $g['cover_effective'] === (int) $ph['id']; ?>
 <?php include __DIR__ . '/../partials/tile.php'; ?>
 <?php if ($isCover): ?>      <span class="small badge cover">Titelbild</span>
+<?php endif; ?>
+<?php if ((int) $ph['on_home'] === 1): ?>      <span class="small badge cover">Startseite</span>
 <?php endif; ?>
       <div class="row-actions">
         <form method="post" action="/admin/galerien/<?= $gid ?>/foto-bewegen"><input type="hidden" name="_csrf" value="<?= $e($csrf) ?>"><input type="hidden" name="foto" value="<?= (int) $ph['id'] ?>"><input type="hidden" name="richtung" value="hoch"><button class="btn small ghost" type="submit" aria-label="nach vorn"<?= $i === 0 ? ' disabled' : '' ?>>←</button></form>
@@ -71,6 +73,7 @@ $bulkBack = '/admin/galerien/' . $gid; ?>
 <?php if (!$isCover): ?>
         <form method="post" action="/admin/galerien/<?= $gid ?>/titelbild"><input type="hidden" name="_csrf" value="<?= $e($csrf) ?>"><input type="hidden" name="foto" value="<?= (int) $ph['id'] ?>"><button class="btn small ghost" type="submit">Titelbild</button></form>
 <?php endif; ?>
+        <form method="post" action="/admin/galerien/<?= $gid ?>/startseite"><input type="hidden" name="_csrf" value="<?= $e($csrf) ?>"><input type="hidden" name="foto" value="<?= (int) $ph['id'] ?>"><input type="hidden" name="an" value="<?= (int) $ph['on_home'] === 1 ? '0' : '1' ?>"><button class="btn small ghost" type="submit" aria-pressed="<?= (int) $ph['on_home'] === 1 ? 'true' : 'false' ?>"><?= (int) $ph['on_home'] === 1 ? 'Nicht mehr Startseite' : 'Startseite' ?></button></form>
       </div>
     </li>
 <?php endforeach; ?>

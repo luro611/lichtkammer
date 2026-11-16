@@ -260,6 +260,16 @@ final class Renderer
         return self::h(mb_substr($name, 0, $pos)) . '<span class="dot">.</span>' . self::h(mb_substr($name, $pos + 1));
     }
 
+    /** Kleines Logo für den Fuß (neben dem Urheberhinweis), leer wenn keines gewählt ist. */
+    public function footerLogo(): string
+    {
+        $pair = $this->settings->logoPair();
+        if ($pair['light'] === null) {
+            return '';
+        }
+        return '<img class="logo logo-light flogo" src="' . self::h((string) $pair['light']) . '" alt="" height="22"><img class="logo logo-dark flogo" src="' . self::h((string) $pair['dark']) . '" alt="" aria-hidden="true" height="22">';
+    }
+
     public function favicon(): string
     {
         $id = $this->settings->logoChoice()['favicon'];
@@ -379,6 +389,24 @@ final class Renderer
             'settings' => implode(' · ', array_filter([$f['aperture'] ?? '', $f['exposure'] ?? '', isset($f['iso']) ? 'ISO ' . $f['iso'] : '', $f['focal_length'] ?? ''])),
             'taken' => $taken,
         ] + $none;
+    }
+
+    /**
+     * Fotos mit dem Schalter „Startseite“ (fertig, nicht im Papierkorb), älteste zuerst. Alt-Text: Alt-Text des Fotos, sonst Titel, sonst „Foto“.
+     *
+     * @return list<array{id:int,alt:string}>
+     */
+    public function homePhotos(int $limit): array
+    {
+        $out = [];
+        foreach ($this->db->all("SELECT id, alt_text, title FROM photos WHERE on_home = 1 AND deleted_at IS NULL AND status = 'ready' ORDER BY id LIMIT ?", [max(1, min(Blocks::MAX_PHOTOS, $limit))]) as $r) {
+            if ($this->blockPhoto((int) $r['id']) === null) {
+                continue;
+            }
+            $alt = trim((string) $r['alt_text']) !== '' ? (string) $r['alt_text'] : (trim((string) $r['title']) !== '' ? (string) $r['title'] : 'Foto');
+            $out[] = ['id' => (int) $r['id'], 'alt' => $alt];
+        }
+        return $out;
     }
 
     /** Galerienkacheln als Block (Titel, Begrenzung; 0 = alle). */

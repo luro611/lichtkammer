@@ -234,6 +234,11 @@ CREATE TABLE import_map (
     PRIMARY KEY (kind, wp_id)
 );
 SQL,
+            // 7: Schalter „Startseite“ je Foto (Entwurf 14): Fotos, die der Block „Startseiten-Fotos“ zeigt. Nur additiv.
+            <<<'SQL'
+ALTER TABLE photos ADD COLUMN on_home INTEGER NOT NULL DEFAULT 0;
+CREATE INDEX photos_on_home ON photos(on_home) WHERE on_home = 1;
+SQL,
         ];
     }
 
