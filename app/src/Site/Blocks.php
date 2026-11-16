@@ -162,7 +162,7 @@ final class Blocks
                 }
                 return ['t' => 'hero', 'photo' => $hasPhoto ? self::photoId($hp, $db, $where) : 0, 'alt' => $s('alt', 250), 'decor' => ($b['decor'] ?? true) !== false, 'title' => $title,
                     'span' => self::pick($b['span'] ?? null, self::SPAN), 'height' => self::pick($b['height'] ?? null, self::HERO_HEIGHTS),
-                    'fx' => self::focus($b['fx'] ?? 50), 'fy' => self::focus($b['fy'] ?? 50)];
+                    'fx' => self::focus($b['fx'] ?? 50), 'fy' => self::focus($b['fy'] ?? 50), 'show' => ($b['show'] ?? true) !== false];
             case 'carousel':
                 $list = $b['photos'] ?? null;
                 if (!is_array($list) || !array_is_list($list) || $list === []) {
@@ -442,7 +442,7 @@ final class Blocks
                 return '<div class="bit bit-' . $h($b['side']) . self::cls($b) . '">' . $fig . $txt . "</div>\n";
             case 'hero':
                 $p = $b['photo'] > 0 ? $r->blockPhoto((int) $b['photo']) : null;
-                $title = $b['title'] !== '' ? '<h1>' . $h($b['title']) . '</h1>' : '';
+                $title = $b['title'] !== '' ? '<h1' . (($b['show'] ?? true) === false ? ' class="sr"' : '') . '>' . $h($b['title']) . '</h1>' : '';
                 if ($p === null) {
                     return '<section class="hero nohero"><div class="hero-text">' . $title . "</div></section>\n";
                 }

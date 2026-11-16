@@ -97,7 +97,7 @@ trait SitePages
             $raw = $set['home_blocks'];
         } else { // erstes Öffnen: so vorbefüllt, dass sie wie die bisherige feste Startseite aussieht
             $raw = Blocks::encode([
-                ['t' => 'hero', 'photo' => $set['hero_photo_id'], 'alt' => '', 'decor' => true, 'title' => $set['tagline'] !== '' ? $set['tagline'] : $set['site_name']],
+                ['t' => 'hero', 'photo' => $set['hero_photo_id'], 'alt' => '', 'decor' => true, 'title' => $set['tagline'] !== '' ? $set['tagline'] : $set['site_name'], 'show' => $set['hero_show']],
                 ['t' => 'galleries', 'title' => 'Galerien', 'limit' => 0],
             ]);
         }
@@ -290,7 +290,7 @@ trait SitePages
 
     public function siteSettingsSave(Request $req, array $p, ?array $sess): Response
     {
-        $this->s->settings->save($req->input('site_name'), $req->input('tagline'), (int) $req->input('hero_photo_id'));
+        $this->s->settings->save($req->input('site_name'), $req->input('tagline'), (int) $req->input('hero_photo_id'), $req->input('hero_form') === '1' ? $req->input('hero_show') === '1' : null);
         $this->auditLog('settings_saved', $sess, 'settings=site', $req);
         return $this->done('/admin/einstellungen', 'settings');
     }

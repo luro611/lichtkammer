@@ -323,3 +323,14 @@ $b->post("/admin/seiten/$tid/speichern", ['titel_zeigen' => '1'] + $base);
 check('Seitentitel: mit Häkchen wieder an', (int) $db->value('SELECT show_title FROM pages WHERE id = ?', [$tid]) === 1);
 $b->post("/admin/seiten/$tid/speichern", array_diff_key($base, ['titel_form' => 1]));
 check('Seitentitel: ohne Formularfeld (z. B. alter Aufruf) bleibt der Wert unverändert', (int) $db->value('SELECT show_title FROM pages WHERE id = ?', [$tid]) === 1);
+
+// --- Text auf dem Titelbild an/aus ---
+$b->post('/admin/startseite', ['_csrf' => $csrf, 'zuruecksetzen' => '1']);
+$svc->settings->save('br.foto', '', 0, true);
+check('Titelbild (feste Startseite): Text an → sichtbare Überschrift', str_contains($b->get('/admin/vorschau')->body, '<h1>br.foto</h1>'));
+$b->post('/admin/einstellungen', ['_csrf' => $csrf, 'site_name' => 'br.foto', 'tagline' => '', 'hero_photo_id' => '0', 'hero_form' => '1']);
+check('Titelbild (feste Startseite): Häkchen aus → Überschrift nur für Screenreader', str_contains($b->get('/admin/vorschau')->body, '<h1 class="sr">br.foto</h1>') && str_contains($b->get('/admin/einstellungen')->body, 'name="hero_show"') && !str_contains($b->get('/admin/einstellungen')->body, 'name="hero_show" value="1" checked'));
+$hb = Blocks::parse($J([['t' => 'hero', 'photo' => 0, 'title' => 'Hallo', 'show' => false]]), null, true)[0];
+check('Titelbild-Block: show ist ein Schalter (Vorgabe an)', $hb['show'] === false && Blocks::parse($J([['t' => 'hero', 'photo' => 0, 'title' => 'Hallo']]), null, true)[0]['show'] === true);
+$b->post('/admin/startseite', ['_csrf' => $csrf, 'blocks' => $J([['t' => 'hero', 'photo' => $a1, 'title' => 'Versteckt', 'show' => false]])]);
+check('Titelbild-Block: ausgeschaltet → <h1 class="sr">', str_contains($b->get('/admin/vorschau')->body, '<h1 class="sr">Versteckt</h1>'));

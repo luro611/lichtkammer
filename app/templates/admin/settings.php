@@ -3,10 +3,13 @@
   <p class="eyebrow">Öffentliche Seite</p>
   <h1><em>Einstellungen</em></h1>
 <?php include __DIR__ . '/../partials/notices.php'; ?>
+  <p class="notice" role="note"><strong>Titelbild, Karussell, Slider:</strong> Das Bild der Startseite stellst du unter <a href="/admin/startseite">Seite → Startseite</a> ein (mehrere Bilder, volle Breite, Ausschnitt). Die Felder hier gelten nur, solange die Startseite dort nicht gespeichert wurde.</p>
   <form class="form card" method="post" action="/admin/einstellungen">
     <input type="hidden" name="_csrf" value="<?= $e($csrf) ?>">
     <label class="field"><span>Seitenname</span><input name="site_name" value="<?= $e((string) $set['site_name']) ?>" maxlength="60" required></label>
     <label class="field"><span>Text auf dem Titelbild der Startseite</span><input name="tagline" value="<?= $e((string) $set['tagline']) ?>" maxlength="200" placeholder="leer: Seitenname"></label>
+    <input type="hidden" name="hero_form" value="1">
+    <label class="field"><span><input type="checkbox" name="hero_show" value="1"<?= $set['hero_show'] ? ' checked' : '' ?>> Text auf dem Titelbild der Startseite anzeigen</span></label>
     <label class="field"><span>Titelfoto der Startseite</span><select name="hero_photo_id"><option value="0">automatisch: Titelbild der ersten Galerie</option>
 <?php foreach ($heroes as $h): ?>      <option value="<?= (int) $h['id'] ?>"<?= (int) $set['hero_photo_id'] === (int) $h['id'] ? ' selected' : '' ?>><?= $e($h['gallery'] . ' – ' . $h['label']) ?></option>
 <?php endforeach; ?></select></label>

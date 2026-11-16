@@ -40,7 +40,7 @@
       case 'text': return { t: t, text: '', style: 'normal' };
       case 'imagetext': return { t: t, photo: 0, alt: '', decor: false, caption: '', text: '', side: 'links', style: 'normal' };
       case 'carousel': return { t: t, photos: [], auto: false, interval: 6, ratio: '3-2', span: 'box' };
-      case 'hero': return { t: t, photo: 0, alt: '', decor: true, title: '', span: 'box', height: 'normal', fx: 50, fy: 50 };
+      case 'hero': return { t: t, photo: 0, alt: '', decor: true, title: '', show: true, span: 'box', height: 'normal', fx: 50, fy: 50 };
       case 'galleries': return { t: t, title: 'Galerien', limit: 0 };
       case 'homephotos': return { t: t, mode: 'karussell', span: 'voll', ratio: '16-9', auto: true, interval: 6, limit: 8, height: 'normal' };
       case 'image': return { t: t, photo: 0, alt: '', decor: false, caption: '', width: 'normal', href: '' };
@@ -468,6 +468,14 @@
     row.appendChild(side);
     body.appendChild(row);
     body.appendChild(labelled('Überschrift auf dem Bild', input(b, 'title', 200)));
+    var sh = el('input');
+    sh.type = 'checkbox';
+    sh.checked = b.show !== false;
+    sh.addEventListener('change', function () { b.show = sh.checked; dirty = true; });
+    var shl = el('label', 'check');
+    shl.appendChild(sh);
+    shl.appendChild(document.createTextNode(' Überschrift auf dem Bild anzeigen (ohne Häkchen bleibt sie nur für Screenreader und Suchmaschinen)'));
+    body.appendChild(shl);
     body.appendChild(labelled('Breite', select(b, 'span', [['box', 'Im Seitenrahmen mit runden Ecken'], ['voll', 'Über die ganze Fensterbreite']])));
     body.appendChild(labelled('Höhe', select(b, 'height', [['niedrig', 'Niedrig'], ['normal', 'Normal'], ['hoch', 'Hoch (fast bildschirmfüllend)']])));
     if (b.photo) {

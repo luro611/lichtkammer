@@ -15,7 +15,7 @@ final class Settings
     {
     }
 
-    /** @return array{site_name:string,tagline:string,hero_photo_id:int,home_blocks:string} */
+    /** @return array{site_name:string,tagline:string,hero_photo_id:int,home_blocks:string,hero_show:bool} */
     public function all(): array
     {
         $rows = $this->db->all('SELECT k, v FROM site_settings');
@@ -26,12 +26,16 @@ final class Settings
             'tagline' => (string) ($m['tagline'] ?? ''),
             'hero_photo_id' => (int) ($m['hero_photo_id'] ?? 0),
             'home_blocks' => (string) ($m['home_blocks'] ?? ''),
+            'hero_show' => ($m['hero_show'] ?? '1') !== '0',
         ];
     }
 
-    public function save(string $siteName, string $tagline, int $heroPhotoId): void
+    public function save(string $siteName, string $tagline, int $heroPhotoId, ?bool $heroShow = null): void
     {
         $vals = ['site_name' => Galleries::clip($siteName, 60), 'tagline' => Galleries::clip($tagline, 200), 'hero_photo_id' => (string) max(0, $heroPhotoId)];
+        if ($heroShow !== null) {
+            $vals['hero_show'] = $heroShow ? '1' : '0';
+        }
         $this->db->tx(function () use ($vals): void {
             foreach ($vals as $k => $v) {
                 $this->db->run('INSERT INTO site_settings(k, v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v', [$k, $v]);

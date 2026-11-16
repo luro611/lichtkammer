@@ -11,7 +11,7 @@ $title = (string) ($d['settings']['tagline'] !== '' ? $d['settings']['tagline'] 
     <?= $h->picture($hero, ['sizes' => '(min-width:1200px) 1160px, 100vw', 'maxw' => 2400, 'loading' => 'eager', 'priority' => true, 'alt' => '', 'class' => 'hero-pic']) ?>
   </div>
 <?php endif; ?>
-  <div class="hero-text"><h1><?= $e($title) ?></h1></div>
+  <div class="hero-text"><h1<?= $d['settings']['hero_show'] ? '' : ' class="sr"' ?>><?= $e($title) ?></h1></div>
 </section>
 <?php if ($d['galleries'] !== []): ?>
 <section class="wrap block" aria-labelledby="gal-h">
