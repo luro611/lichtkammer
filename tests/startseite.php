@@ -244,9 +244,24 @@ check('Logo-Skript: kein innerHTML, keine fremden Adressen', !preg_match('~inner
 
 // --- Veröffentlichen-Seite: Knopf je nach Stand ---
 $svc->settings->save('br.foto', '', 0);
+$db->run("DELETE FROM pages WHERE trim(body) = '' AND blocks = ''");
+$db->run("UPDATE pages SET status = 'published'");
+$db->run("UPDATE galleries SET status = 'published'");
 $b->post('/admin/veroeffentlichen', ['_csrf' => $csrf]);
 $pg = $b->get('/admin/veroeffentlichen')->body;
 check('Veröffentlichen-Seite: ohne Änderungen kein „Jetzt veröffentlichen“, sondern „✓ Alles veröffentlicht“', str_contains($pg, 'Alles veröffentlicht, keine Änderungen') && !str_contains($pg, 'Jetzt veröffentlichen</button>'));
 $b->post('/admin/seiten', ['_csrf' => $csrf, 'title' => 'Wieder neu']);
 $b->post('/admin/seiten/' . (int) $db->value("SELECT id FROM pages WHERE slug = 'wieder-neu'") . '/speichern', ['_csrf' => $csrf, 'title' => 'Wieder neu', 'slug' => 'wieder-neu', 'body' => 'Text', 'status' => 'published', 'nav' => 'main']);
 check('Veröffentlichen-Seite: mit Änderungen wieder „Jetzt veröffentlichen“', str_contains($b->get('/admin/veroeffentlichen')->body, 'Jetzt veröffentlichen</button>'));
+
+// --- Alle Entwürfe mit veröffentlichen ---
+$gx = $svc->galleries->create('Entwurf-Galerie');
+$svc->galleries->addPhotos($gx, [$a1]);
+$db->run("UPDATE galleries SET status = 'draft' WHERE id = ?", [$gx]);
+$svc->settings->save('br.foto', '', 0);
+$dp = $b->get('/admin/veroeffentlichen')->body;
+check('Veröffentlichen-Seite: bei Entwürfen Auswahl „Alle Entwürfe mit veröffentlichen“ und Knopf bleibt', str_contains($dp, 'name="entwuerfe"') && str_contains($dp, 'Jetzt veröffentlichen</button>'));
+$b->post('/admin/veroeffentlichen', ['_csrf' => $csrf]);
+check('Veröffentlichen ohne Auswahl lässt Entwürfe unverändert', $db->value("SELECT status FROM galleries WHERE id = ?", [$gx]) === 'draft');
+$b->post('/admin/veroeffentlichen', ['_csrf' => $csrf, 'entwuerfe' => '1']);
+check('Veröffentlichen mit Auswahl stellt Seiten und Galerien auf „veröffentlicht“ und erzeugt die Seite', $db->value("SELECT status FROM galleries WHERE id = ?", [$gx]) === 'published' && (int) $db->value("SELECT COUNT(*) FROM pages WHERE status <> 'published'") === 0);

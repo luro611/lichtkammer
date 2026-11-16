@@ -29,12 +29,15 @@ $fmt = static fn (string $id): string => preg_match('/^(\d{4})(\d{2})(\d{2})-(\d
 <?php foreach ($draftGalleries as $d): ?>      <li>Galerie <a href="/admin/galerien/<?= (int) $d['id'] ?>"><?= $e((string) $d['title']) ?></a></li>
 <?php endforeach; ?>
     </ul>
-    <span class="small">Zum Veröffentlichen dort den Status auf „veröffentlichen“ stellen und speichern.</span></div>
+    <span class="small">Zum Veröffentlichen dort den Status auf „veröffentlichen“ stellen und speichern, oder unten alle Entwürfe auf einmal mit veröffentlichen.</span></div>
 <?php endif; ?>
   <p class="mono small muted"><?= (int) $plan['galleries'] ?> Galerie(n), <?= (int) $plan['photos'] ?> Foto(s), <?= (int) $plan['files'] ?> Dateien</p>
   <form method="post" action="/admin/veroeffentlichen">
     <input type="hidden" name="_csrf" value="<?= $e($csrf) ?>">
-<?php if ($plan['changes'] === [] && $current !== null && $plan['errors'] === []): ?>
+<?php if ($drafts !== [] || $draftGalleries !== []): ?>
+    <label class="check"><input type="checkbox" name="entwuerfe" value="1"> Alle Entwürfe mit veröffentlichen (<?= count($drafts) ?> Seite(n), <?= count($draftGalleries) ?> Galerie(n))</label>
+<?php endif; ?>
+<?php if ($plan['changes'] === [] && $current !== null && $plan['errors'] === [] && $drafts === [] && $draftGalleries === []): ?>
     <button class="btn ghost" type="button" disabled aria-disabled="true">✓ Alles veröffentlicht, keine Änderungen</button>
 <?php else: ?>
     <button class="btn" type="submit"<?= $plan['errors'] !== [] ? ' disabled' : '' ?>>Jetzt veröffentlichen</button>

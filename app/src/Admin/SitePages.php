@@ -313,6 +313,14 @@ trait SitePages
 
     public function publishPost(Request $req, array $p, ?array $sess): Response
     {
+        if ($req->input('entwuerfe') === '1') { // ausdrücklich gewählt: alle Entwürfe (Seiten und Galerien) mit veröffentlichen
+            $this->s->db->tx(function (): void {
+                $now = $this->s->clock->now();
+                $this->s->db->run("UPDATE pages SET status = 'published', updated_at = ? WHERE status <> 'published'", [$now]);
+                $this->s->db->run("UPDATE galleries SET status = 'published', updated_at = ? WHERE status <> 'published'", [$now]);
+            });
+            $this->auditLog('settings_saved', $sess, 'settings=drafts_published', $req);
+        }
         $res = $this->s->builder->publish((int) $sess['user_id']);
         if (!$res['ok']) {
             return $this->publishView($sess, $res['error'], null, 409);
