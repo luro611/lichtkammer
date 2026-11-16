@@ -7,7 +7,7 @@
   <form class="form card" method="post" action="/admin/galerien">
     <input type="hidden" name="_csrf" value="<?= $e($csrf) ?>">
     <label class="field"><span>Neue Galerie</span><input name="title" value="<?= $e($oldTitle) ?>" maxlength="200" required placeholder="z. B. Island 2022"></label>
-    <div class="actions"><button class="btn" type="submit">Galerie anlegen</button></div>
+    <div class="actions"><button class="btn" type="submit">Galerie anlegen</button> <a class="btn ghost" href="/admin/galerien/zuordnung">Fotograf und Alt-Text für alle Galerien zuordnen</a></div>
   </form>
 </section>
 <section>

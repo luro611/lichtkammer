@@ -139,6 +139,36 @@ trait SitePages
         return $this->done('/admin/seiten', 'pagenav');
     }
 
+    // --- Sammelzuordnung nach Galerie (Fotograf und Alt-Text) ---
+
+    private function assignView(?array $sess, string $rules, bool $alt, bool $over, ?string $error = null, ?array $plan = null, ?string $ok = null, int $status = 200): Response
+    {
+        return $this->page('admin/assign', ['title' => 'Zuordnung nach Galerie', 'rules' => $rules, 'setAlt' => $alt, 'overwriteAlt' => $over, 'error' => $error, 'plan' => $plan, 'ok' => $ok], $status, $sess);
+    }
+
+    public function assignPage(Request $req, array $p, ?array $sess): Response
+    {
+        return $this->assignView($sess, '', true, false);
+    }
+
+    public function assignPost(Request $req, array $p, ?array $sess): Response
+    {
+        $rules = $req->input('regeln');
+        $alt = $req->input('alt') === '1';
+        $over = $req->input('alt_ueberschreiben') === '1';
+        $assign = new \Lichtkammer\Media\Assign($this->s->db, $this->s->catalog);
+        if ($req->input('aktion') !== 'anwenden') {
+            return $this->assignView($sess, $rules, $alt, $over, null, $assign->plan($rules));
+        }
+        try {
+            $r = $assign->apply($rules, true, $alt, $over);
+        } catch (MediaException $e) {
+            return $this->assignView($sess, $rules, $alt, $over, $e->getMessage(), null, null, 400);
+        }
+        $this->auditLog('photos_saved', $sess, 'assign=gallery,n=' . $r['photographers'], $req);
+        return $this->assignView($sess, $rules, $alt, $over, null, null, 'Fertig: Fotograf bei ' . $r['photographers'] . ' Foto(s) gesetzt, Alt-Text bei ' . $r['alts'] . ' Foto(s), ' . $r['created'] . ' Fotograf(en) neu angelegt.');
+    }
+
     /** Fotoauswahl für den Seiten-Editor (JSON). */
     public function photoPick(Request $req, array $p, ?array $sess): Response
     {

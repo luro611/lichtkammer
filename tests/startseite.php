@@ -165,3 +165,24 @@ check('Vorlagen: Impressum und Datenschutz nach dem Aufbau von lurohome, mit Pla
 // Skripte: Karussell ohne fremde Adressen/unsichere Ausgabe
 $js = (string) file_get_contents(dirname(__DIR__) . '/public/assets/js/site.js');
 check('Karussell-Skript: kein innerHTML, keine fremden Adressen, respektiert „weniger Bewegung“', str_contains($js, 'data-carousel') && str_contains($js, 'prefers-reduced-motion') && !preg_match('~innerHTML|eval\(|https?://~', $js));
+
+// --- Zuordnung nach Galerie ---
+$db->run('DELETE FROM pages');
+$gA = $svc->galleries->create('Berlin 2022/02');
+$gB = $svc->galleries->create('Ausstellung Heidelberg');
+$gC = $svc->galleries->create('Kiew 2007/03');
+$svc->galleries->addPhotos($gA, [$a1]);
+$svc->galleries->addPhotos($gB, [$a2, $a1]);
+$svc->galleries->addPhotos($gC, [$a3]);
+$db->run("UPDATE photos SET alt_text = '' WHERE id = ?", [$a3]);
+$rules = "Mathias und Lutz: Ausstellung\nLutz: Berlin, Tokio\nRest: Mathias";
+$pl = (new \Lichtkammer\Media\Assign($db, $svc->catalog))->plan($rules);
+check('Zuordnung: Vorschau nennt je Galerie den Fotografen, neue werden angekündigt, nichts geändert', array_column($pl['rows'], 'photographer') === ['Lutz', 'Mathias und Lutz', 'Mathias'] && count($pl['newNames']) === 3 && $db->value('SELECT COUNT(*) FROM photographers') == 0);
+$bad = $b->post('/admin/galerien/zuordnung', ['_csrf' => $csrf, 'regeln' => 'Lutz Berlin', 'aktion' => 'anwenden']);
+check('Zuordnung: Regel ohne Doppelpunkt wird abgelehnt', $bad->status === 400 && str_contains($bad->body, 'Doppelpunkt'));
+$prev = $b->post('/admin/galerien/zuordnung', ['_csrf' => $csrf, 'regeln' => $rules, 'alt' => '1', 'aktion' => 'vorschau']);
+check('Zuordnung: Vorschau im Admin ohne Änderung', $prev->status === 200 && str_contains($prev->body, 'Jetzt anwenden') && $db->value('SELECT COUNT(*) FROM photographers') == 0);
+$ap = $b->post('/admin/galerien/zuordnung', ['_csrf' => $csrf, 'regeln' => $rules, 'alt' => '1', 'aktion' => 'anwenden']);
+$who = static fn (int $id): string => (string) $db->value('SELECT ph.name FROM photos p JOIN photographers ph ON ph.id = p.photographer_id WHERE p.id = ?', [$id]);
+check('Zuordnung: Fotografen gesetzt (erste Galerie gewinnt bei Foto in zwei Galerien), Rest bekommt die Restregel', $ap->status === 200 && $who($a1) === 'Lutz' && $who($a2) === 'Mathias und Lutz' && $who($a3) === 'Mathias');
+check('Zuordnung: Alt-Text nur bei leeren Feldern aus dem Galerienamen; vorhandene bleiben', (string) $db->value('SELECT alt_text FROM photos WHERE id = ?', [$a3]) === 'Foto aus der Galerie „Kiew 2007/03“' && (string) $db->value('SELECT alt_text FROM photos WHERE id = ?', [$a1]) === 'Boote im Hafen');

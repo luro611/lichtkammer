@@ -69,6 +69,8 @@ final class AdminController
         $r('GET', '/admin/fotos/auswahl', 'photoPick');
         $r('GET', '/admin/fotos/{id}', 'photo');
         $r('POST', '/admin/fotos/{id}/speichern', 'photoSave');
+        $r('GET', '/admin/galerien/zuordnung', 'assignPage');
+        $r('POST', '/admin/galerien/zuordnung', 'assignPost');
         $r('GET', '/admin/galerien', 'galleries');
         $r('POST', '/admin/galerien', 'galleryCreate');
         $r('POST', '/admin/galerien/reihenfolge', 'galleriesOrder');
