@@ -239,6 +239,10 @@ SQL,
 ALTER TABLE photos ADD COLUMN on_home INTEGER NOT NULL DEFAULT 0;
 CREATE INDEX photos_on_home ON photos(on_home) WHERE on_home = 1;
 SQL,
+            // 8: Schalter „Seitentitel anzeigen“ je Seite. Nur additiv, Vorgabe an.
+            <<<'SQL'
+ALTER TABLE pages ADD COLUMN show_title INTEGER NOT NULL DEFAULT 1;
+SQL,
         ];
     }
 

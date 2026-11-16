@@ -9,6 +9,9 @@
   <form class="form card" method="post" action="/admin/seiten/<?= (int) $pg['id'] ?>/speichern">
     <input type="hidden" name="_csrf" value="<?= $e($csrf) ?>">
     <label class="field"><span>Titel</span><input name="title" value="<?= $e((string) $pg['title']) ?>" maxlength="120" required></label>
+    <input type="hidden" name="titel_form" value="1">
+    <label class="field"><span><input type="checkbox" name="titel_zeigen" value="1"<?= (int) ($pg['show_title'] ?? 1) === 1 ? ' checked' : '' ?>> Seitentitel oben auf der Seite anzeigen</span></label>
+    <p class="small muted">Ohne Häkchen ist der Titel nicht sichtbar. Für Screenreader und Suchmaschinen bleibt er trotzdem erhalten.</p>
     <label class="field"><span>Adresse (Teil der Web-Adresse)</span><input name="slug" value="<?= $e((string) $pg['slug']) ?>" maxlength="60"></label>
     <input type="hidden" name="blocks" id="blocks-field" value="<?= $e($blocksField) ?>">
     <div class="field"><span id="editor-label">Inhalt</span>

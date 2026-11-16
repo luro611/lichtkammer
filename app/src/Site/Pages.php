@@ -45,7 +45,7 @@ final class Pages
     /**
      * blocks: nicht gesetzt = Text/Blöcke unverändert lassen; '' = einfacher Text (Markdown in body); sonst Block-JSON (wird geprüft, body bleibt unberührt).
      *
-     * @param array{title:string,body:string,status:string,nav:string,slug?:string,blocks?:?string} $f
+     * @param array{title:string,body:string,status:string,nav:string,slug?:string,blocks?:?string,show_title?:?bool} $f
      */
     public function save(?int $id, array $f): int
     {
@@ -69,8 +69,8 @@ final class Pages
         if ($id === null) {
             $slug = $this->uniqueSlug((string) ($f['slug'] ?? '') !== '' ? (string) $f['slug'] : $title, null);
             $this->db->run(
-                'INSERT INTO pages(slug, title, body, blocks, status, nav, sort_order, created_at, updated_at) VALUES(?,?,?,?,?,?,(SELECT COALESCE(MAX(sort_order),0)+1 FROM pages),?,?)',
-                [$slug, $title, $body, $blocks ?? '', $status, $nav, $now, $now],
+                'INSERT INTO pages(slug, title, body, blocks, status, nav, show_title, sort_order, created_at, updated_at) VALUES(?,?,?,?,?,?,?,(SELECT COALESCE(MAX(sort_order),0)+1 FROM pages),?,?)',
+                [$slug, $title, $body, $blocks ?? '', $status, $nav, ($f['show_title'] ?? true) ? 1 : 0, $now, $now],
             );
             return $this->db->lastId();
         }
@@ -79,8 +79,8 @@ final class Pages
         // Im Blockmodus bleibt body unberührt (Sicherung des alten Textes); beim Rückweg zu Text gilt der neue body.
         $keepBody = $blocks !== null && $blocks !== '';
         $this->db->run(
-            'UPDATE pages SET slug=?, title=?, body=?, blocks=?, status=?, nav=?, updated_at=? WHERE id=?',
-            [$slug, $title, $keepBody ? (string) $cur['body'] : $body, $blocks ?? (string) $cur['blocks'], $status, $nav, $now, $id],
+            'UPDATE pages SET slug=?, title=?, body=?, blocks=?, status=?, nav=?, show_title=?, updated_at=? WHERE id=?',
+            [$slug, $title, $keepBody ? (string) $cur['body'] : $body, $blocks ?? (string) $cur['blocks'], $status, $nav, isset($f['show_title']) ? ($f['show_title'] ? 1 : 0) : (int) $cur['show_title'], $now, $id],
         );
         return $id;
     }

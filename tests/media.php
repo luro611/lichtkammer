@@ -122,7 +122,7 @@ $s = lk_setup($m);
 $b = $s['b'];
 $svc = $m['app']->services();
 $db = $svc->db;
-check('Schema: Version 7', Schema::version($db) === 7 && count(Schema::migrations()) === 7);
+check('Schema: Version 8', Schema::version($db) === 8 && count(Schema::migrations()) === 8);
 foreach (['galleries', 'photos', 'photo_variants', 'uploads'] as $t) {
     check("Schema: Tabelle $t", $db->value("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", [$t]) !== null);
 }

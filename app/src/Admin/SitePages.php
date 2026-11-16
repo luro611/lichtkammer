@@ -234,6 +234,9 @@ trait SitePages
     {
         $id = (int) $p['id'];
         $f = ['title' => $req->input('title'), 'body' => $req->input('body'), 'status' => $req->input('status'), 'nav' => $req->input('nav'), 'slug' => $req->input('slug')];
+        if ($req->input('titel_form') === '1') { // Häkchen „Seitentitel anzeigen“ (nicht angekreuzt wird gar nicht gesendet)
+            $f['show_title'] = $req->input('titel_zeigen') === '1';
+        }
         $raw = $req->input('blocks');
         if ($raw !== '') {
             $f['blocks'] = $raw;

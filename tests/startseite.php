@@ -310,3 +310,16 @@ $svc->catalog->restore([$a1]);
 // Logo im Fuß neben dem Urheberhinweis
 $svc->settings->chooseLogos(['light' => $ls[1]['id'], 'dark' => $ls[1]['id'], 'favicon' => '']);
 check('Fuß: Logo steht beim Urheberhinweis', preg_match('~<span class="mono copy"><span>© \d{4}</span><img class="logo logo-light flogo"[^>]*alt="br\.foto"~', $b->get('/admin/vorschau')->body) === 1);
+
+// --- Seitentitel an/aus ---
+$b->post('/admin/seiten', ['_csrf' => $csrf, 'title' => 'Titeltest']);
+$tid = (int) $db->value("SELECT id FROM pages WHERE slug = 'titeltest'");
+$base = ['_csrf' => $csrf, 'title' => 'Titeltest', 'slug' => 'titeltest', 'body' => 'Text', 'status' => 'published', 'nav' => 'none', 'titel_form' => '1'];
+check('Seitentitel: Vorgabe an, Häkchen im Formular', (int) $db->value('SELECT show_title FROM pages WHERE id = ?', [$tid]) === 1 && str_contains($b->get("/admin/seiten/$tid")->body, 'name="titel_zeigen" value="1" checked'));
+check('Seitentitel: angezeigt, wenn an', str_contains($b->get('/admin/vorschau/titeltest')->body, '<h1 class="h-page">Titeltest</h1>'));
+$b->post("/admin/seiten/$tid/speichern", $base);
+check('Seitentitel: ohne Häkchen aus, h1 bleibt für Screenreader (nur unsichtbar)', (int) $db->value('SELECT show_title FROM pages WHERE id = ?', [$tid]) === 0 && str_contains($b->get('/admin/vorschau/titeltest')->body, '<h1 class="h-page sr">Titeltest</h1>') && !str_contains($b->get("/admin/seiten/$tid")->body, 'name="titel_zeigen" value="1" checked'));
+$b->post("/admin/seiten/$tid/speichern", ['titel_zeigen' => '1'] + $base);
+check('Seitentitel: mit Häkchen wieder an', (int) $db->value('SELECT show_title FROM pages WHERE id = ?', [$tid]) === 1);
+$b->post("/admin/seiten/$tid/speichern", array_diff_key($base, ['titel_form' => 1]));
+check('Seitentitel: ohne Formularfeld (z. B. alter Aufruf) bleibt der Wert unverändert', (int) $db->value('SELECT show_title FROM pages WHERE id = ?', [$tid]) === 1);
