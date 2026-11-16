@@ -156,6 +156,26 @@ final class Renderer
             }
         }
         unset($pg);
+        $homeList = null;
+        if (trim($set['home_blocks']) !== '') {
+            try {
+                $homeList = Blocks::decode($set['home_blocks'], true);
+            } catch (MediaException $e) {
+                $this->issue('Startseite: ' . $e->getMessage(), true);
+                $homeList = [];
+            }
+            if ($homeList === []) {
+                $this->issue('Die Startseite hat keinen Inhalt.', true);
+            }
+            if (($n = Blocks::missingAlt($homeList)) > 0) {
+                $this->issue("Startseite: $n Bild(er) ohne Alt-Text.", true);
+            }
+            foreach (Blocks::photoIds($homeList) as $pid) {
+                if ($this->blockPhoto($pid) === null) {
+                    $this->issue("Startseite: Foto $pid ist nicht mehr verfügbar (gelöscht oder nicht fertig).", true);
+                }
+            }
+        }
         // Hero: gewähltes Foto, wenn es in einer angezeigten Galerie liegt, sonst Titelbild der ersten Galerie.
         $hero = null;
         foreach ($out as $g) {
@@ -166,7 +186,7 @@ final class Renderer
             }
         }
         $hero ??= $out[0]['cover'] ?? null;
-        return $this->data = ['settings' => $set, 'galleries' => $out, 'pages' => $pages, 'hero' => $hero];
+        return $this->data = ['settings' => $set, 'galleries' => $out, 'pages' => $pages, 'hero' => $hero, 'home' => $homeList];
     }
 
     private function issue(string $msg, bool $hard): void
@@ -199,7 +219,7 @@ final class Renderer
             return $this->blockPhotos[$id];
         }
         $p = $this->db->one(
-            "SELECT p.id, p.title, p.caption, p.alt_text, p.width, p.height FROM photos p WHERE p.id = ? AND p.deleted_at IS NULL AND p.status = 'ready'",
+            "SELECT p.id, p.title, p.caption, p.alt_text, p.width, p.height, p.blur_data_uri FROM photos p WHERE p.id = ? AND p.deleted_at IS NULL AND p.status = 'ready'",
             [$id],
         );
         if ($p !== null) {
@@ -353,6 +373,24 @@ final class Renderer
         ] + $none;
     }
 
+    /** Galerienkacheln als Block (Titel, Begrenzung; 0 = alle). */
+    public function galleryCards(string $title, int $limit): string
+    {
+        $list = $this->data()['galleries'];
+        if ($limit > 0) {
+            $list = array_slice($list, 0, $limit);
+        }
+        if ($list === []) {
+            return '';
+        }
+        $head = $title !== '' ? '<div class="block-head"><h2 id="gal-h">' . self::h($title) . '</h2><a class="more" href="' . self::h($this->url('/galerien/')) . '">Alle Galerien</a></div>' : '';
+        $cards = '';
+        foreach ($list as $g) {
+            $cards .= $this->card($g);
+        }
+        return '<section class="bgalleries"' . ($title !== '' ? ' aria-labelledby="gal-h"' : ' aria-label="Galerien"') . '>' . $head . '<ul class="cards">' . $cards . "</ul></section>\n";
+    }
+
     /** @param array<string,mixed> $g Kachel einer Galerie (Start, Übersicht) */
     public function card(array $g): string
     {
@@ -393,9 +431,21 @@ final class Renderer
     {
         $d = $this->data();
         $name = (string) $d['settings']['site_name'];
+        $image = $d['hero'];
+        if ($d['home'] !== null) {
+            $image = null;
+            foreach (Blocks::photoIds($d['home']) as $pid) {
+                $image = $this->blockPhoto($pid);
+                if ($image !== null) {
+                    break;
+                }
+            }
+        }
         return $this->shell([
-            'title' => $name, 'desc' => (string) $d['settings']['tagline'], 'path' => '/', 'image' => $d['hero'], 'class' => 'home',
-            'body' => $this->body('home', ['d' => $d]),
+            'title' => $name, 'desc' => (string) $d['settings']['tagline'], 'path' => '/', 'image' => $image, 'class' => 'home',
+            'body' => $d['home'] !== null
+                ? $this->body('page_home', ['html' => Blocks::render($d['home'], $this)])
+                : $this->body('home', ['d' => $d]),
         ]);
     }
 
@@ -572,6 +622,9 @@ final class Renderer
             foreach (Blocks::photoIds($pg['block_list'] ?? []) as $id) {
                 $ids[$id] = $id;
             }
+        }
+        foreach (Blocks::photoIds($this->data()['home'] ?? []) as $id) {
+            $ids[$id] = $id;
         }
         return array_values($ids);
     }

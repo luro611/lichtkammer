@@ -22,6 +22,17 @@ final class Blocks
     /** Blöcke, die in Spalten stehen dürfen. */
     public const SIMPLE = ['heading', 'text', 'image', 'quote', 'button'];
     public const WIDTHS = ['schmal', 'normal', 'voll'];
+    /** Stile je Blocktyp (Entwurf 14): erster Eintrag ist die Vorgabe, Unbekanntes wird zur Vorgabe. */
+    public const STYLES = [
+        'heading' => ['normal', 'mitte'],
+        'text' => ['normal', 'gross', 'mitte', 'flaeche'],
+        'quote' => ['normal', 'gross', 'flaeche'],
+        'button' => ['normal', 'mitte'],
+        'imagetext' => ['normal', 'flaeche'],
+    ];
+    public const RATIOS = ['3-2', '16-9', '21-9'];
+    /** Typen, die nur auf der Startseite erlaubt sind. */
+    public const HOME_ONLY = ['hero'];
 
     /**
      * Prüft Eingabe-JSON und gibt die bereinigten Blöcke zurück. Leere Text-, Überschrift- und Zitatblöcke werden entfernt.
@@ -29,7 +40,7 @@ final class Blocks
      * @return list<array<string,mixed>>
      * @throws MediaException mit verständlicher Meldung
      */
-    public static function parse(string $json, ?Database $db = null): array
+    public static function parse(string $json, ?Database $db = null, bool $home = false): array
     {
         if (strlen($json) > self::MAX_JSON) {
             throw new MediaException('Die Seite ist zu groß (höchstens 200 KB Inhalt).');
@@ -45,7 +56,7 @@ final class Blocks
         $n = 0;
         foreach ($data['blocks'] as $b) {
             $n++;
-            $clean = self::norm($b, false, $db, 'Block ' . $n);
+            $clean = self::norm($b, false, $db, 'Block ' . $n, $home);
             if ($clean !== null) {
                 $out[] = $clean;
             }
@@ -54,9 +65,9 @@ final class Blocks
     }
 
     /** Gespeicherte Form lesen (ohne Datenbankprüfung). @return list<array<string,mixed>> */
-    public static function decode(string $stored): array
+    public static function decode(string $stored, bool $home = false): array
     {
-        return self::parse($stored, null);
+        return self::parse($stored, null, $home);
     }
 
     /** @param list<array<string,mixed>> $blocks */
@@ -66,26 +77,33 @@ final class Blocks
     }
 
     /** @return array<string,mixed>|null null = leerer Block, wird entfernt */
-    private static function norm(mixed $b, bool $inColumn, ?Database $db, string $where): ?array
+    private static function norm(mixed $b, bool $inColumn, ?Database $db, string $where, bool $home = false): ?array
     {
         if (!is_array($b) || !isset($b['t']) || !is_string($b['t'])) {
             throw new MediaException("$where: unbekannter Block.");
         }
         $s = static fn (string $k, int $max): string => isset($b[$k]) && is_string($b[$k]) ? Galleries::clip($b[$k], $max) : '';
         $t = $b['t'];
+        $style = static function (string $type) use ($b): string {
+            $list = self::STYLES[$type];
+            return isset($b['style']) && is_string($b['style']) && in_array($b['style'], $list, true) ? $b['style'] : $list[0];
+        };
+        if (in_array($t, self::HOME_ONLY, true) && !$home) {
+            throw new MediaException("$where: Dieser Block geht nur auf der Startseite.");
+        }
         if ($inColumn && !in_array($t, self::SIMPLE, true)) {
             throw new MediaException("$where: In Spalten gehen nur Überschrift, Text, Bild, Zitat und Knopf.");
         }
         switch ($t) {
             case 'heading':
                 $text = $s('text', 200);
-                return $text === '' ? null : ['t' => 'heading', 'level' => ($b['level'] ?? 2) === 3 ? 3 : 2, 'text' => $text];
+                return $text === '' ? null : ['t' => 'heading', 'level' => ($b['level'] ?? 2) === 3 ? 3 : 2, 'text' => $text, 'style' => $style('heading')];
             case 'text':
                 $text = $s('text', 20000);
-                return trim($text) === '' ? null : ['t' => 'text', 'text' => $text];
+                return trim($text) === '' ? null : ['t' => 'text', 'text' => $text, 'style' => $style('text')];
             case 'quote':
                 $text = $s('text', 1000);
-                return $text === '' ? null : ['t' => 'quote', 'text' => $text, 'by' => $s('by', 200)];
+                return $text === '' ? null : ['t' => 'quote', 'text' => $text, 'by' => $s('by', 200), 'style' => $style('quote')];
             case 'rule':
                 return ['t' => 'rule'];
             case 'button':
@@ -97,7 +115,7 @@ final class Blocks
                 if ($label === '' || !Markdown::safeUrl($href)) {
                     throw new MediaException("$where: Der Knopf braucht eine Beschriftung und eine gültige Adresse (/seite/, https://… oder mailto:…).");
                 }
-                return ['t' => 'button', 'label' => $label, 'href' => $href];
+                return ['t' => 'button', 'label' => $label, 'href' => $href, 'style' => $style('button')];
             case 'image':
                 $photo = self::photoId($b['photo'] ?? null, $db, $where);
                 $href = $s('href', 500);
@@ -128,6 +146,41 @@ final class Blocks
                 }
                 $cols = (int) ($b['cols'] ?? 3);
                 return ['t' => 'gallery', 'photos' => $photos, 'cols' => in_array($cols, [2, 3, 4], true) ? $cols : 3];
+            case 'imagetext':
+                $text = $s('text', 20000);
+                $photo = self::photoId($b['photo'] ?? null, $db, $where);
+                return ['t' => 'imagetext', 'photo' => $photo, 'alt' => $s('alt', 250), 'decor' => ($b['decor'] ?? false) === true, 'caption' => $s('caption', 300),
+                    'text' => $text, 'side' => ($b['side'] ?? 'links') === 'rechts' ? 'rechts' : 'links', 'style' => $style('imagetext')];
+            case 'hero':
+                $hp = $b['photo'] ?? 0;
+                $title = $s('title', 200);
+                $hasPhoto = !($hp === 0 || $hp === '' || $hp === '0' || $hp === null);
+                if (!$hasPhoto && $title === '') {
+                    return null;
+                }
+                return ['t' => 'hero', 'photo' => $hasPhoto ? self::photoId($hp, $db, $where) : 0, 'alt' => $s('alt', 250), 'decor' => ($b['decor'] ?? true) !== false, 'title' => $title];
+            case 'carousel':
+                $list = $b['photos'] ?? null;
+                if (!is_array($list) || !array_is_list($list) || $list === []) {
+                    throw new MediaException("$where: Das Karussell braucht mindestens ein Foto.");
+                }
+                if (count($list) > self::MAX_PHOTOS) {
+                    throw new MediaException("$where: Ein Karussell hat höchstens " . self::MAX_PHOTOS . ' Fotos.');
+                }
+                $photos = [];
+                foreach ($list as $p) {
+                    if (!is_array($p)) {
+                        throw new MediaException("$where: ungültiges Foto im Karussell.");
+                    }
+                    $photos[] = ['photo' => self::photoId($p['photo'] ?? null, $db, $where),
+                        'alt' => isset($p['alt']) && is_string($p['alt']) ? Galleries::clip($p['alt'], 250) : '', 'decor' => ($p['decor'] ?? false) === true];
+                }
+                $iv = (int) ($b['interval'] ?? 6);
+                $ratio = $b['ratio'] ?? '3-2';
+                return ['t' => 'carousel', 'photos' => $photos, 'auto' => ($b['auto'] ?? false) === true, 'interval' => max(3, min(15, $iv)),
+                    'ratio' => in_array($ratio, self::RATIOS, true) ? $ratio : '3-2'];
+            case 'galleries':
+                return ['t' => 'galleries', 'title' => $s('title', 100), 'limit' => max(0, min(24, (int) ($b['limit'] ?? 0)))];
             case 'columns':
                 $sides = [];
                 foreach (['left', 'right'] as $side) {
@@ -165,9 +218,11 @@ final class Blocks
     {
         $n = 0;
         foreach ($blocks as $b) {
-            if ($b['t'] === 'image' && $b['alt'] === '' && !$b['decor']) {
+            if (in_array($b['t'], ['image', 'imagetext'], true) && $b['alt'] === '' && !$b['decor']) {
                 $n++;
-            } elseif ($b['t'] === 'gallery') {
+            } elseif ($b['t'] === 'hero') {
+                $n += $b['photo'] > 0 && $b['alt'] === '' && !$b['decor'] ? 1 : 0;
+            } elseif ($b['t'] === 'gallery' || $b['t'] === 'carousel') {
                 foreach ($b['photos'] as $p) {
                     $n += $p['alt'] === '' && !$p['decor'] ? 1 : 0;
                 }
@@ -183,9 +238,11 @@ final class Blocks
     {
         $ids = [];
         foreach ($blocks as $b) {
-            if ($b['t'] === 'image') {
-                $ids[(int) $b['photo']] = (int) $b['photo'];
-            } elseif ($b['t'] === 'gallery') {
+            if (in_array($b['t'], ['image', 'imagetext', 'hero'], true)) {
+                if ((int) $b['photo'] > 0) {
+                    $ids[(int) $b['photo']] = (int) $b['photo'];
+                }
+            } elseif ($b['t'] === 'gallery' || $b['t'] === 'carousel') {
                 foreach ($b['photos'] as $p) {
                     $ids[(int) $p['photo']] = (int) $p['photo'];
                 }
@@ -315,15 +372,15 @@ final class Blocks
         switch ($b['t']) {
             case 'heading':
                 $l = (int) $b['level'] === 3 ? 3 : 2;
-                return "<h$l class=\"bh\">" . Markdown::inline($b['text']) . "</h$l>\n";
+                return "<h$l class=\"bh" . self::cls($b) . "\">" . Markdown::inline($b['text']) . "</h$l>\n";
             case 'text':
-                return '<div class="prose bt-text">' . Markdown::render($b['text'], false) . "</div>\n";
+                return '<div class="prose bt-text' . self::cls($b) . '">' . Markdown::render($b['text'], false) . "</div>\n";
             case 'quote':
-                return '<blockquote class="bquote"><p>' . Markdown::inline($b['text']) . '</p>' . ($b['by'] !== '' ? '<footer>' . $h($b['by']) . '</footer>' : '') . "</blockquote>\n";
+                return '<blockquote class="bquote' . self::cls($b) . '"><p>' . Markdown::inline($b['text']) . '</p>' . ($b['by'] !== '' ? '<footer>' . $h($b['by']) . '</footer>' : '') . "</blockquote>\n";
             case 'rule':
                 return "<hr class=\"brule\">\n";
             case 'button':
-                return '<p class="bbtn">' . self::link($b['href'], '<span>' . $h($b['label']) . '</span>', $r, 'knopf') . "</p>\n";
+                return '<p class="bbtn' . self::cls($b) . '">' . self::link($b['href'], '<span>' . $h($b['label']) . '</span>', $r, 'knopf') . "</p>\n";
             case 'image':
                 $p = $r->blockPhoto((int) $b['photo']);
                 if ($p === null) {
@@ -350,6 +407,47 @@ final class Blocks
                         . $r->picture($p, ['sizes' => '(min-width:900px) ' . (int) (1000 / (int) $b['cols']) . 'px, 50vw', 'maxw' => 960, 'alt' => $alt]) . "</a></li>\n";
                 }
                 return '<ul class="bgrid c' . (int) $b['cols'] . '" data-lightbox aria-label="Fotos">' . "\n" . $items . "</ul>\n";
+            case 'imagetext':
+                $p = $r->blockPhoto((int) $b['photo']);
+                if ($p === null) {
+                    return '';
+                }
+                $pic = $r->picture($p, ['sizes' => '(min-width:800px) 480px, 100vw', 'maxw' => 1600, 'alt' => $b['decor'] ? '' : $b['alt']]);
+                $fig = '<figure class="bit-img">' . $pic . ($b['caption'] !== '' ? '<figcaption>' . $h($b['caption']) . '</figcaption>' : '') . '</figure>';
+                $txt = '<div class="bit-text prose">' . Markdown::render($b['text'], false) . '</div>';
+                return '<div class="bit bit-' . $h($b['side']) . self::cls($b) . '">' . $fig . $txt . "</div>\n";
+            case 'hero':
+                $p = $b['photo'] > 0 ? $r->blockPhoto((int) $b['photo']) : null;
+                $title = $b['title'] !== '' ? '<h1>' . $h($b['title']) . '</h1>' : '';
+                if ($p === null) {
+                    return '<section class="hero nohero"><div class="hero-text">' . $title . "</div></section>\n";
+                }
+                $blur = (string) ($p['blur_data_uri'] ?? '') !== '' ? '<img class="blur" src="' . $h((string) $p['blur_data_uri']) . '" alt="" aria-hidden="true">' : '';
+                return '<section class="hero"><div class="hero-img">' . $blur
+                    . $r->picture($p, ['sizes' => '(min-width:1200px) 1160px, 100vw', 'maxw' => 2400, 'loading' => 'eager', 'priority' => true, 'alt' => $b['decor'] ? '' : $b['alt'], 'class' => 'hero-pic'])
+                    . '</div><div class="hero-text">' . $title . "</div></section>\n";
+            case 'carousel':
+                $slides = '';
+                $n = 0;
+                $total = count($b['photos']);
+                foreach ($b['photos'] as $e) {
+                    $p = $r->blockPhoto((int) $e['photo']);
+                    if ($p === null) {
+                        continue;
+                    }
+                    $n++;
+                    $slides .= '<figure class="bcar-slide" role="group" aria-roledescription="Folie" aria-label="Folie ' . $n . ' von %TOTAL%">'
+                        . $r->picture($p, ['sizes' => '(min-width:1200px) 1160px, 100vw', 'maxw' => 2000, 'alt' => $e['decor'] ? '' : $e['alt'], 'loading' => $n === 1 ? 'eager' : 'lazy']) . "</figure>\n";
+                }
+                if ($n === 0) {
+                    return '';
+                }
+                $slides = str_replace('%TOTAL%', (string) $n, $slides);
+                return '<section class="bcar r-' . $h($b['ratio']) . '" data-carousel' . ($b['auto'] ? ' data-auto="' . (int) $b['interval'] . '"' : '')
+                    . ' role="group" aria-roledescription="Karussell" aria-label="Bildergalerie mit ' . $n . ' Fotos">'
+                    . '<div class="bcar-track" tabindex="0" aria-label="Fotos, mit den Pfeiltasten blättern">' . "\n" . $slides . "</div></section>\n";
+            case 'galleries':
+                return $r->galleryCards((string) $b['title'], (int) $b['limit']);
             case 'columns':
                 $side = static function (array $list) use ($r): string {
                     $o = '';
@@ -361,6 +459,13 @@ final class Blocks
                 return '<div class="bcols"><div>' . "\n" . $side($b['left']) . '</div><div>' . "\n" . $side($b['right']) . "</div></div>\n";
         }
         return '';
+    }
+
+    /** CSS-Klasse für den Stil (nur bei Abweichung von „normal“); nur Werte aus der Positivliste. @param array<string,mixed> $b */
+    private static function cls(array $b): string
+    {
+        $st = (string) ($b['style'] ?? 'normal');
+        return $st !== 'normal' && in_array($st, self::STYLES[$b['t']] ?? [], true) ? ' s-' . $st : '';
     }
 
     private static function link(string $href, string $inner, Renderer $r, string $class): string

@@ -187,3 +187,86 @@
   }
   void reduce;
 })();
+
+// Karussell (Entwurf 14): Grundlage ist ein waagerecht scrollbarer Streifen mit Einrastpunkten (geht auch ohne Skript).
+// Hier kommen Knöpfe, Punkte, Pause und Automatik dazu. Automatik nie bei „weniger Bewegung“, hält an bei Maus, Fokus und Pause.
+(function () {
+  'use strict';
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  Array.prototype.forEach.call(document.querySelectorAll('[data-carousel]'), function (root) {
+    var track = root.querySelector('.bcar-track');
+    var slides = track ? Array.prototype.slice.call(track.children) : [];
+    if (!track || slides.length < 2) { return; }
+    var cur = 0, timer = null, paused = false, hovering = false;
+    function mk(tag, cls, text) { var n = document.createElement(tag); n.className = cls; if (text) { n.textContent = text; } return n; }
+    function button(cls, label, text, fn) {
+      var b = mk('button', cls, text);
+      b.type = 'button';
+      b.setAttribute('aria-label', label);
+      b.addEventListener('click', fn);
+      return b;
+    }
+    var live = mk('p', 'sr');
+    live.setAttribute('aria-live', 'polite');
+    var bar = mk('div', 'bcar-ctl');
+    var prev = button('bcar-btn bcar-prev', 'Vorheriges Foto', '‹', function () { go(cur - 1, true); });
+    var next = button('bcar-btn bcar-next', 'Nächstes Foto', '›', function () { go(cur + 1, true); });
+    var dots = mk('div', 'bcar-dots');
+    var dotBtns = slides.map(function (s, i) {
+      var d = button('bcar-dot', 'Foto ' + (i + 1) + ' von ' + slides.length, '', function () { go(i, true); });
+      dots.appendChild(d);
+      return d;
+    });
+    var auto = parseInt(root.getAttribute('data-auto') || '0', 10) * 1000;
+    var pause = null;
+    if (auto > 0 && !reduce) {
+      pause = button('bcar-btn bcar-pause', 'Automatisches Blättern anhalten', 'Ⅱ', function () {
+        paused = !paused;
+        pause.textContent = paused ? '▶' : 'Ⅱ';
+        pause.setAttribute('aria-label', paused ? 'Automatisches Blättern fortsetzen' : 'Automatisches Blättern anhalten');
+        schedule();
+      });
+    }
+    bar.appendChild(prev);
+    bar.appendChild(dots);
+    if (pause) { bar.appendChild(pause); }
+    bar.appendChild(next);
+    root.appendChild(bar);
+    root.appendChild(live);
+    function mark() {
+      dotBtns.forEach(function (d, i) { if (i === cur) { d.setAttribute('aria-current', 'true'); } else { d.removeAttribute('aria-current'); } });
+    }
+    function go(i, user) {
+      cur = (i + slides.length) % slides.length;
+      track.scrollTo({ left: slides[cur].offsetLeft - track.offsetLeft, behavior: reduce ? 'auto' : 'smooth' });
+      mark();
+      if (user) { live.textContent = 'Foto ' + (cur + 1) + ' von ' + slides.length; }
+      schedule();
+    }
+    var t2 = null;
+    track.addEventListener('scroll', function () {
+      clearTimeout(t2);
+      t2 = setTimeout(function () {
+        var w = track.clientWidth || 1;
+        var i = Math.round(track.scrollLeft / w);
+        if (i !== cur && i >= 0 && i < slides.length) { cur = i; mark(); }
+      }, 80);
+    }, { passive: true });
+    function schedule() {
+      clearTimeout(timer);
+      if (auto > 0 && !reduce && !paused && !hovering) { timer = setTimeout(function () { go(cur + 1, false); }, auto); }
+    }
+    root.addEventListener('mouseenter', function () { hovering = true; schedule(); });
+    root.addEventListener('mouseleave', function () { hovering = false; schedule(); });
+    root.addEventListener('focusin', function () { hovering = true; schedule(); });
+    root.addEventListener('focusout', function () { hovering = false; schedule(); });
+    document.addEventListener('visibilitychange', function () { if (document.hidden) { clearTimeout(timer); } else { schedule(); } });
+    track.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight') { e.preventDefault(); go(cur + 1, true); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); go(cur - 1, true); }
+    });
+    root.classList.add('is-js');
+    mark();
+    schedule();
+  });
+})();

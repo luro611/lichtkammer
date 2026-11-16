@@ -14,7 +14,7 @@ final class Settings
     {
     }
 
-    /** @return array{site_name:string,tagline:string,hero_photo_id:int} */
+    /** @return array{site_name:string,tagline:string,hero_photo_id:int,home_blocks:string} */
     public function all(): array
     {
         $rows = $this->db->all('SELECT k, v FROM site_settings');
@@ -24,6 +24,7 @@ final class Settings
             'site_name' => $name !== '' ? $name : $this->config->siteName(),
             'tagline' => (string) ($m['tagline'] ?? ''),
             'hero_photo_id' => (int) ($m['hero_photo_id'] ?? 0),
+            'home_blocks' => (string) ($m['home_blocks'] ?? ''),
         ];
     }
 
@@ -35,5 +36,11 @@ final class Settings
                 $this->db->run('INSERT INTO site_settings(k, v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v', [$k, $v]);
             }
         });
+    }
+
+    /** Startseite aus Blöcken (Entwurf 14). Leer = bisherige feste Startseite. */
+    public function saveHome(string $encoded): void
+    {
+        $this->db->run('INSERT INTO site_settings(k, v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v', ['home_blocks', $encoded]);
     }
 }

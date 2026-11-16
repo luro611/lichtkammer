@@ -11,6 +11,7 @@
 <?php foreach ($heroes as $h): ?>      <option value="<?= (int) $h['id'] ?>"<?= (int) $set['hero_photo_id'] === (int) $h['id'] ? ' selected' : '' ?>><?= $e($h['gallery'] . ' – ' . $h['label']) ?></option>
 <?php endforeach; ?></select></label>
     <p class="small muted">Zur Auswahl stehen Fotos aus Galerien. Erscheint das Foto in keiner veröffentlichten Galerie, nimmt die Seite das automatische Titelbild.</p>
+    <p class="small muted">Diese beiden Angaben gelten für die feste Startseite. Sobald die <a href="/admin/startseite">Startseite</a> im Block-Editor gespeichert ist, bestimmen dort Titelbild-Block und Karussell das Aussehen.</p>
     <div class="actions"><button class="btn" type="submit">Speichern</button> <a class="btn ghost" href="/admin/vorschau">Vorschau</a></div>
   </form>
 </section>

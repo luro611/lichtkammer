@@ -12,6 +12,7 @@
   try { init = JSON.parse(dataEl.textContent || '{}'); } catch (e) { init = {}; }
   var state = Array.isArray(init.blocks) ? init.blocks : [];
   var photos = init.photos && typeof init.photos === 'object' ? init.photos : {};
+  var isHome = !!init.home;
   var pickUrl = root.getAttribute('data-pick-url') || '';
   var dirty = false, submitting = false, uid = 0, focusId = null, focusSel = '';
 
@@ -23,20 +24,28 @@
     quote: { name: 'Zitat', desc: 'Hervorgehobener Satz mit Quelle' },
     rule: { name: 'Trennlinie', desc: 'Eine dünne Linie zwischen Abschnitten' },
     button: { name: 'Knopf / Link', desc: 'Ein Knopf zu einer anderen Seite oder Adresse' },
-    columns: { name: 'Zwei Spalten', desc: 'Zwei Spalten nebeneinander, auf dem Handy untereinander' }
+    columns: { name: 'Zwei Spalten', desc: 'Zwei Spalten nebeneinander, auf dem Handy untereinander' },
+    imagetext: { name: 'Bild und Text', desc: 'Ein Foto neben einem Text, links oder rechts' },
+    carousel: { name: 'Karussell', desc: 'Mehrere Fotos zum Durchblättern, auf Wunsch automatisch' },
+    hero: { name: 'Titelbild', desc: 'Großes Bild mit Überschrift (nur Startseite)' },
+    galleries: { name: 'Galerien-Kacheln', desc: 'Die Galerien als Kacheln mit Titelbild' }
   };
-  var ALL = ['heading', 'text', 'image', 'gallery', 'quote', 'rule', 'button', 'columns'];
+  var ALL = (isHome ? ['hero'] : []).concat(['heading', 'text', 'imagetext', 'image', 'carousel', 'gallery', 'galleries', 'quote', 'rule', 'button', 'columns']);
   var SIMPLE = ['heading', 'text', 'image', 'quote', 'button'];
 
   function make(t) {
     switch (t) {
-      case 'heading': return { t: t, level: 2, text: '' };
-      case 'text': return { t: t, text: '' };
+      case 'heading': return { t: t, level: 2, text: '', style: 'normal' };
+      case 'text': return { t: t, text: '', style: 'normal' };
+      case 'imagetext': return { t: t, photo: 0, alt: '', decor: false, caption: '', text: '', side: 'links', style: 'normal' };
+      case 'carousel': return { t: t, photos: [], auto: false, interval: 6, ratio: '3-2' };
+      case 'hero': return { t: t, photo: 0, alt: '', decor: true, title: '' };
+      case 'galleries': return { t: t, title: 'Galerien', limit: 0 };
       case 'image': return { t: t, photo: 0, alt: '', decor: false, caption: '', width: 'normal', href: '' };
       case 'gallery': return { t: t, photos: [], cols: 3 };
-      case 'quote': return { t: t, text: '', by: '' };
+      case 'quote': return { t: t, text: '', by: '', style: 'normal' };
       case 'rule': return { t: t };
-      case 'button': return { t: t, label: '', href: '' };
+      case 'button': return { t: t, label: '', href: '', style: 'normal' };
       default: return { t: 'columns', left: [], right: [] };
     }
   }
@@ -147,7 +156,10 @@
     switch (b.t) {
       case 'heading': case 'text': case 'quote': return cut(b.text);
       case 'image': return cut(b.caption || b.alt || (photos[b.photo] && photos[b.photo].t));
-      case 'gallery': return (b.photos.length === 1 ? '1 Foto' : b.photos.length + ' Fotos');
+      case 'imagetext': return cut(b.text || b.alt);
+      case 'hero': return cut(b.title);
+      case 'galleries': return cut(b.title);
+      case 'carousel': case 'gallery': return (b.photos.length === 1 ? '1 Foto' : b.photos.length + ' Fotos');
       case 'button': return cut(b.label);
       case 'columns': return 'links ' + b.left.length + ', rechts ' + b.right.length + ' Blöcke';
       default: return '';
@@ -265,14 +277,17 @@
       case 'heading':
         body.appendChild(labelled('Größe', select(b, 'level', [[2, 'Große Überschrift'], [3, 'Kleinere Überschrift']], Number)));
         body.appendChild(labelled('Überschrift', input(b, 'text', 200)));
+        body.appendChild(labelled('Stil', select(b, 'style', [['normal', 'Linksbündig'], ['mitte', 'Zentriert']])));
         break;
       case 'text':
         body.appendChild(labelled('Text', textarea(b, 'text', 20000, 7)));
+        body.appendChild(labelled('Stil', select(b, 'style', [['normal', 'Normal'], ['gross', 'Groß (Einleitung)'], ['mitte', 'Zentriert'], ['flaeche', 'Auf heller Fläche']])));
         body.appendChild(el('p', 'small muted', 'Gestaltung: **fett**, *kursiv*, Liste mit „- “ am Zeilenanfang, Link als [Text](https://adresse.de). Leerzeile = neuer Absatz.'));
         break;
       case 'quote':
         body.appendChild(labelled('Zitat', textarea(b, 'text', 1000, 3)));
         body.appendChild(labelled('Quelle (optional)', input(b, 'by', 200)));
+        body.appendChild(labelled('Stil', select(b, 'style', [['normal', 'Normal'], ['gross', 'Groß'], ['flaeche', 'Auf heller Fläche']])));
         break;
       case 'rule':
         body.appendChild(el('p', 'small muted', 'Eine dünne Linie. Hier gibt es nichts auszufüllen.'));
@@ -280,10 +295,23 @@
       case 'button':
         body.appendChild(labelled('Beschriftung', input(b, 'label', 80)));
         body.appendChild(labelled('Ziel', input(b, 'href', 500)));
+        body.appendChild(labelled('Stil', select(b, 'style', [['normal', 'Linksbündig'], ['mitte', 'Zentriert']])));
         body.appendChild(el('p', 'small muted', 'Eigene Seite wie /galerien/ oder /ueber-uns/, eine Adresse mit https:// oder eine Mail-Adresse mit mailto:.'));
         break;
       case 'image': fillImage(body, b); break;
       case 'gallery': fillGallery(body, b); break;
+      case 'carousel': fillGallery(body, b, true); break;
+      case 'imagetext':
+        fillImage(body, b, true);
+        break;
+      case 'hero':
+        fillHero(body, b);
+        break;
+      case 'galleries':
+        body.appendChild(labelled('Überschrift über den Kacheln (leer = keine)', input(b, 'title', 100)));
+        body.appendChild(labelled('Anzahl', select(b, 'limit', [[0, 'Alle Galerien'], [3, 'Die ersten 3'], [6, 'Die ersten 6'], [9, 'Die ersten 9']], Number)));
+        body.appendChild(el('p', 'small muted', 'Zeigt die veröffentlichten Galerien mit ihrem Titelbild. Hier gibt es sonst nichts auszufüllen.'));
+        break;
       case 'columns': {
         var cols = el('div', 'bcolsedit');
         [['left', 'Linke Spalte'], ['right', 'Rechte Spalte']].forEach(function (s) {
@@ -333,7 +361,7 @@
     return wrap;
   }
 
-  function fillImage(body, b) {
+  function fillImage(body, b, withText) {
     var row = el('div', 'bphoto');
     row.appendChild(thumb(b.photo));
     var side = el('div', 'bphotoside');
@@ -356,18 +384,61 @@
     body.appendChild(row);
     body.appendChild(altRow(b));
     body.appendChild(labelled('Bildunterschrift (optional)', input(b, 'caption', 300)));
+    if (withText) {
+      body.appendChild(labelled('Text neben dem Bild', textarea(b, 'text', 20000, 6)));
+      body.appendChild(labelled('Bild steht', select(b, 'side', [['links', 'Links vom Text'], ['rechts', 'Rechts vom Text']])));
+      body.appendChild(labelled('Stil', select(b, 'style', [['normal', 'Normal'], ['flaeche', 'Auf heller Fläche']])));
+      return;
+    }
     body.appendChild(labelled('Breite', select(b, 'width', [['schmal', 'Schmal'], ['normal', 'Normal'], ['voll', 'Volle Breite']])));
     body.appendChild(labelled('Link beim Anklicken (optional)', input(b, 'href', 500)));
   }
 
-  function fillGallery(body, b) {
-    body.appendChild(labelled('Spalten', select(b, 'cols', [[2, '2 Spalten'], [3, '3 Spalten'], [4, '4 Spalten']], Number)));
+  function fillHero(body, b) {
+    var row = el('div', 'bphoto');
+    row.appendChild(thumb(b.photo));
+    var side = el('div', 'bphotoside');
+    side.appendChild(btn(b.photo ? 'Foto ändern' : 'Foto auswählen', '', function () {
+      pick(false, function (rows) {
+        var r = rows[0];
+        photos[r.id] = { t: r.t, a: r.a, c: r.c, u: r.u, x: 0 };
+        b.photo = r.id;
+        if (!b.alt && r.a) { b.alt = r.a; }
+        dirty = true; focusId = b._id; focusSel = '.bphotoside button'; renderAll();
+      });
+    }));
+    if (b.photo) {
+      side.appendChild(btn('Foto entfernen', '', function () { b.photo = 0; dirty = true; focusId = b._id; focusSel = '.bphotoside button'; renderAll(); }));
+    } else {
+      side.appendChild(el('p', 'small muted', 'Ohne Foto erscheint nur die Überschrift.'));
+    }
+    row.appendChild(side);
+    body.appendChild(row);
+    body.appendChild(labelled('Überschrift auf dem Bild', input(b, 'title', 200)));
+    if (b.photo) { body.appendChild(altRow(b)); }
+  }
+
+  function fillGallery(body, b, carousel) {
+    if (carousel) {
+      var auto = el('input');
+      auto.type = 'checkbox';
+      auto.checked = !!b.auto;
+      auto.addEventListener('change', function () { b.auto = auto.checked; dirty = true; });
+      var al = el('label', 'check');
+      al.appendChild(auto);
+      al.appendChild(document.createTextNode(' Automatisch weiterblättern (nicht bei „weniger Bewegung“ im System)'));
+      body.appendChild(al);
+      body.appendChild(labelled('Wechsel nach', select(b, 'interval', [[4, '4 Sekunden'], [6, '6 Sekunden'], [8, '8 Sekunden'], [12, '12 Sekunden']], Number)));
+      body.appendChild(labelled('Format', select(b, 'ratio', [['3-2', 'Standard (3:2)'], ['16-9', 'Breit (16:9)'], ['21-9', 'Sehr breit (21:9)']])));
+    } else {
+      body.appendChild(labelled('Spalten', select(b, 'cols', [[2, '2 Spalten'], [3, '3 Spalten'], [4, '4 Spalten']], Number)));
+    }
     var ul = el('ul', 'bgal');
     b.photos.forEach(function (p, i) {
       var li = el('li', 'bgalitem');
       li.appendChild(thumb(p.photo));
       var side = el('div', 'bgalside');
-      side.appendChild(altRow(p, true));
+      side.appendChild(altRow(p, !carousel));
       var tools = el('div', 'btools');
       var u = btn('↑', '', function () { reorder(b.photos, i, -1, b); }, 'Foto ' + (i + 1) + ' nach vorn');
       var d = btn('↓', '', function () { reorder(b.photos, i, 1, b); }, 'Foto ' + (i + 1) + ' nach hinten');

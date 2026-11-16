@@ -21,7 +21,7 @@ $csrf = $csrf ?? '';
     $path = (string) ($navPath ?? '');
     $on = static fn (string ...$prefixes): bool => array_reduce($prefixes, static fn (bool $c, string $p): bool => $c || $path === $p || str_starts_with($path, $p . '/'), false);
     $cur = static fn (bool $active): string => $active ? ' aria-current="page"' : '';
-    $inhalte = $on('/admin/fotos', '/admin/galerien', '/admin/seiten', '/admin/papierkorb', '/admin/fotografen');
+    $inhalte = $on('/admin/fotos', '/admin/galerien', '/admin/startseite', '/admin/seiten', '/admin/papierkorb', '/admin/fotografen');
     $verw = $on('/admin/users', '/admin/import', '/admin/log', '/admin/account');
 ?>
   <nav class="nav" aria-label="Verwaltung">
@@ -31,6 +31,7 @@ $csrf = $csrf ?? '';
       <div class="navmenu">
         <a href="/admin/fotos"<?= $cur($on('/admin/fotos')) ?>>Fotos</a>
         <a href="/admin/galerien"<?= $cur($on('/admin/galerien')) ?>>Galerien</a>
+        <a href="/admin/startseite"<?= $cur($on('/admin/startseite')) ?>>Startseite</a>
         <a href="/admin/seiten"<?= $cur($on('/admin/seiten')) ?>>Seiten</a>
         <a href="/admin/fotografen"<?= $cur($on('/admin/fotografen')) ?>>Fotografen</a>
         <a href="/admin/papierkorb"<?= $cur($on('/admin/papierkorb')) ?>>Papierkorb</a>
