@@ -103,6 +103,15 @@ final class Config
         return $this->path('LK_ORIGINALS_DIR', $this->root() . '/originals');
     }
 
+    /**
+     * Ordner mit dem Importpaket (Umzug). Auf all-inkl legt man das Paket per FTPS in einen Ordner im Webroot
+     * (LK_IMPORT_DIR); die App sperrt ihn dann per .htaccess. Standard: <Datenordner>/import.
+     */
+    public function importDir(): string
+    {
+        return $this->path('LK_IMPORT_DIR', $this->dataDir() . '/import');
+    }
+
     /** Erzeugte öffentliche Bildvarianten. Standard: <public>/media. */
     public function mediaDir(): string
     {

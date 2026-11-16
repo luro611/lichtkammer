@@ -31,6 +31,10 @@ final class Server
         if (preg_match('#^[A-Za-z0-9_/.\-]*$#', $path) !== 1 || str_contains($path, '..') || preg_match('#/\.#', $path) === 1) {
             return $this->notFound($root);
         }
+        $to = $this->redirectFor($root, $path);
+        if ($to !== null) {
+            return Response::redirect($to, 301);
+        }
         if (in_array($path, ['/robots.txt', '/sitemap.xml'], true)) {
             $file = $root . $path;
             $type = $path === '/robots.txt' ? 'text/plain; charset=utf-8' : 'application/xml; charset=utf-8';
@@ -53,6 +57,25 @@ final class Server
             return new Response('', 304, $h);
         }
         return new Response($body, 200, $h);
+    }
+
+    /**
+     * Alte Adresse (Umzug) -> neue Adresse aus _redirects.json der aktiven Fassung. Das Ziel stammt nur aus unserer eigenen
+     * Datei und wird trotzdem noch einmal auf erlaubte Zeichen geprüft.
+     */
+    private function redirectFor(string $root, string $path): ?string
+    {
+        $file = $root . '/_redirects.json';
+        if ($path === '/' || !is_file($file)) {
+            return null;
+        }
+        $map = json_decode((string) file_get_contents($file), true);
+        $key = strtolower(rtrim($path, '/'));
+        $to = is_array($map) ? ($map[$key] ?? null) : null;
+        if (!is_string($to) || preg_match('#^/[A-Za-z0-9_/.\-]*$#', $to) !== 1 || str_starts_with($to, '//') || str_contains($to, '..')) {
+            return null;
+        }
+        return $to;
     }
 
     private function notFound(string $root): Response

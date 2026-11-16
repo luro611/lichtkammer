@@ -498,6 +498,11 @@ final class Renderer
             $files['/' . $pg['slug'] . '/'] = $this->page($pg);
             $this->labels['/' . $pg['slug'] . '/'] = 'Seite „' . $pg['title'] . '“';
         }
+        $redirects = $this->redirects($files);
+        if ($redirects !== []) {
+            $files['/_redirects.json'] = (string) json_encode($redirects, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+            $this->labels['/_redirects.json'] = 'Weiterleitungen alter Adressen (' . count($redirects) . ')';
+        }
         $base = $this->config->baseUrl();
         if ($this->config->noindex()) {
             $files['/robots.txt'] = "User-agent: *\nDisallow: /\n";
@@ -514,6 +519,44 @@ final class Renderer
             }
         }
         return $files;
+    }
+
+    /**
+     * Weiterleitungen alter Adressen (Umzug von WordPress) auf die neuen Adressen. Nur Ziele, die in dieser Fassung
+     * wirklich erscheinen (veröffentlicht); eine Adresse, unter der es jetzt eine Seite gibt, wird nie umgeleitet.
+     *
+     * @param array<string,string> $files bereits erzeugte Dateien (Adresse => Inhalt)
+     * @return array<string,string> alter Pfad (klein, ohne / am Ende) => neuer Pfad
+     */
+    private function redirects(array $files): array
+    {
+        $d = $this->data();
+        $gal = [];
+        foreach ($d['galleries'] as $g) {
+            $gal[(int) $g['id']] = '/galerien/' . $g['slug'] . '/';
+        }
+        $pg = [];
+        foreach ($d['pages'] as $p) {
+            $pg[(int) $p['id']] = '/' . $p['slug'] . '/';
+        }
+        $out = [];
+        foreach ($this->db->all('SELECT from_path, kind, target_id, to_path FROM redirects ORDER BY from_path') as $r) {
+            $to = match ($r['kind']) {
+                'gallery' => $gal[(int) $r['target_id']] ?? null,
+                'page' => $pg[(int) $r['target_id']] ?? null,
+                'home' => '/',
+                'galleries' => isset($files['/galerien/']) ? '/galerien/' : null,
+                'path' => (string) $r['to_path'],
+                default => null,
+            };
+            $from = strtolower((string) $r['from_path']);
+            if ($to === null || $to === '' || $from === '' || $from[0] !== '/' || isset($files[$from . '/']) || isset($files[$from]) || $to === $from . '/' || $to === $from) {
+                continue;
+            }
+            $out[$from] = $to;
+        }
+        ksort($out);
+        return $out;
     }
 
     /** Kennungen der angezeigten Fotos (für Hinweise beim Löschen). @return list<int> */

@@ -217,6 +217,23 @@ SQL,
             <<<'SQL'
 ALTER TABLE pages ADD COLUMN blocks TEXT NOT NULL DEFAULT '';
 SQL,
+            // 6: Umzug von WordPress (Schritt 7): Weiterleitungen alter Adressen und Zuordnung Quelle -> Lichtkammer. Nur additiv.
+            <<<'SQL'
+CREATE TABLE redirects (
+    from_path TEXT PRIMARY KEY,
+    kind TEXT NOT NULL CHECK (kind IN ('gallery','page','home','galleries','path')),
+    target_id INTEGER,
+    to_path TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL
+);
+CREATE TABLE import_map (
+    kind TEXT NOT NULL CHECK (kind IN ('photo','gallery','page','file')),
+    wp_id INTEGER NOT NULL,
+    local_id INTEGER NOT NULL DEFAULT 0,
+    note TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (kind, wp_id)
+);
+SQL,
         ];
     }
 

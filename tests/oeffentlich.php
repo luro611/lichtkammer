@@ -38,7 +38,7 @@ $anon = new TestBrowser($m['app'], $m['config']);
 $csrf = TestBrowser::csrf($b->get('/admin/seiten'));
 $H = ['HTTP_X_CSRF_TOKEN' => $csrf];
 
-check('Migration 4 und 5: Tabellen pages und site_settings', Schema::version($db) === 5 && $db->value("SELECT COUNT(*) FROM sqlite_master WHERE name IN ('pages','site_settings')") === 2);
+check('Migration 4 bis 6: Tabellen pages, site_settings, redirects und import_map', Schema::version($db) === count(Schema::migrations()) && $db->value("SELECT COUNT(*) FROM sqlite_master WHERE name IN ('redirects','import_map')") === 2 && $db->value("SELECT COUNT(*) FROM sqlite_master WHERE name IN ('pages','site_settings')") === 2);
 check('Öffentlich: vor dem ersten Veröffentlichen 503, /health läuft', $anon->get('/')->status === 503 && $anon->get('/health')->status === 200);
 foreach (['/admin/seiten', '/admin/seiten/1', '/admin/einstellungen', '/admin/veroeffentlichen', '/admin/vorschau', '/admin/vorschau/galerien', '/admin/vorschau/galerien/x'] as $path) {
     check("Zugriff: $path ohne Anmeldung → Anmeldeseite", $anon->get($path)->status === 303);

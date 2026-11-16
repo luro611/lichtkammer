@@ -22,7 +22,7 @@ $csrf = $csrf ?? '';
     $on = static fn (string ...$prefixes): bool => array_reduce($prefixes, static fn (bool $c, string $p): bool => $c || $path === $p || str_starts_with($path, $p . '/'), false);
     $cur = static fn (bool $active): string => $active ? ' aria-current="page"' : '';
     $inhalte = $on('/admin/fotos', '/admin/galerien', '/admin/seiten', '/admin/papierkorb', '/admin/fotografen');
-    $verw = $on('/admin/users', '/admin/log', '/admin/account');
+    $verw = $on('/admin/users', '/admin/import', '/admin/log', '/admin/account');
 ?>
   <nav class="nav" aria-label="Verwaltung">
     <a href="/admin"<?= $cur($path === '/admin') ?>>Übersicht</a>
@@ -41,6 +41,7 @@ $csrf = $csrf ?? '';
       <summary>Verwaltung<?= $verw ? '<span class="sr"> (aktuell)</span>' : '' ?></summary>
       <div class="navmenu">
 <?php if (($user['role'] ?? '') === 'admin'): ?>        <a href="/admin/users"<?= $cur($on('/admin/users')) ?>>Konten</a>
+        <a href="/admin/import"<?= $cur($on('/admin/import')) ?>>Import</a>
 <?php endif; ?>
         <a href="/admin/log"<?= $cur($on('/admin/log')) ?>>Protokoll</a>
         <a href="/admin/account"<?= $cur($on('/admin/account')) ?>>Mein Konto</a>

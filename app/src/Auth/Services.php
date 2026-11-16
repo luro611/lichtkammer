@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Lichtkammer\Auth;
 
 use Lichtkammer\Config;
+use Lichtkammer\Import\Importer;
 use Lichtkammer\Media\Capabilities;
 use Lichtkammer\Media\Catalog;
 use Lichtkammer\Media\Galleries;
@@ -40,6 +41,7 @@ final class Services
         public readonly Pages $pages,
         public readonly Settings $settings,
         public readonly Builder $builder,
+        public readonly Importer $importer,
     ) {
     }
 
@@ -71,6 +73,7 @@ final class Services
         $pages = new Pages($db, $clock);
         $settings = new Settings($db, $config);
         $builder = new Builder($db, $config, $clock, new View($config->appDir . '/templates', $config), $settings, $dataDir);
-        return new self($config, $clock, $db, $keys, $passwords, $limiter, $sessions, $audit, $recovery, $cookies, $preCsrf, $auth, $enrollment, $accounts, $dataDir, $library, $uploads, $galleries, $catalog, $pages, $settings, $builder);
+        $importer = new Importer($db, $clock, $library, $galleries, $catalog, $pages, $settings, $config->importDir(), $config->mediaDir());
+        return new self($config, $clock, $db, $keys, $passwords, $limiter, $sessions, $audit, $recovery, $cookies, $preCsrf, $auth, $enrollment, $accounts, $dataDir, $library, $uploads, $galleries, $catalog, $pages, $settings, $builder, $importer);
     }
 }

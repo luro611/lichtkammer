@@ -25,6 +25,7 @@ final class AdminController
 {
     use MediaPages;
     use SitePages;
+    use ImportPages;
 
     private readonly Router $router;
 
@@ -105,6 +106,10 @@ final class AdminController
         $r('POST', '/admin/upload/{id}/chunk', 'uploadChunk');
         $r('POST', '/admin/upload/{id}/finish', 'uploadFinish');
         $r('POST', '/admin/fotos/{id}/verarbeiten', 'photoProcess');
+        $r('GET', '/admin/import', 'importPage', false, 'admin');
+        $r('POST', '/admin/import/schritt', 'importStep', false, 'admin');
+        $r('POST', '/admin/import/abschluss', 'importFinish', false, 'admin');
+        $r('POST', '/admin/import/loeschen', 'importPurge', false, 'admin');
         $r('GET', '/admin/users', 'users', false, 'admin');
         $r('POST', '/admin/users/invite', 'usersInvite', false, 'admin');
         $r('POST', '/admin/users/{id}/{action}', 'usersAction', false, 'admin');

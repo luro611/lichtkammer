@@ -40,6 +40,7 @@ trait MediaPages
         'pagedeleted' => 'Seite gelöscht.',
         'settings' => 'Einstellungen gespeichert.',
         'person' => 'Fotografen gespeichert.',
+        'imported' => 'Importpaket gelöscht ({n} Dateien). Die übernommenen Inhalte bleiben unverändert.',
     ];
 
     private function flashFrom(Request $req): ?string
