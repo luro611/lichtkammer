@@ -176,6 +176,18 @@ $fin2 = json_decode($b->request('POST', '/admin/import/abschluss', [], $H)->body
 check('Import: zweiter Abschluss legt nichts doppelt an und überschreibt keine Änderungen im Admin', $fin2['galleries'] === 0 && $fin2['pages'] === 0 && (int) $db->value('SELECT COUNT(*) FROM galleries') === $gal0 && (int) $db->value('SELECT COUNT(*) FROM pages') === 2
     && $db->value("SELECT body FROM pages WHERE slug = 'impressum'") === 'Eigener Text');
 
+// --- Abbruch mitten im Abschluss: Nachholen ohne Doppeltes ---
+$db->run("UPDATE import_map SET note = 'leer' WHERE kind = 'page' AND wp_id = 11");
+$db->run("UPDATE pages SET body = '' WHERE slug = 'impressum'");
+$db->run('UPDATE galleries SET description = ? WHERE id = ?', ["Aufnahmen mit Kamera X.\n\nMehr auf [Über uns](lk-page:ueber-uns).", $gid]);
+$fin3 = json_decode($b->request('POST', '/admin/import/abschluss', [], $H)->body, true);
+check('Import: nach Abbruch werden leer gebliebene Seite und Galerie-Beschreibung nachgeholt', $fin3['pages'] === 1 && $fin3['galleries'] === 0 && (int) $db->value('SELECT COUNT(*) FROM pages') === 2
+    && str_contains((string) $db->value("SELECT body FROM pages WHERE slug = 'impressum'"), '(/ueber-uns/)') && str_contains((string) $db->value('SELECT description FROM galleries WHERE id = ?', [$gid]), '(/ueber-uns/)')
+    && $db->value("SELECT note FROM import_map WHERE kind = 'page' AND wp_id = 11") === '');
+$db->run("UPDATE pages SET body = 'Eigener Text' WHERE slug = 'impressum'");
+$fin4 = json_decode($b->request('POST', '/admin/import/abschluss', [], $H)->body, true);
+check('Import: danach ändert ein weiterer Abschluss nichts mehr', $fin4['pages'] === 0 && $db->value("SELECT body FROM pages WHERE slug = 'impressum'") === 'Eigener Text');
+
 // --- Veröffentlichen: Alt-Text-Pflicht bleibt, Weiterleitungen erst bei veröffentlichtem Ziel ---
 check('Veröffentlichen: Galerie ohne Alt-Texte lässt sich nicht veröffentlichen', $svc->galleries->setStatus($gid, 'published')['ok'] === false);
 $svc->catalog->bulkUpdate($gp, ['alt_text' => 'Ein Foto aus Island']);
@@ -205,6 +217,19 @@ check('Weiterleitung: _redirects.json wird nicht ausgeliefert', $b->get('/_redir
 file_put_contents($rel . '/_redirects.json', json_encode(['/boese' => '//evil.example/', '/boese2' => '/a/../b', '/boese3' => "/x\r\nSet-Cookie: a=b", '/ok' => '/impressum/']));
 $tamper = static fn (string $p): string => (string) ($b->get($p)->headers['Location'] ?? '');
 check('Weiterleitung: manipulierte Ziele (//, .., Zeilenumbruch) werden ignoriert, gültige bleiben', $tamper('/boese/') === '' && $tamper('/boese2/') === '' && $tamper('/boese3/') === '' && !str_contains($tamper('/boese'), 'evil') && $tamper('/ok/') === '/impressum/');
+
+// --- Fehlgeschlagene Fotos erneut versuchen ---
+$svc->importer->retryFailed();
+check('Import: „erneut versuchen“ nimmt nur die fehlgeschlagenen Fotos wieder auf', (int) $db->value("SELECT COUNT(*) FROM import_map WHERE kind = 'photo'") === 4);
+file_put_contents($imp . '/bilder/106-kaputt.jpg', 'ganz anderer Inhalt');
+$retry = [];
+for ($i = 0; $i < 4; $i++) {
+    $r = json_decode($b->request('POST', '/admin/import/schritt', [], $H)->body, true);
+    $retry[] = $r['done'] ? 'done' : $r['status'];
+}
+check('Import: erneuter Versuch läuft die beiden Fehler noch einmal durch, ohne Endlosschleife', $retry === ['failed', 'failed', 'done', 'done'] && (int) $db->value("SELECT COUNT(*) FROM import_map WHERE kind = 'photo'") === 6);
+$bad2 = Importer::parse((string) json_encode(array_replace($pkg, ['files' => [['name' => 'Flyer.PDF', 'file' => 'dateien/Flyer.PDF', 'sha256' => $sha]]])));
+check('Import: Dateiendung .PDF in Großbuchstaben wird angenommen', count($bad2['files']) === 1 && $bad2['files'][0]['name'] === 'Flyer.PDF');
 
 // --- Paket löschen ---
 $cnt = $svc->importer->counts(Importer::parse((string) file_get_contents($manifest)));

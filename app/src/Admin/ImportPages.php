@@ -31,6 +31,9 @@ trait ImportPages
         if ($pack['m'] === null) {
             return Response::json(['error' => $pack['error'] !== '' ? $pack['error'] : 'Kein Importpaket gefunden.'], 400);
         }
+        if ($req->query('retry') === '1') {
+            $this->s->importer->retryFailed();
+        }
         try {
             $r = $this->s->importer->nextPhoto((int) $sess['user_id'], $pack['m']);
         } catch (MediaException $e) {

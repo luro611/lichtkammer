@@ -165,6 +165,14 @@ def safe_name(name):
     return name[:120]
 
 
+def pdf_name(name):
+    """Dateiname eines PDFs: sicher, Endung immer .pdf (klein), auch bei langen Namen."""
+    base = safe_name(name)
+    if base.lower().endswith(".pdf"):
+        base = base[:-4]
+    return base.strip("._")[:110] + ".pdf" if base.strip("._") else "datei.pdf"
+
+
 def title_clean(s):
     return norm_ws(html.unescape(re.sub(r"<[^>]+>", "", s or ""))).strip()
 
@@ -579,7 +587,7 @@ def main():
     file_recs = []
     for rec in media.byid.values():
         if rec["mime"] == "application/pdf" and rec["source_url"]:
-            name = safe_name(os.path.basename(url_path(rec["source_url"])))
+            name = pdf_name(os.path.basename(url_path(rec["source_url"])))
             files[url_path(rec["source_url"]).lower().rstrip("/")] = name
             file_recs.append({"wp": rec["id"], "name": name, "url": rec["source_url"], "old_path": url_path(rec["source_url"])})
     for p in pages:  # PDF-Links, die nicht in der Mediathek stehen
@@ -587,7 +595,7 @@ def main():
             u = html.unescape(m.group(1))
             key = url_path(u).lower().rstrip("/")
             if key not in files and urllib.parse.urlparse(u).netloc.replace("www.", "") == host.replace("www.", ""):
-                name = safe_name(os.path.basename(url_path(u)))
+                name = pdf_name(os.path.basename(url_path(u)))
                 files[key] = name
                 file_recs.append({"wp": 0, "name": name, "url": u, "old_path": url_path(u)})
 

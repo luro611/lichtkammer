@@ -38,10 +38,10 @@
     if (msg) { line(msg, true); }
   }
 
-  function next(retries) {
-    post('/admin/import/schritt').then(function (j) {
+  function next(retries, retryFailed) {
+    post('/admin/import/schritt' + (retryFailed ? '?retry=1' : '')).then(function (j) {
       if (j.error) {
-        if (retries > 0 && j._status >= 500) { return next(retries - 1); }
+        if (retries > 0 && j._status >= 500) { return next(retries - 1, retryFailed); }
         return stop(j.error);
       }
       if (j.done) { return finish(); }
@@ -51,7 +51,7 @@
       else if (j.status === 'duplicate') { line(j.name + ': ' + j.message, false); }
       next(3);
     }).catch(function () {
-      if (retries > 0) { return setTimeout(function () { next(retries - 1); }, 1500); }
+      if (retries > 0) { return setTimeout(function () { next(retries - 1, retryFailed); }, 1500); }
       stop('Die Verbindung wurde unterbrochen. „Fortsetzen“ macht an der Stelle weiter.');
     });
   }
@@ -74,6 +74,6 @@
     btn.disabled = true;
     btn.textContent = 'Läuft …';
     log.textContent = '';
-    next(3);
+    next(3, true);
   });
 })();

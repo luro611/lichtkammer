@@ -26,6 +26,7 @@ final class Importer
 {
     public const MAX_MANIFEST = 16 * 1024 * 1024;
     public const DOC_DIR = 'dokumente';
+    private const EMPTY_NOTE = 'leer';
 
     public function __construct(
         private readonly Database $db,
@@ -156,7 +157,7 @@ final class Importer
         foreach ($list($d['files'] ?? null) as $f) {
             $name = is_array($f) && is_string($f['name'] ?? null) ? $f['name'] : '';
             $sha = is_array($f) && is_string($f['sha256'] ?? null) ? strtolower($f['sha256']) : '';
-            if (preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]{0,120}\.pdf$/', $name) !== 1 || !self::safeRel(is_array($f) && is_string($f['file'] ?? null) ? $f['file'] : '', 'dateien') || preg_match('/^[0-9a-f]{64}$/', $sha) !== 1) {
+            if (preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]{0,120}\.pdf$/i', $name) !== 1 || !self::safeRel(is_array($f) && is_string($f['file'] ?? null) ? $f['file'] : '', 'dateien') || preg_match('/^[0-9a-f]{64}$/', $sha) !== 1) {
                 throw new MediaException('Das Paket enthält einen ungültigen Eintrag bei den Dateien.');
             }
             $out['files'][] = ['name' => $name, 'file' => $f['file'], 'sha256' => $sha];
@@ -218,6 +219,12 @@ final class Importer
     }
 
     // --- Schritt 1: ein Foto nach dem anderen
+
+    /** Fotos, deren Datei fehlte oder beschädigt war, noch einmal versuchen (z. B. nach neuem Hochladen). */
+    public function retryFailed(): void
+    {
+        $this->db->run("DELETE FROM import_map WHERE kind = 'photo' AND local_id = 0 AND note LIKE 'Fehler:%'");
+    }
 
     /**
      * Nimmt das nächste noch nicht übernommene Foto auf (Aufnahme, Varianten, Felder).
@@ -347,7 +354,6 @@ final class Importer
 
         // Galerien: Entwurf, EXIF (Kamera, Objektiv) öffentlich; GPS gibt es nie.
         $gal = [];
-        $newGal = []; // Galerien dieses Laufs: Beschreibung wird nach dem Anlegen der Seiten fertig (Links)
         foreach ($this->db->all("SELECT wp_id, local_id FROM import_map WHERE kind = 'gallery'") as $r) {
             $gal[(int) $r['wp_id']] = (int) $r['local_id'];
         }
@@ -355,7 +361,7 @@ final class Importer
             if (isset($gal[$g['wp']]) && $this->db->value('SELECT 1 FROM galleries WHERE id = ?', [$gal[$g['wp']]]) !== null) {
                 continue;
             }
-            $this->db->tx(function () use ($g, $photoOf, &$gal, &$out, &$problems, &$newGal): void {
+            $this->db->tx(function () use ($g, $photoOf, &$gal, &$out, &$problems): void {
                 $id = $this->galleries->create($g['title'], $g['description']);
                 $this->galleries->update($id, $g['title'], $g['description'], true);
                 $ids = array_values(array_unique(array_filter(array_map($photoOf, $g['photos']))));
@@ -368,23 +374,29 @@ final class Importer
                 }
                 $this->db->run("INSERT OR REPLACE INTO import_map(kind, wp_id, local_id) VALUES('gallery', ?, ?)", [$g['wp'], $id]);
                 $gal[$g['wp']] = $id;
-                $newGal[$id] = $g;
                 $out['galleries']++;
             });
         }
 
         // Seiten, erst leer anlegen (feste Adressen), dann mit Inhalt füllen (Links zwischen Seiten und Galerien).
+        // Vermerk 'leer' in import_map = angelegt, Inhalt noch nicht eingesetzt (nach einem Abbruch wird er nachgeholt).
         $pg = [];
-        foreach ($this->db->all("SELECT wp_id, local_id FROM import_map WHERE kind = 'page'") as $r) {
-            $pg[(int) $r['wp_id']] = (int) $r['local_id'];
-        }
         $isNew = [];
+        foreach ($this->db->all("SELECT wp_id, local_id, note FROM import_map WHERE kind = 'page'") as $r) {
+            $pg[(int) $r['wp_id']] = (int) $r['local_id'];
+            if ((string) $r['note'] === self::EMPTY_NOTE) {
+                $isNew[(int) $r['wp_id']] = true;
+            }
+        }
         foreach ($m['pages'] as $p) {
             if (isset($pg[$p['wp']]) && $this->pages->get($pg[$p['wp']]) !== null) {
                 continue;
             }
-            $id = $this->pages->save(null, ['title' => $p['title'], 'body' => '', 'status' => 'draft', 'nav' => $p['nav'], 'slug' => $p['slug']]);
-            $this->db->run("INSERT OR REPLACE INTO import_map(kind, wp_id, local_id) VALUES('page', ?, ?)", [$p['wp'], $id]);
+            $id = $this->db->tx(function () use ($p): int {
+                $id = $this->pages->save(null, ['title' => $p['title'], 'body' => '', 'status' => 'draft', 'nav' => $p['nav'], 'slug' => $p['slug']]);
+                $this->db->run("INSERT OR REPLACE INTO import_map(kind, wp_id, local_id, note) VALUES('page', ?, ?, ?)", [$p['wp'], $id, self::EMPTY_NOTE]);
+                return $id;
+            });
             $pg[$p['wp']] = $id;
             $isNew[$p['wp']] = true;
         }
@@ -404,9 +416,14 @@ final class Importer
             $s = preg_replace_callback('/lk-page:([A-Za-z0-9_-]+)/', static fn (array $x): string => '/' . ($slugByWpSlug[$x[1]] ?? $x[1]) . '/', $s) ?? $s;
             return preg_replace('#lk-file:([A-Za-z0-9._-]+)#', '/media/' . self::DOC_DIR . '/$1', $s) ?? $s;
         };
-        foreach ($newGal as $id => $g) {
-            if (str_contains($g['description'], 'lk-')) {
-                $this->galleries->update($id, $g['title'], $subst($g['description']), true);
+        // Beschreibungen mit Platzhaltern fertigstellen; nur wenn der Text noch der aus dem Paket ist (auch nach einem
+        // Abbruch beim ersten Lauf, ohne spätere Änderungen im Admin zu überschreiben).
+        foreach ($m['galleries'] as $g) {
+            $id = $gal[$g['wp']] ?? 0;
+            if ($id > 0 && str_contains($g['description'], 'lk-')
+                && (string) $this->db->value('SELECT description FROM galleries WHERE id = ?', [$id]) === $g['description']) {
+                $cur = $this->db->one('SELECT title, show_exif FROM galleries WHERE id = ?', [$id]);
+                $this->galleries->update($id, (string) $cur['title'], $subst($g['description']), (int) $cur['show_exif'] === 1);
             }
         }
         foreach ($m['pages'] as $p) {
@@ -420,8 +437,10 @@ final class Importer
                     $f['blocks'] = Blocks::encode($this->blocksFor($p['blocks'], $photoOf, $subst));
                 }
                 $this->pages->save($id, $f);
+                $this->db->run("UPDATE import_map SET note = '' WHERE kind = 'page' AND wp_id = ?", [$p['wp']]);
                 $out['pages']++;
             } catch (MediaException $e) {
+                $this->db->run("UPDATE import_map SET note = 'Fehler: Inhalt nicht übernommen' WHERE kind = 'page' AND wp_id = ?", [$p['wp']]);
                 $problems[] = 'Seite „' . $p['title'] . '“: ' . $e->getMessage() . ' Die Seite liegt leer als Entwurf bereit.';
             }
         }

@@ -93,6 +93,11 @@ class Hilfen(unittest.TestCase):
         self.assertEqual(w.safe_name("../../etc/pa ss§wd.jpg"), "etc_pa_ss_wd.jpg"[-len("etc_pa_ss_wd.jpg"):])
         self.assertNotIn("/", w.safe_name("a/b"))
 
+    def test_pdf_name_endet_immer_auf_klein_pdf(self):
+        self.assertEqual(w.pdf_name("Flyer.PDF"), "Flyer.pdf")
+        self.assertEqual(w.pdf_name("a" * 300 + ".pdf"), "a" * 110 + ".pdf")
+        self.assertEqual(w.pdf_name("bericht"), "bericht.pdf")
+
     def test_bildformat_erkennung(self):
         self.assertEqual(w.sniff(b"\xff\xd8\xff\xe0abc"), "jpg")
         self.assertEqual(w.sniff(b"<?php"), "")
