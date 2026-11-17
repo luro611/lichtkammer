@@ -2,7 +2,7 @@
 
 Schlankes Open-Source-Foto-CMS für ausschließlich eigene Bilder. PHP 8.3+ und SQLite, keine Datenbank, kein Composer und kein SSH auf dem Server nötig. Öffentliche Seiten werden als fertiges HTML ausgeliefert.
 
-**Stand:** Version 0.1.0-dev, Projektgerüst und Anmeldung (Schritt 1 und 2: Passwort, TOTP, Wiederherstellungscodes, Einladung, Protokoll). Noch keine Bildverwaltung.
+**Stand:** Version 0.1.0-rc1 (Probelauf des Release-Ablaufs); Funktionsumfang siehe `CHANGELOG.md`.
 
 Lizenz: AGPL-3.0-or-later (siehe `LICENSE`). Plan: `docs/planung/03 Plan br-foto.md`.
 

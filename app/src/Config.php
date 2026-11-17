@@ -10,7 +10,7 @@ namespace Lichtkammer;
  */
 final class Config
 {
-    public const VERSION = '0.1.0-dev';
+    public const VERSION = '0.1.0-rc1';
 
     /** @param array<string,string> $values */
     private function __construct(

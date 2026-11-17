@@ -3,7 +3,7 @@
 Format: pro Version die Abschnitte Neu, Geändert, Behoben und Hinweise zum Update. Datenbank-Migrationen werden immer genannt.
 Versionen: 0.x bis zum öffentlichen Release, danach 1.0.0.
 
-## [0.1.0-dev] – noch nicht veröffentlicht
+## [0.1.0-rc1] – Probelauf des Release-Ablaufs
 
 ### Neu
 - Anmeldung mit Passwort, Authenticator-App (TOTP) und Wiederherstellungscodes, Einladungen, Protokoll.
