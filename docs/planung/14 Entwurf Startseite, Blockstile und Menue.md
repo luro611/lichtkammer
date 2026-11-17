@@ -21,6 +21,6 @@ Stand: 16.11.2026. Auslöser: Wünsche von Lutz nach dem WordPress-Import auf `l
 
 ## 3. Datenschutz und Sicherheit
 
-- Alles weiter nur über Positivlisten und feste Vorlagen (Entwurf 12). Neue Felder: `style`, `side`, `auto`, `interval` (3 bis 15 Sekunden), `ratio` (nur Listenwerte).
+- Alles weiter nur über Positivlisten und feste Vorlagen (Entwurf 12). Neue Felder: `style`, `side`, `auto`, `interval` (ursprünglich 3 bis 15 Sekunden; seit Commit `ac101c0` vom 17.11.2026 ein Zahlenfeld 2 bis 30 Sekunden, Standard 6, `Blocks::MIN_INTERVAL`/`MAX_INTERVAL`), `ratio` (nur Listenwerte).
 - Hero-Foto und Karussell-Fotos kommen aus der Fotobibliothek, werden bei jedem Speichern gegen vorhandene, nicht gelöschte Fotos geprüft und beim Veröffentlichen wie die anderen Blockfotos geprüft (Alt-Text-Pflicht, Foto fertig).
 - Rückwärtsverträglich: ältere gespeicherte Blöcke ohne `style` lesen sich als „normal“.

@@ -59,6 +59,8 @@ Stand: 15.11.2026. Prüfung des gebauten Codes aus Commit `e8e385f` (Version 0.1
 
 Zur Wahl standen (1) nur zählen und melden oder (2) ein Geräte-Cookie `__Host-lk_dev` nach erfolgreicher Anmeldung, das die Regel `user` überspringt. **Lutz hat Variante 1 gewählt**, umgesetzt wie unter A2 beschrieben. Raten bleibt durch Name+Adresse (10/15 min → Sperre), Adresse (30/15 min), globale Bremse (20 Hash-Prüfungen/10 s) und TOTP begrenzt.
 
+*Nachtrag 17.11.2026:* Seit Commit `ac101c0` gibt es ein Cookie `__Host-lk_dev` mit **anderem Zweck**: „Gerät 24 Stunden vertrauen“ lässt nach einem gültigen TOTP-Code den zweiten Faktor auf diesem Gerät 24 Stunden entfallen (Entwurf 05, Nachtrag). Die Zähler aus A2 bleiben davon unberührt, weil `Auth::login()` das Token erst nach Passwortprüfung und Ratenbremse ansieht. Die Entscheidung von 2026-11-15 (Variante 1) gilt weiter.
+
 ## 5. Geprüft und unauffällig
 
 **Wettläufe (echte parallele PHP-Prozesse):** 20 parallele Logins, gleicher Name und Adresse → 3 Hash-Prüfungen, 17 abgewiesen. 40 parallele Logins mit je eigenem Namen und Adresse → genau 20 durch die globale Bremse. Dieselbe `password_ok`-Sitzung mit demselben TOTP-Code 6-mal → 1-mal ok, eine volle Sitzung, alte Zeile weg. 36 parallele falsche Codes über 3 Sitzungen → 10 geprüft. Ersteinrichtung mit 2 Zwischenzeilen, je 3-mal bestätigt → 1 Konto, 1 Sitzung, Kette ok. Einladung mit 3 Zwischenzeilen gleichzeitig → 1 Konto, Einladung verbraucht. Notfall-Token 4-mal gleichzeitig → 1 Link, 1 Einladung, 1 Protokolleintrag. 8 Prozesse mit je 25 Protokolleinträgen → Kette unversehrt. Zähler werden vor dem Hash gebucht; kein Argon2-Lauf liegt in einer Transaktion; `tx()` rollt bei Ausnahme zurück.

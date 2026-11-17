@@ -165,6 +165,8 @@ body.lb-open{overflow:hidden}
 .bcar-slide{flex:0 0 100%;min-width:0;scroll-snap-align:start;scroll-snap-stop:always;margin:0;aspect-ratio:3/2;position:relative;overflow:hidden}
 .bcar.r-16-9 .bcar-slide{aspect-ratio:16/9}.bcar.r-21-9 .bcar-slide{aspect-ratio:21/9}
 .bcar-slide picture,.bcar-slide img{display:block;position:absolute;inset:0;width:100%;height:100%;max-width:none}.bcar-slide img{object-fit:cover}
+/* Ohne aspect-ratio (ältere Browser) gäbe die Folie sonst 0 px her: dann bestimmt wieder das Bild im Fluss die Höhe */
+@supports not (aspect-ratio:1/1){.bcar-slide picture,.bcar-slide img{position:static;height:auto}}
 .bcar-ctl{display:none;align-items:center;justify-content:center;gap:12px;margin-top:10px}
 .bcar.is-js .bcar-ctl{display:flex}
 .bcar.is-js .bcar-track{scrollbar-width:none}.bcar.is-js .bcar-track::-webkit-scrollbar{display:none}
@@ -187,7 +189,8 @@ body.home,body.page{overflow-x:clip}
 .hero.w-voll,.bcar.w-voll{width:100vw;max-width:none;margin-inline:calc(50% - 50vw);border-radius:0}
 .bcar.w-voll .bcar-track{border-radius:0}
 .bcar.r-2-1 .bcar-slide{aspect-ratio:2/1}.bcar.r-3-1 .bcar-slide{aspect-ratio:3/1}
-/* Handybreite: sehr flache Formate werden nicht zum Streifen, sonst sieht man kaum etwas vom Foto */
-@media (max-width:700px){.bcar.r-2-1 .bcar-slide{aspect-ratio:16/10}.bcar.r-21-9 .bcar-slide{aspect-ratio:2/1}.bcar.r-3-1 .bcar-slide{aspect-ratio:2/1}}
+/* Handybreite: sehr flache Formate werden nicht zum Streifen, sonst sieht man kaum etwas vom Foto.
+   Die Reihenfolge bleibt: 3:2 ≤ 16:9 ≤ 2:1 (wird 16:9) ≤ 21:9 und 3:1 (werden 2:1) */
+@media (max-width:700px){.bcar.r-2-1 .bcar-slide{aspect-ratio:16/9}.bcar.r-21-9 .bcar-slide,.bcar.r-3-1 .bcar-slide{aspect-ratio:2/1}}
 
 .copy{display:inline-flex;align-items:center;gap:10px}.logo.flogo{height:22px;width:auto}

@@ -303,7 +303,9 @@ final class AdminController
         if (!empty($res['trusted'])) { // vertrautes Gerät: zweiter Faktor entfällt
             return Response::redirect($next)->withCookie($this->sessionCookie((string) $res['sid']));
         }
-        return Response::redirect('/admin/login/totp?next=' . rawurlencode($next))->withCookie($this->sessionCookie((string) $res['sid']));
+        $r = Response::redirect('/admin/login/totp?next=' . rawurlencode($next))->withCookie($this->sessionCookie((string) $res['sid']));
+        // Ein mitgeschicktes, aber nicht angenommenes Gerätetoken (abgelaufen, anderes Konto, anderer Browser) wird gelöscht.
+        return !empty($res['device_rejected']) ? $r->withCookie($this->s->cookies->clear('lk_dev')) : $r;
     }
 
     public function totpForm(Request $req, array $p, ?array $sess): Response
@@ -315,7 +317,7 @@ final class AdminController
         if ($ps === null) {
             return Response::redirect('/admin/login');
         }
-        return $this->page('admin/totp', ['title' => 'Zweiter Schritt', 'error' => null, 'next' => self::safeNext($req->query('next')), 'csrf' => $ps['csrf_token']]);
+        return $this->page('admin/totp', ['title' => 'Zweiter Schritt', 'error' => null, 'next' => self::safeNext($req->query('next')), 'csrf' => $ps['csrf_token'], 'trust' => false]);
     }
 
     public function totpPost(Request $req, array $p, ?array $sess): Response
@@ -327,11 +329,13 @@ final class AdminController
             return $clearSid(Response::redirect('/admin/login')); // ohne Cookie nichts löschen (fremdes POST könnte sonst abmelden)
         }
         $next = self::safeNext($req->input('next'));
-        $show = fn (string $err, int $status): Response => $this->page('admin/totp', ['title' => 'Zweiter Schritt', 'error' => $err, 'next' => $next, 'csrf' => $ps['csrf_token']], $status);
+        $trust = $req->input('trust') === '1';
+        // Der Haken bleibt nach einem falschen Code gesetzt, sonst geht er beim zweiten Versuch unbemerkt verloren.
+        $show = fn (string $err, int $status): Response => $this->page('admin/totp', ['title' => 'Zweiter Schritt', 'error' => $err, 'next' => $next, 'csrf' => $ps['csrf_token'], 'trust' => $trust], $status);
         if (!hash_equals((string) $ps['csrf_token'], $req->input('_csrf'))) {
             return $show(self::PRE_EXPIRED, 400);
         }
-        $res = $this->s->auth->secondFactor($req, $req->cookie($sidName), $req->input('code'), $req->input('trust') === '1');
+        $res = $this->s->auth->secondFactor($req, $req->cookie($sidName), $req->input('code'), $trust);
         $done = static fn (): Response => Response::redirect($res['recovery'] ? '/admin/account?neu=1' : $next);
         return match ($res['status']) {
             'ok' => isset($res['device'])
@@ -585,19 +589,21 @@ final class AdminController
         } else {
             $err = $this->s->auth->changePassword($uid, $req->cookie($this->s->cookies->name('lk_sid')), $req->input('current_password'), $req->input('code'), $new, $this->ipPrefix($req));
         }
-        return $this->page('admin/account', [
+        $page = $this->page('admin/account', [
             'title' => 'Mein Konto',
             'error' => $err,
-            'ok' => $err === null ? 'Das Passwort wurde geändert. Alle anderen Sitzungen sind beendet.' : null,
+            'ok' => $err === null ? 'Das Passwort wurde geändert. Alle anderen Sitzungen sind beendet, und vertraute Geräte fragen wieder nach dem Code.' : null,
             'notice' => null,
             'remaining' => $this->s->recovery->remaining($uid),
         ], $err === null ? 200 : 400, $sess);
+        // Die Passwortänderung widerruft alle vertrauten Geräte; das eigene Gerätecookie ist damit tot und wird gelöscht.
+        return $err === null && $req->cookie($this->s->cookies->name('lk_dev')) !== '' ? $page->withCookie($this->s->cookies->clear('lk_dev')) : $page;
     }
 
     public function accountCodes(Request $req, array $p, ?array $sess): Response
     {
         $uid = (int) $sess['user_id'];
-        $res = $this->s->auth->regenerateCodes($uid, $req->input('current_password'), $this->ipPrefix($req));
+        $res = $this->s->auth->regenerateCodes($uid, $req->input('current_password'), $req->input('code'), $this->ipPrefix($req));
         if ($res['error'] !== null) {
             return $this->page('admin/account', ['title' => 'Mein Konto', 'error' => $res['error'], 'ok' => null, 'notice' => null,
                 'remaining' => $this->s->recovery->remaining($uid)], 400, $sess);

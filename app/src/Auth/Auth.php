@@ -61,14 +61,30 @@ final class Auth
         return $raw;
     }
 
-    private function isTrusted(int $userId, string $raw, Request $req): bool
+    /**
+     * Prüft das Gerätetoken. null = vertraut; sonst der Grund: none (kein Token), unknown (keine oder abgelaufene Zeile),
+     * user (Zeile gehört einem anderen Konto), ua (anderer Browser). user und ua sind bei richtigem Passwort ein
+     * Hinweis auf ein kopiertes Cookie und werden vom Aufrufer protokolliert.
+     */
+    private function deviceCheck(int $userId, string $raw, Request $req): ?string
     {
+        if ($raw === '') {
+            return 'none';
+        }
         if (preg_match('/^[0-9a-f]{64}$/', $raw) !== 1) {
-            return false;
+            return 'unknown';
         }
         $row = $this->db->one('SELECT user_id, expires_at, ua_hash FROM trusted_devices WHERE id_hash = ?', [$this->deviceHash($raw)]);
-        return $row !== null && (int) $row['user_id'] === $userId && (int) $row['expires_at'] > $this->clock->now()
-            && hash_equals((string) $row['ua_hash'], hash('sha256', $req->userAgent()));
+        if ($row === null || (int) $row['expires_at'] <= $this->clock->now()) {
+            return 'unknown';
+        }
+        if ((int) $row['user_id'] !== $userId) {
+            return 'user';
+        }
+        if (!hash_equals((string) $row['ua_hash'], hash('sha256', $req->userAgent()))) {
+            return 'ua';
+        }
+        return null;
     }
 
     /** Beendet das Vertrauen für dieses eine Gerät (beim Abmelden). */
@@ -84,8 +100,9 @@ final class Auth
      * deaktivierte und TOTP-lose Konten.
      *
      * Mit gültigem Gerätetoken (Cookie lk_dev) entfällt die zweite Stufe: die Sitzung ist gleich voll ('trusted' = true).
+     * Ein mitgeschicktes, aber nicht angenommenes Token meldet 'device_rejected' = true, damit der Aufrufer das tote Cookie löscht.
      *
-     * @return array{status:string,sid:?string,retry:int,trusted?:bool} status: ok | fail | blocked
+     * @return array{status:string,sid:?string,retry:int,trusted?:bool,device_rejected?:bool} status: ok | fail | blocked
      */
     public function login(Request $req, string $name, string $password, string $deviceToken = ''): array
     {
@@ -132,14 +149,24 @@ final class Auth
         if ($this->passwords->needsRehash((string) $user['password_hash'])) {
             $this->db->run('UPDATE users SET password_hash = ? WHERE id = ?', [$this->passwords->hash($password), $user['id']]);
         }
-        if ($this->isTrusted((int) $user['id'], $deviceToken, $req)) {
-            $s = $this->sessions->create((int) $user['id'], 'full', $ip['prefix'], $req->userAgent());
-            $this->audit->log('device_trust_used', (int) $user['id'], '', $ip['prefix']);
-            $this->noteLogin((int) $user['id'], $ip['prefix']);
+        $userId = (int) $user['id'];
+        $why = $this->deviceCheck($userId, $deviceToken, $req);
+        if ($why === null) {
+            // Sitzung, Protokoll und Anmeldevermerk in einer Transaktion: keine Sitzung ohne Protokolleintrag.
+            $s = $this->db->tx(function () use ($userId, $ip, $req): array {
+                $s = $this->sessions->create($userId, 'full', $ip['prefix'], $req->userAgent());
+                $this->audit->log('device_trust_used', $userId, '', $ip['prefix']);
+                $this->noteLogin($userId, $ip['prefix']);
+                return $s;
+            });
             return ['status' => 'ok', 'sid' => $s['id'], 'retry' => 0, 'trusted' => true];
         }
-        $s = $this->sessions->create((int) $user['id'], 'password_ok', $ip['prefix'], $req->userAgent());
-        return ['status' => 'ok', 'sid' => $s['id'], 'retry' => 0, 'trusted' => false];
+        if ($why === 'user' || $why === 'ua') {
+            // Gültige Zeile, aber anderes Konto oder anderer Browser bei richtigem Passwort: einziger Hinweis auf ein kopiertes Cookie.
+            $this->audit->log('device_trust_rejected', $userId, 'reason=' . $why, $ip['prefix']);
+        }
+        $s = $this->sessions->create($userId, 'password_ok', $ip['prefix'], $req->userAgent());
+        return ['status' => 'ok', 'sid' => $s['id'], 'retry' => 0, 'trusted' => false, 'device_rejected' => $why !== 'none'];
     }
 
     /**
@@ -204,17 +231,22 @@ final class Auth
             $this->db->run('UPDATE users SET totp_secret_enc = ? WHERE id = ?', [$this->keys->encrypt($reencrypt, 'users:totp:' . $userId), $userId]);
         }
         // Sitzungswechsel: die password_ok-Zeile verschwindet, eine neue (ID und CSRF neu) entsteht.
-        $new = $this->db->tx(function () use ($sid, $userId, $ip, $req): array {
+        // Das Gerätevertrauen entsteht in derselben Transaktion: scheitert es, bleibt keine Sitzung ohne Antwort zurück.
+        $new = $this->db->tx(function () use ($sid, $userId, $ip, $req, $trust, $isTotp): array {
             $this->sessions->destroy($sid);
-            return $this->sessions->create($userId, 'full', $ip['prefix'], $req->userAgent());
+            $s = $this->sessions->create($userId, 'full', $ip['prefix'], $req->userAgent());
+            if ($trust && $isTotp) {
+                $s['device'] = $this->trustDevice($userId, $req, $ip['prefix']);
+            }
+            return $s;
         });
         if ($usedRecovery) {
             $this->audit->log('recovery_used', $userId, '', $ip['prefix']);
         }
         $this->noteLogin($userId, $ip['prefix']);
         $res = ['status' => 'ok', 'sid' => $new['id'], 'retry' => 0, 'recovery' => $usedRecovery];
-        if ($trust && $isTotp) {
-            $res['device'] = $this->trustDevice($userId, $req, $ip['prefix']);
+        if (isset($new['device'])) {
+            $res['device'] = $new['device'];
         }
         return $res;
     }
@@ -307,10 +339,15 @@ final class Auth
         return null;
     }
 
-    /** @return array{error:?string,codes:list<string>} */
-    public function regenerateCodes(int $userId, string $password, string $ipPrefix): array
+    /**
+     * Neue Wiederherstellungscodes nur mit Passwort UND TOTP-Code: Eine Sitzung von einem vertrauten Gerät entsteht ohne
+     * zweiten Faktor; mit Passwort allein dürfen daraus keine dauerhaften Ersatz-Faktoren werden.
+     *
+     * @return array{error:?string,codes:list<string>}
+     */
+    public function regenerateCodes(int $userId, string $password, string $totp, string $ipPrefix): array
     {
-        $err = $this->reauthenticate($userId, $password, null);
+        $err = $this->reauthenticate($userId, $password, $totp);
         if ($err !== null) {
             return ['error' => $err, 'codes' => []];
         }

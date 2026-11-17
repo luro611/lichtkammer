@@ -21,6 +21,7 @@
     <input type="hidden" name="_csrf" value="<?= $e($csrf) ?>">
     <p class="muted"><?= (int) $remaining ?> von 10 Codes sind noch unbenutzt. Neue Codes machen alle alten ungültig.</p>
     <label class="field"><span>Aktuelles Passwort</span><input name="current_password" type="password" autocomplete="current-password" required></label>
+    <label class="field"><span>Aktueller Code aus der App</span><input name="code" class="mono" inputmode="numeric" autocomplete="one-time-code" required></label>
     <button class="btn" type="submit">Neue Codes erzeugen</button>
   </form>
   <p class="muted">Neues Gerät oder verlorenes Passwort? Das setzt ein Administrator über einen Rücksetz-Link zurück.</p>
