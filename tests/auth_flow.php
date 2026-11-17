@@ -522,3 +522,12 @@ $okRoot = lk_config($f . '/inroot2', ['LK_DATA_DIR' => $f . '/inroot2/public/dat
 $mw = ['app' => new Lichtkammer\App($okRoot, new Lichtkammer\Auth\Clock(TEST_START), TEST_ARGON), 'config' => $okRoot, 'clock' => new Lichtkammer\Auth\Clock(TEST_START)];
 $sw = lk_setup($mw);
 check('Datenordner im Webroot mit Ausnahme: Warnung auf jeder Admin-Seite', str_contains($sw['b']->get('/admin')->body, 'LK_ALLOW_DATA_IN_WEBROOT'));
+
+// --- Verteilung (Entwurf 15): Hilfe zur Schlüssel-Erzeugung auf der Seite „Admin nicht verfügbar“ ---
+$mk = lk_make($f . '/nokey2', ['LK_APP_KEY' => '']);
+$k1 = (new TestBrowser($mk['app'], $mk['config']))->get('/admin/login');
+$k2 = (new TestBrowser($mk['app'], $mk['config']))->get('/admin/login');
+preg_match('~LK_APP_KEY=([A-Za-z0-9+/=]+)\s+LK_SETUP_TOKEN=([0-9a-f]+)~', $k1->body, $km1);
+preg_match('~LK_APP_KEY=([A-Za-z0-9+/=]+)\s+LK_SETUP_TOKEN=([0-9a-f]+)~', $k2->body, $km2);
+check('Ohne Schlüssel: Seite bietet fertige Zeilen (32-Byte-Schlüssel, Token mit 48 Zeichen) zum Kopieren an', count($km1) === 3 && strlen((string) base64_decode($km1[1], true)) === 32 && strlen($km1[2]) === 48);
+check('Ohne Schlüssel: die Werte sind bei jedem Aufruf neu und werden nicht gespeichert', count($km2) === 3 && $km1[1] !== $km2[1] && $km1[2] !== $km2[2]);
