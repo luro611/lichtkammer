@@ -9,6 +9,7 @@
     <input type="hidden" name="next" value="<?= $e($next) ?>">
     <label class="field"><span>Code</span>
       <input name="code" class="mono" inputmode="text" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" required autofocus></label>
+    <label class="check"><input type="checkbox" name="trust" value="1"> Auf diesem Gerät 24 Stunden lang nicht erneut nach dem Code fragen (nur auf deinem eigenen Gerät)</label>
     <button class="btn" type="submit">Anmelden</button>
   </form>
 </section>

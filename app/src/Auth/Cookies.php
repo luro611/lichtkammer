@@ -14,6 +14,7 @@ final class Cookies
     public const SESSION = 'lk_sid';
     public const PRE = 'lk_pre';
     public const ENROLL = 'lk_enr';
+    public const DEVICE = 'lk_dev';
 
     public function __construct(private readonly Config $config)
     {

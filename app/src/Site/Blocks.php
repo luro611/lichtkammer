@@ -19,6 +19,8 @@ final class Blocks
     public const MAX_BLOCKS = 100;
     public const MAX_JSON = 200000;
     public const MAX_PHOTOS = 12;
+    public const MIN_INTERVAL = 2; // Sekunden zwischen den Bildern im Karussell
+    public const MAX_INTERVAL = 30;
     /** Blöcke, die in Spalten stehen dürfen. */
     public const SIMPLE = ['heading', 'text', 'image', 'quote', 'button'];
     public const WIDTHS = ['schmal', 'normal', 'voll'];
@@ -182,7 +184,7 @@ final class Blocks
                 }
                 $iv = (int) ($b['interval'] ?? 6);
                 $ratio = $b['ratio'] ?? '3-2';
-                return ['t' => 'carousel', 'photos' => $photos, 'auto' => ($b['auto'] ?? false) === true, 'interval' => max(3, min(15, $iv)),
+                return ['t' => 'carousel', 'photos' => $photos, 'auto' => ($b['auto'] ?? false) === true, 'interval' => max(self::MIN_INTERVAL, min(self::MAX_INTERVAL, $iv)),
                     'ratio' => in_array($ratio, self::RATIOS, true) ? $ratio : '3-2', 'span' => self::pick($b['span'] ?? null, self::SPAN)];
             case 'homephotos':
                 $mode = self::pick($b['mode'] ?? null, ['karussell', 'raster', 'titelbild']);
@@ -195,7 +197,7 @@ final class Blocks
                     }
                 }
                 return ['t' => 'homephotos', 'focus' => (object) $focus, 'mode' => $mode, 'span' => self::pick($b['span'] ?? null, self::SPAN), 'ratio' => in_array($ratio, self::RATIOS, true) ? $ratio : '3-2',
-                    'auto' => ($b['auto'] ?? false) === true, 'interval' => max(3, min(15, $iv)), 'limit' => max(1, min(self::MAX_PHOTOS, (int) ($b['limit'] ?? 8))),
+                    'auto' => ($b['auto'] ?? false) === true, 'interval' => max(self::MIN_INTERVAL, min(self::MAX_INTERVAL, $iv)), 'limit' => max(1, min(self::MAX_PHOTOS, (int) ($b['limit'] ?? 8))),
                     'height' => self::pick($b['height'] ?? null, self::HERO_HEIGHTS)];
             case 'galleries':
                 return ['t' => 'galleries', 'title' => $s('title', 100), 'limit' => max(0, min(24, (int) ($b['limit'] ?? 0)))];

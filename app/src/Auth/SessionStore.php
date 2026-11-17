@@ -79,8 +79,10 @@ final class SessionStore
         $this->db->run('DELETE FROM sessions WHERE id_hash = ?', [$this->hashId($raw)]);
     }
 
+    /** Beendet alle Sitzungen des Kontos (außer der angegebenen) und widerruft immer alle vertrauten Geräte. */
     public function destroyForUser(int $userId, ?string $exceptRaw = null): int
     {
+        $this->db->run('DELETE FROM trusted_devices WHERE user_id = ?', [$userId]);
         if ($exceptRaw === null) {
             return $this->db->run('DELETE FROM sessions WHERE user_id = ?', [$userId])->rowCount();
         }
@@ -109,5 +111,6 @@ final class SessionStore
             [$now - self::PASSWORD_OK_TTL, $now - $this->idle, $now - $this->absolute],
         );
         $this->db->run('DELETE FROM pending_enrollments WHERE expires_at < ?', [$now]);
+        $this->db->run('DELETE FROM trusted_devices WHERE expires_at < ?', [$now]);
     }
 }

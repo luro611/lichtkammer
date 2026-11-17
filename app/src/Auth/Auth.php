@@ -32,13 +32,62 @@ final class Auth
         }
     }
 
+    /** Wie lange ein Gerät nach erfolgreichem TOTP-Code ohne zweiten Faktor angemeldet werden darf (fest, wird nicht verlängert). */
+    public const DEVICE_TTL = 86400;
+    public const MAX_DEVICES = 10;
+
+    private function deviceHash(string $raw): string
+    {
+        return $this->keys->hmac('ids', 'device:' . $raw);
+    }
+
+    /** Legt ein vertrautes Gerät an und gibt das Rohtoken fürs Cookie zurück (in der Datenbank steht nur der keyed Hash). */
+    private function trustDevice(int $userId, Request $req, string $ipPrefix): string
+    {
+        $raw = bin2hex(random_bytes(32));
+        $now = $this->clock->now();
+        $this->db->tx(function () use ($raw, $userId, $req, $now): void {
+            $this->db->run('DELETE FROM trusted_devices WHERE expires_at < ?', [$now]);
+            $this->db->run(
+                'DELETE FROM trusted_devices WHERE user_id = ? AND id_hash NOT IN (SELECT id_hash FROM trusted_devices WHERE user_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?)',
+                [$userId, $userId, self::MAX_DEVICES - 1],
+            );
+            $this->db->run(
+                'INSERT INTO trusted_devices(id_hash, user_id, created_at, expires_at, ua_hash) VALUES(?,?,?,?,?)',
+                [$this->deviceHash($raw), $userId, $now, $now + self::DEVICE_TTL, hash('sha256', $req->userAgent())],
+            );
+        });
+        $this->audit->log('device_trusted', $userId, 'hours=' . intdiv(self::DEVICE_TTL, 3600), $ipPrefix);
+        return $raw;
+    }
+
+    private function isTrusted(int $userId, string $raw, Request $req): bool
+    {
+        if (preg_match('/^[0-9a-f]{64}$/', $raw) !== 1) {
+            return false;
+        }
+        $row = $this->db->one('SELECT user_id, expires_at, ua_hash FROM trusted_devices WHERE id_hash = ?', [$this->deviceHash($raw)]);
+        return $row !== null && (int) $row['user_id'] === $userId && (int) $row['expires_at'] > $this->clock->now()
+            && hash_equals((string) $row['ua_hash'], hash('sha256', $req->userAgent()));
+    }
+
+    /** Beendet das Vertrauen für dieses eine Gerät (beim Abmelden). */
+    public function forgetDevice(string $raw): void
+    {
+        if ($raw !== '') {
+            $this->db->run('DELETE FROM trusted_devices WHERE id_hash = ?', [$this->deviceHash($raw)]);
+        }
+    }
+
     /**
      * Stufe 1. Gleiche Antwort, gleicher Zeitaufwand und gleiche Zähler für unbekannte, gesperrte,
      * deaktivierte und TOTP-lose Konten.
      *
-     * @return array{status:string,sid:?string,retry:int} status: ok | fail | blocked
+     * Mit gültigem Gerätetoken (Cookie lk_dev) entfällt die zweite Stufe: die Sitzung ist gleich voll ('trusted' = true).
+     *
+     * @return array{status:string,sid:?string,retry:int,trusted?:bool} status: ok | fail | blocked
      */
-    public function login(Request $req, string $name, string $password): array
+    public function login(Request $req, string $name, string $password, string $deviceToken = ''): array
     {
         $this->sessions->purge();
         $this->limiter->purge();
@@ -83,16 +132,24 @@ final class Auth
         if ($this->passwords->needsRehash((string) $user['password_hash'])) {
             $this->db->run('UPDATE users SET password_hash = ? WHERE id = ?', [$this->passwords->hash($password), $user['id']]);
         }
+        if ($this->isTrusted((int) $user['id'], $deviceToken, $req)) {
+            $s = $this->sessions->create((int) $user['id'], 'full', $ip['prefix'], $req->userAgent());
+            $this->audit->log('device_trust_used', (int) $user['id'], '', $ip['prefix']);
+            $this->noteLogin((int) $user['id'], $ip['prefix']);
+            return ['status' => 'ok', 'sid' => $s['id'], 'retry' => 0, 'trusted' => true];
+        }
         $s = $this->sessions->create((int) $user['id'], 'password_ok', $ip['prefix'], $req->userAgent());
-        return ['status' => 'ok', 'sid' => $s['id'], 'retry' => 0];
+        return ['status' => 'ok', 'sid' => $s['id'], 'retry' => 0, 'trusted' => false];
     }
 
     /**
      * Stufe 2 mit TOTP-Code (6 Ziffern) oder Wiederherstellungscode.
      *
-     * @return array{status:string,sid:?string,retry:int,recovery:bool} status: ok | fail | blocked | expired
+     * Mit $trust und gültigem TOTP-Code (nicht Wiederherstellungscode) entsteht ein Gerätetoken für 24 Stunden ('device').
+     *
+     * @return array{status:string,sid:?string,retry:int,recovery:bool,device?:string} status: ok | fail | blocked | expired
      */
-    public function secondFactor(Request $req, string $sid, string $input): array
+    public function secondFactor(Request $req, string $sid, string $input, bool $trust = false): array
     {
         $s = $this->sessions->find($sid);
         if ($s === null || $s['stage'] !== 'password_ok') {
@@ -155,7 +212,11 @@ final class Auth
             $this->audit->log('recovery_used', $userId, '', $ip['prefix']);
         }
         $this->noteLogin($userId, $ip['prefix']);
-        return ['status' => 'ok', 'sid' => $new['id'], 'retry' => 0, 'recovery' => $usedRecovery];
+        $res = ['status' => 'ok', 'sid' => $new['id'], 'retry' => 0, 'recovery' => $usedRecovery];
+        if ($trust && $isTotp) {
+            $res['device'] = $this->trustDevice($userId, $req, $ip['prefix']);
+        }
+        return $res;
     }
 
     private function noteLogin(int $userId, string $ipPrefix): void

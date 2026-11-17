@@ -531,3 +531,128 @@ preg_match('~LK_APP_KEY=([A-Za-z0-9+/=]+)\s+LK_SETUP_TOKEN=([0-9a-f]+)~', $k1->b
 preg_match('~LK_APP_KEY=([A-Za-z0-9+/=]+)\s+LK_SETUP_TOKEN=([0-9a-f]+)~', $k2->body, $km2);
 check('Ohne Schlüssel: Seite bietet fertige Zeilen (32-Byte-Schlüssel, Token mit 48 Zeichen) zum Kopieren an', count($km1) === 3 && strlen((string) base64_decode($km1[1], true)) === 32 && strlen($km1[2]) === 48);
 check('Ohne Schlüssel: die Werte sind bei jedem Aufruf neu und werden nicht gespeichert', count($km2) === 3 && $km1[1] !== $km2[1] && $km1[2] !== $km2[2]);
+
+// --- Gerät 24 Stunden vertrauen (TOTP nur einmal am Tag) ---
+$md = lk_make($f . '/device');
+$sd = lk_setup($md);
+$dbd = $md['app']->services()->db;
+$ev = static fn (string $e): int => (int) $dbd->value('SELECT COUNT(*) FROM audit_log WHERE event = ?', [$e]);
+$lastTotp = null;
+$trustLogin = static function (array $m, string $secret, bool $trust, string $ip = '203.0.113.7') use (&$lastTotp): TestBrowser {
+    $m['clock']->advance(31);
+    $b = new TestBrowser($m['app'], $m['config'], $ip);
+    $b->post('/admin/login', ['_csrf' => TestBrowser::csrf($b->get('/admin/login')), 'username' => 'lutz', 'password' => TEST_PASSWORD]);
+    $t = $b->get('/admin/login/totp');
+    $post = ['_csrf' => TestBrowser::csrf($t), 'code' => lk_totp($secret, $m['clock'])];
+    if ($trust) {
+        $post['trust'] = '1';
+    }
+    $lastTotp = $b->post('/admin/login/totp', $post);
+    return $b;
+};
+$bn = $trustLogin($md, $sd['secret'], false);
+check('Ohne Haken: volle Sitzung, aber kein Gerätecookie, kein Eintrag', lk_in($bn) && $bn->cookie('lk_dev') === '' && (int) $dbd->value('SELECT COUNT(*) FROM trusted_devices') === 0);
+$md['clock']->advance(31);
+$bn2 = new TestBrowser($md['app'], $md['config']);
+$bn2->post('/admin/login', ['_csrf' => TestBrowser::csrf($bn2->get('/admin/login')), 'username' => 'lutz', 'password' => TEST_PASSWORD]);
+check('Ohne Haken: das Formular enthält das Feld „trust“', str_contains($bn2->get('/admin/login/totp')->body, 'name="trust"'));
+
+$bt = $trustLogin($md, $sd['secret'], true);
+$devHdr = '';
+foreach ($lastTotp->cookies as $c) {
+    if (str_contains($c, 'lk_dev')) {
+        $devHdr = $c;
+    }
+}
+$dev = $bt->cookie('lk_dev');
+check('Mit Haken: volle Sitzung, Cookie lk_dev mit 64 Hex-Zeichen, 24 Stunden, HttpOnly/Strict/Secure/__Host-', lk_in($bt) && preg_match('/^[0-9a-f]{64}$/', $dev) === 1
+    && (static function () use ($bt): bool {
+        foreach ($bt->jar as $k => $v) {
+            if ($k === '__Host-lk_dev') {
+                return true;
+            }
+        }
+        return false;
+    })());
+check('Cookie-Attribute: Max-Age=86400, HttpOnly, SameSite=Strict, Secure', str_contains($devHdr, 'Max-Age=86400') && str_contains($devHdr, 'HttpOnly') && str_contains($devHdr, 'SameSite=Strict') && str_contains($devHdr, 'Secure') && str_starts_with($devHdr, '__Host-lk_dev='));
+check('Mit Haken: nur der keyed Hash steht in der Datenbank, mit Ablauf in 24 Stunden', (int) $dbd->value('SELECT COUNT(*) FROM trusted_devices WHERE id_hash = ?', [$dev]) === 0
+    && (int) $dbd->value('SELECT COUNT(*) FROM trusted_devices WHERE id_hash = ?', [$md['app']->services()->keys->hmac('ids', 'device:' . $dev)]) === 1
+    && (int) $dbd->value('SELECT MIN(expires_at - created_at) FROM trusted_devices') === 86400 && $ev('device_trusted') >= 1);
+
+// Anmeldung mit vertrautem Gerät: nur Passwort, ohne Code
+$md['clock']->advance(60);
+$bd = new TestBrowser($md['app'], $md['config']);
+$bd->jar['__Host-lk_dev'] = $dev;
+$rl = $bd->post('/admin/login', ['_csrf' => TestBrowser::csrf($bd->get('/admin/login')), 'username' => 'lutz', 'password' => TEST_PASSWORD]);
+check('Vertrautes Gerät: Passwort genügt, direkt volle Sitzung', $rl->status === 303 && $rl->headers['Location'] === '/admin' && lk_in($bd) && $ev('device_trust_used') === 1);
+$bw = new TestBrowser($md['app'], $md['config']);
+$bw->jar['__Host-lk_dev'] = $dev;
+$bw->post('/admin/login', ['_csrf' => TestBrowser::csrf($bw->get('/admin/login')), 'username' => 'lutz', 'password' => 'falsch-falsch-falsch-1']);
+check('Vertrautes Gerät: falsches Passwort bleibt abgelehnt, keine Sitzung', !lk_in($bw));
+$bx = new TestBrowser($md['app'], $md['config'], '203.0.113.7');
+$bx->jar['__Host-lk_dev'] = str_repeat('a', 64);
+$bx->post('/admin/login', ['_csrf' => TestBrowser::csrf($bx->get('/admin/login')), 'username' => 'lutz', 'password' => TEST_PASSWORD]);
+check('Unbekanntes Gerätetoken: zweiter Faktor wird verlangt', !lk_in($bx) && $bx->get('/admin/login/totp')->status === 200);
+
+// Anderes Konto und anderer Browser (User-Agent) erben nichts
+$ms = lk_make($f . '/device2');
+$s1 = lk_setup($ms);
+$bt3 = $trustLogin($ms, $s1['secret'], true);
+$dev3 = $bt3->cookie('lk_dev');
+$ms['app']->services()->db->run("INSERT INTO users(username, display_name, role, password_hash, totp_secret_enc, totp_confirmed_at, created_at, webauthn_handle) SELECT 'zweite', '', 'editor', password_hash, totp_secret_enc, totp_confirmed_at, created_at, 'ab' || substr(webauthn_handle, 3) FROM users WHERE id = 1");
+$ms['clock']->advance(31);
+$bo = new TestBrowser($ms['app'], $ms['config']);
+$bo->jar['__Host-lk_dev'] = $dev3;
+$bo->post('/admin/login', ['_csrf' => TestBrowser::csrf($bo->get('/admin/login')), 'username' => 'zweite', 'password' => TEST_PASSWORD]);
+check('Gerätetoken eines anderen Kontos gilt nicht', !lk_in($bo));
+$req2 = new Lichtkammer\Request(['REQUEST_METHOD' => 'POST', 'REQUEST_URI' => '/admin/login', 'REMOTE_ADDR' => '203.0.113.7', 'HTTP_USER_AGENT' => 'Anderer/2', 'HTTPS' => 'on'], $ms['config'], [], ['__Host-lk_dev' => $dev3]);
+check('Gerätetoken in einem anderen Browser (anderer User-Agent) gilt nicht', $ms['app']->services()->auth->login($req2, 'lutz', TEST_PASSWORD, $dev3)['trusted'] === false);
+
+// Ablauf nach 24 Stunden (fest, nicht verlängert)
+$ms['clock']->advance(86400 - 100);
+$bm = new TestBrowser($ms['app'], $ms['config']);
+$bm->jar['__Host-lk_dev'] = $dev3;
+$bm->post('/admin/login', ['_csrf' => TestBrowser::csrf($bm->get('/admin/login')), 'username' => 'lutz', 'password' => TEST_PASSWORD]);
+check('Kurz vor Ablauf: noch vertraut', lk_in($bm));
+$ms['clock']->advance(200);
+$bm = new TestBrowser($ms['app'], $ms['config']);
+$bm->jar['__Host-lk_dev'] = $dev3;
+$bm->post('/admin/login', ['_csrf' => TestBrowser::csrf($bm->get('/admin/login')), 'username' => 'lutz', 'password' => TEST_PASSWORD]);
+check('Nach 24 Stunden: zweiter Faktor wieder nötig, abgelaufene Zeile wird bei der nächsten Anmeldung entfernt', !lk_in($bm) && (int) $ms['app']->services()->db->value('SELECT COUNT(*) FROM trusted_devices WHERE user_id = 1') === 0);
+
+// Wiederherstellungscode vertraut nicht
+$mr = lk_make($f . '/device3');
+$r1 = lk_setup($mr);
+$mr['clock']->advance(31);
+$br = new TestBrowser($mr['app'], $mr['config']);
+$br->post('/admin/login', ['_csrf' => TestBrowser::csrf($br->get('/admin/login')), 'username' => 'lutz', 'password' => TEST_PASSWORD]);
+$tt = $br->get('/admin/login/totp');
+$br->post('/admin/login/totp', ['_csrf' => TestBrowser::csrf($tt), 'code' => $r1['codes'][0], 'trust' => '1']);
+check('Wiederherstellungscode: angemeldet, aber kein Gerät vertraut', lk_in($br) && $br->cookie('lk_dev') === '' && (int) $mr['app']->services()->db->value('SELECT COUNT(*) FROM trusted_devices') === 0);
+
+// Widerruf: Abmelden, Passwortänderung, „Sitzungen beenden“
+$bl = $trustLogin($mr, $r1['secret'], true);
+$devL = $bl->cookie('lk_dev');
+$outL = $bl->post('/admin/logout', ['_csrf' => TestBrowser::csrf($bl->get('/admin'))]);
+check('Abmelden: Gerätecookie gelöscht und Zeile entfernt', $bl->cookie('lk_dev') === '' && (int) $mr['app']->services()->db->value('SELECT COUNT(*) FROM trusted_devices') === 0);
+$ba = $trustLogin($mr, $r1['secret'], true);
+$bb = $trustLogin($mr, $r1['secret'], true, '203.0.113.8');
+check('Zwei vertraute Geräte', (int) $mr['app']->services()->db->value('SELECT COUNT(*) FROM trusted_devices') === 2);
+$mr['clock']->advance(31);
+$acc = $ba->get('/admin/account');
+$chg = ['_csrf' => TestBrowser::csrf($acc), 'current_password' => TEST_PASSWORD, 'code' => lk_totp($r1['secret'], $mr['clock']), 'new_password' => 'Allerneuestes-Passwort-55x', 'new_password2' => 'Allerneuestes-Passwort-55x'];
+check('Passwortänderung: erfolgreich', $ba->post('/admin/account/password', $chg)->status === 200);
+check('Passwortänderung widerruft alle vertrauten Geräte (auch das eigene)', (int) $mr['app']->services()->db->value('SELECT COUNT(*) FROM trusted_devices') === 0);
+$bz = new TestBrowser($mr['app'], $mr['config']);
+$bz->jar['__Host-lk_dev'] = $bb->cookie('lk_dev');
+$bz->post('/admin/login', ['_csrf' => TestBrowser::csrf($bz->get('/admin/login')), 'username' => 'lutz', 'password' => 'Allerneuestes-Passwort-55x']);
+check('Altes Gerätetoken nach Passwortänderung wirkungslos', !lk_in($bz));
+
+// Höchstzahl der Geräte je Konto
+$mq = lk_make($f . '/device4');
+$q1 = lk_setup($mq);
+for ($i = 0; $i < 12; $i++) {
+    $trustLogin($mq, $q1['secret'], true, '203.0.113.' . (20 + $i));
+}
+check('Höchstens 10 vertraute Geräte je Konto', (int) $mq['app']->services()->db->value('SELECT COUNT(*) FROM trusted_devices WHERE user_id = 1') === 10);
+check('Protokoll: Geräte-Ereignisse ohne Token', (int) $mq['app']->services()->db->value("SELECT COUNT(*) FROM audit_log WHERE event = 'device_trusted' AND detail = 'hours=24'") === 12 && $mq['app']->services()->audit->verify()['ok']);

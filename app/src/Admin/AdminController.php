@@ -288,7 +288,7 @@ final class AdminController
         if (!$this->preOk($req)) {
             return $show(self::PRE_EXPIRED, 400);
         }
-        $res = $this->s->auth->login($req, $req->input('username'), $req->input('password'));
+        $res = $this->s->auth->login($req, $req->input('username'), $req->input('password'), $req->cookie($this->s->cookies->name('lk_dev')));
         if ($res['status'] === 'blocked') {
             return $show('Die Anmeldung ist gerade nicht möglich. Bitte in ein paar Minuten noch einmal versuchen.', 429);
         }
@@ -299,6 +299,9 @@ final class AdminController
         $old = $req->cookie($this->s->cookies->name('lk_sid'));
         if ($old !== '') {
             $this->s->sessions->destroy($old);
+        }
+        if (!empty($res['trusted'])) { // vertrautes Gerät: zweiter Faktor entfällt
+            return Response::redirect($next)->withCookie($this->sessionCookie((string) $res['sid']));
         }
         return Response::redirect('/admin/login/totp?next=' . rawurlencode($next))->withCookie($this->sessionCookie((string) $res['sid']));
     }
@@ -328,9 +331,12 @@ final class AdminController
         if (!hash_equals((string) $ps['csrf_token'], $req->input('_csrf'))) {
             return $show(self::PRE_EXPIRED, 400);
         }
-        $res = $this->s->auth->secondFactor($req, $req->cookie($sidName), $req->input('code'));
+        $res = $this->s->auth->secondFactor($req, $req->cookie($sidName), $req->input('code'), $req->input('trust') === '1');
+        $done = static fn (): Response => Response::redirect($res['recovery'] ? '/admin/account?neu=1' : $next);
         return match ($res['status']) {
-            'ok' => Response::redirect($res['recovery'] ? '/admin/account?neu=1' : $next)->withCookie($this->sessionCookie((string) $res['sid'])),
+            'ok' => isset($res['device'])
+                ? $done()->withCookie($this->sessionCookie((string) $res['sid']))->withCookie($this->s->cookies->set('lk_dev', (string) $res['device'], Auth::DEVICE_TTL))
+                : $done()->withCookie($this->sessionCookie((string) $res['sid'])),
             'blocked' => $show('Die Anmeldung ist gerade nicht möglich. Bitte in ein paar Minuten noch einmal versuchen.', 429),
             'expired' => $clearSid(Response::redirect('/admin/login')),
             default => $show('Der Code stimmt nicht. Bitte noch einmal versuchen.', 401),
@@ -340,8 +346,10 @@ final class AdminController
     public function logout(Request $req, array $p, ?array $sess): Response
     {
         $this->s->auth->logout($req->cookie($this->s->cookies->name('lk_sid')), (int) $sess['user_id'], $this->ipPrefix($req));
+        $this->s->auth->forgetDevice($req->cookie($this->s->cookies->name('lk_dev'))); // Abmelden beendet auch das Vertrauen für dieses Gerät
         return Response::redirect('/admin/login')
             ->withCookie($this->s->cookies->clear('lk_sid'))
+            ->withCookie($this->s->cookies->clear('lk_dev'))
             ->withHeaders(['Clear-Site-Data' => '"cookies"']);
     }
 

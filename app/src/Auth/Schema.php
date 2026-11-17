@@ -243,6 +243,17 @@ SQL,
             <<<'SQL'
 ALTER TABLE pages ADD COLUMN show_title INTEGER NOT NULL DEFAULT 1;
 SQL,
+            // 9: „Dieses Gerät 24 Stunden vertrauen“: der zweite Faktor entfällt nur beim Anmelden mit Passwort. Nur additiv.
+            <<<'SQL'
+CREATE TABLE trusted_devices (
+    id_hash TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    created_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL,
+    ua_hash TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX trusted_devices_user ON trusted_devices(user_id);
+SQL,
         ];
     }
 

@@ -88,6 +88,20 @@
     t.addEventListener('input', function () { obj[key] = t.value; dirty = true; });
     return t;
   }
+  // Wechselzeit des Karussells in Sekunden (2 bis 30, Standard 6); die Grenzen prüft der Server noch einmal (Blocks.php).
+  function intervalField(b) {
+    var i = el('input');
+    i.type = 'number'; i.min = '2'; i.max = '30'; i.step = '1';
+    i.value = String(b.interval || 6);
+    i.addEventListener('input', function () { var n = parseInt(i.value, 10); if (n >= 2 && n <= 30) { b.interval = n; dirty = true; } });
+    i.addEventListener('change', function () {
+      var n = parseInt(i.value, 10);
+      n = isNaN(n) ? 6 : Math.max(2, Math.min(30, n));
+      i.value = String(n); b.interval = n; dirty = true;
+    });
+    var l = labelled('Wechselzeit in Sekunden (2 bis 30, Standard 6)', i);
+    return l;
+  }
   function select(obj, key, options, conv) {
     var s = el('select');
     options.forEach(function (o) {
@@ -326,6 +340,7 @@
         aul.appendChild(au);
         aul.appendChild(document.createTextNode(' Automatisch weiterblättern (Karussell)'));
         body.appendChild(aul);
+        body.appendChild(intervalField(b));
         if (!b.focus || typeof b.focus !== 'object') { b.focus = {}; }
         body.appendChild(el('h4', null, 'Ausschnitt je Foto'));
         if (!homePhotos.length) {
@@ -511,7 +526,7 @@
       al.appendChild(auto);
       al.appendChild(document.createTextNode(' Automatisch weiterblättern (nicht bei „weniger Bewegung“ im System)'));
       body.appendChild(al);
-      body.appendChild(labelled('Wechsel nach', select(b, 'interval', [[4, '4 Sekunden'], [6, '6 Sekunden'], [8, '8 Sekunden'], [12, '12 Sekunden']], Number)));
+      body.appendChild(intervalField(b));
       body.appendChild(labelled('Format', select(b, 'ratio', [['3-2', 'Standard (3:2)'], ['16-9', 'Breit (16:9)'], ['2-1', 'Sehr breit (2:1)'], ['21-9', 'Panorama (21:9)'], ['3-1', 'Schmales Band (3:1)']])));
       body.appendChild(labelled('Breite', select(b, 'span', [['box', 'Im Seitenrahmen mit runden Ecken'], ['voll', 'Über die ganze Fensterbreite']])));
     } else {
