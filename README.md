@@ -6,6 +6,12 @@ Schlankes Open-Source-Foto-CMS für ausschließlich eigene Bilder. PHP 8.3+ und 
 
 Lizenz: AGPL-3.0-or-later (siehe `LICENSE`). Plan: `docs/planung/03 Plan br-foto.md`.
 
+## Installation
+
+- **Webspace nur mit FTP:** das Zip `lichtkammer-<Version>.zip` vom GitHub-Release laden und der Anleitung `INSTALL.txt` darin folgen (Hochladen, `app/.env` ausfüllen, `/admin/setup`). Aktualisieren: neues Zip über die alte Installation hochladen; `app/.env`, Daten und Fotos sind nicht im Zip.
+- **Docker:** `compose.yaml` mit dem Image `ghcr.io/luro611/lichtkammer:<Version>`. Aktualisieren: `docker compose pull && docker compose up -d`.
+- Jede Version wird aus einem Tag (`vX.Y.Z`) automatisch als Zip und Image gebaut (`.github/workflows/release.yml`); Entwurf: `docs/planung/15 Entwurf Distribution.md`.
+
 ## Zwei Betriebsarten, ein Code
 
 | | all-inkl (FTPS) | Docker (eigener LXC) |

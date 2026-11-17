@@ -1,0 +1,52 @@
+# Release: Ein Tag wie v0.2.0 erzeugt aus demselben Stand das Zip für Webspace, das Docker-Image und das GitHub-Release.
+# Ablauf: Tests → Zip → Image (amd64, arm64) → Release. Passt das Tag nicht zu Config::VERSION, bricht alles ab.
+name: Release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+  packages: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Version prüfen
+        run: |
+          V=$(grep -oE "VERSION = '[^']+'" app/src/Config.php | cut -d"'" -f2)
+          [ "v$V" = "$GITHUB_REF_NAME" ] || { echo "Tag $GITHUB_REF_NAME passt nicht zu Version $V"; exit 1; }
+          echo "VERSION=$V" >> "$GITHUB_ENV"
+      - name: Tests
+        run: |
+          docker build -t lichtkammer-test -f tests/Dockerfile tests
+          docker run --rm -v "$PWD":/app -w /app lichtkammer-test php tests/run.php
+      - name: Zip bauen und prüfen
+        run: tools/release-zip.sh --pruefen
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Image bauen und veröffentlichen
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          build-args: VERSION=${{ env.VERSION }}
+          tags: |
+            ghcr.io/luro611/lichtkammer:${{ env.VERSION }}
+            ghcr.io/luro611/lichtkammer:latest
+      - name: Änderungsverlauf dieser Version
+        run: |
+          awk -v v="$VERSION" 'index($0, "## [" v "]")==1 {f=1; next} /^## / {f=0} f' CHANGELOG.md > notes.md
+          [ -s notes.md ] || echo "Siehe CHANGELOG.md" > notes.md
+      - name: GitHub-Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PRE=""; case "$VERSION" in 0.*) PRE="--prerelease";; esac
+          gh release create "$GITHUB_REF_NAME" dist/lichtkammer-"$VERSION".zip dist/lichtkammer-"$VERSION".zip.sha256 --title "Lichtkammer $VERSION" --notes-file notes.md $PRE

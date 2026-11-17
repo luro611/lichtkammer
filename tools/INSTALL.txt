@@ -1,0 +1,46 @@
+LICHTKAMMER – Installation auf einem Webspace (nur FTP nötig)
+==============================================================
+
+Lichtkammer ist ein schlankes Foto-CMS für eigene Bilder (PHP und SQLite, keine Datenbank, kein Composer, kein SSH).
+
+Voraussetzungen
+---------------
+- Webspace mit PHP 8.3 oder neuer und HTTPS
+- PHP-Erweiterungen: sodium, pdo_sqlite, intl, gd (oder imagick), exif (bei den meisten Anbietern vorhanden)
+- Ein FTP-Programm (FileZilla, Cyberduck o. ä.) mit verschlüsselter Verbindung (FTPS/SFTP)
+
+Neu installieren
+----------------
+1. Das Zip entpacken. Es enthält die Ordner "public" und "app".
+2. Alles aus "public" in den Webroot der Domain hochladen (dort, wo auch eine index.html läge).
+3. Den Ordner "app" daneben in denselben Webroot hochladen (er heißt dann /app). Er ist per .htaccess gesperrt.
+4. Die Datei ".env.example" auf deinem Rechner nach "app/.env" kopieren und ausfüllen (siehe unten), dann nach "app/.env" hochladen.
+   Wichtig: Die Datei muss "app/.env" heißen, nicht ".env" im Webroot.
+5. Im Browser "https://deine-domain/admin/setup" öffnen und den Administrator anlegen (Passwort, Authenticator-App).
+6. Danach die Zeile LK_SETUP_TOKEN in app/.env LÖSCHEN.
+
+Die .env ausfüllen
+------------------
+- LK_BASE_URL: deine Adresse, z. B. https://fotos.example.org (ohne Schrägstrich am Ende)
+- LK_APP_KEY und LK_SETUP_TOKEN: Zwei geheime Werte. Am einfachsten: Rufe deine Domain unter /admin auf, solange die
+  Datei noch fehlt. Die Seite "Admin nicht verfügbar" erzeugt dir zwei fertige Zeilen zum Kopieren.
+  Mit Konsole geht es auch: openssl rand -base64 32 (für den Schlüssel) und openssl rand -hex 24 (für den Token).
+  Den Schlüssel BEWAHRST DU SICHER AUF (Passwort-Manager), getrennt von der Datensicherung. Ohne ihn sind
+  gespeicherte Anmeldedaten nicht mehr lesbar.
+- LK_DATA_DIR (empfohlen): ein Ordner ÜBER dem Webroot für Datenbank und Originale, falls dein Anbieter das erlaubt,
+  siehe die Hinweise in .env.example. Der Ordner wird beim ersten Start selbst angelegt.
+
+Aktualisieren
+-------------
+1. Vorher eine Sicherung ziehen: den Daten-Ordner (LK_DATA_DIR) und die Originale per FTP herunterladen.
+2. Das neue Zip entpacken und "public" sowie "app" über die vorhandenen Ordner hochladen (überschreiben).
+   Deine Dateien app/.env, der Daten-Ordner, die Originale und public/media sind NICHT im Zip und bleiben unberührt.
+3. Die Seite im Admin öffnen. Die Datenbank wird beim ersten Aufruf selbst aktualisiert (vorher legt Lichtkammer eine Sicherung an).
+4. Im Admin einmal "Veröffentlichen" drücken, damit die öffentliche Seite neu erzeugt wird.
+
+Prüfsumme
+---------
+Zu jedem Zip gibt es eine Datei .sha256. Vergleiche sie mit der Prüfsumme deines heruntergeladenen Zips
+(macOS/Linux: shasum -a 256 lichtkammer-X.Y.Z.zip, Windows: certutil -hashfile lichtkammer-X.Y.Z.zip SHA256).
+
+Lizenz: AGPL-3.0-or-later (Datei LICENSE). Schriften: OFL-1.1 (public/assets/fonts/LIZENZEN.txt).

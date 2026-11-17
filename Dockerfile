@@ -1,6 +1,13 @@
 # Lichtkammer: PHP 8.5 mit Apache, Imagick (AVIF/HEIC über libheif) und SQLite.
 FROM php:8.5-apache
 
+ARG VERSION=dev
+LABEL org.opencontainers.image.title="Lichtkammer" \
+      org.opencontainers.image.description="Schlankes Foto-CMS für eigene Bilder (PHP und SQLite)" \
+      org.opencontainers.image.source="https://github.com/luro611/lichtkammer" \
+      org.opencontainers.image.licenses="AGPL-3.0-or-later" \
+      org.opencontainers.image.version="${VERSION}"
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libmagickwand-dev libheif-dev libavif-dev libwebp-dev libjpeg-dev libpng-dev libzip-dev libicu-dev libgmp-dev \
     && docker-php-ext-configure gd --with-jpeg --with-webp \

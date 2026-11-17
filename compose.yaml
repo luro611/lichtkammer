@@ -3,8 +3,10 @@
 # LK_TRUSTED_PROXIES (Adresse des Proxys), sonst startet der Admin nicht.
 services:
   lichtkammer:
-    build: .
-    # später: image: ghcr.io/luro611/lichtkammer:<Version>
+    # Veröffentlichtes Image (Version anpassen; Update: docker compose pull && docker compose up -d)
+    image: ghcr.io/luro611/lichtkammer:latest
+    # Entwickler bauen lokal: die Zeile "image" auskommentieren und stattdessen "build: ." verwenden.
+    #build: .
     restart: unless-stopped
     # Nur lokal erreichbar (Proxy auf demselben Host). Läuft der Proxy im selben Docker-Netz, die Zeilen
     # "ports" ganz weglassen. Nie auf allen Schnittstellen veröffentlichen: sonst kann jeder im Netz
