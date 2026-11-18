@@ -28,9 +28,9 @@ Bestehende Tabellen und Spalten bleiben unverändert. Fotos, Galerien, `gallery_
 | `gallery_id` | optional: Galerie, die aus diesem Ordner entstand (Merkhilfe, siehe 3.4) |
 | `created_at`, `updated_at`, `deleted_at` | Papierkorb wie bei Fotos |
 
-Eindeutig: `(COALESCE(parent_id,0), name_key)` als Ausdrucksindex (SQLite kennt das seit 3.9; der Test prüft es auf dem Ziel). Zwei Ordner gleichen Namens in einem Ordner gibt es also nicht, auch nicht bei „Island“ und „island“ oder mit Mac-Zerlegung (NFD) und Windows-Zusammensetzung (NFC) von „ü“.
+Eindeutig: `(parent_id, name_key)` als **Teilindex `WHERE deleted_at IS NULL`**; die oberste Ebene ist `parent_id = 0` (`NOT NULL DEFAULT 0`, ohne Fremdschlüssel, kein `COALESCE`). Ordner im Papierkorb blockieren so keinen Namen (Prüfung 17, H1). Zwei Ordner gleichen Namens in einem Ordner gibt es also nicht, auch nicht bei „Island“ und „island“ oder mit Mac-Zerlegung (NFD) und Windows-Zusammensetzung (NFC) von „ü“.
 
-Grenzen: Tiefe höchstens 8, höchstens 5 000 Ordner insgesamt, Namenslänge höchstens 255 Zeichen (wie macOS).
+Grenzen: Tiefe höchstens 8, höchstens 5 000 Ordner insgesamt, Namenslänge höchstens 255 Zeichen (Zeichen, nicht UTF-16-Einheiten wie macOS; folgenlos, da Namen nie Pfade sind).
 
 ### 2.2 Zuordnung Foto → Ordner
 
@@ -67,7 +67,7 @@ Die Logos aus den Einstellungen (`site_settings`, Ordner `data/brand`) bleiben u
 
 ### 2.7 Papierkorb
 
-Wie Fotos: `deleted_at`, 30 Tage, Aufräumen beim Aufruf (`Catalog::TRASH_DAYS`). Löschen eines Ordners legt den Ordner und alles darunter (Unterordner, Fotos, Dateien) in den Papierkorb, mit demselben Zeitstempel, damit **Wiederherstellen** den ganzen Zweig zurückholt. Endgültiges Löschen (nach 30 Tagen oder per Knopf) entfernt Datei, öffentliche Kopie und Zeile; bei Fotos wie heute die Originale und Varianten.
+Wie Fotos: `deleted_at`, 30 Tage, Aufräumen beim Aufruf (`Catalog::TRASH_DAYS`). Löschen eines Ordners legt den Ordner und alles darunter (Unterordner, Fotos, Dateien) in den Papierkorb und trägt in allen die Kennung des gelöschten Ordners als `trash_root_id` ein (nicht nur den Zeitstempel), damit **Wiederherstellen** genau diesen Zweig zurückholt. Löschen und Wiederherstellen laufen in Stapeln (z. B. 100 Fotos je Anfrage); wiederhergestellte Fotos werden auf `pending` gesetzt und über den vorhandenen Verarbeitungsweg nachgezogen, nicht in einer Anfrage verarbeitet. Namenskonflikt beim Wiederherstellen: Zusammenführen, nie scheitern. Hochladen oder Verschieben in einen Ordner im Papierkorb wird abgelehnt. Einzelheiten und offene Punkte: `17 Pruefung Entwurf Medienverwaltung.md`, H1. Endgültiges Löschen (nach 30 Tagen oder per Knopf) entfernt Datei, öffentliche Kopie und Zeile; bei Fotos wie heute die Originale und Varianten.
 
 ## 3. Ordner und Galerie
 
@@ -139,10 +139,10 @@ Der Browser schickt keine Pfade mit Dateien. Er schickt **einen Ordnerplan** (Li
 
 Prüfung je Segment (Ordner- und Dateiname):
 
-- Unicode **NFC** (Finder liefert NFD); Vergleichsschlüssel NFC und kleingeschrieben. Braucht die PHP-Erweiterung `intl`. Fehlt sie auf einem Webspace, wird `name_key` nur kleingeschrieben und die Medienseite zeigt einen Hinweis (kein Sicherheitsproblem, da Namen nie Pfade sind; nur doppelte Namen in zwei Unicode-Formen wären möglich). Die Voraussetzungsprüfung (`Capabilities`) bekommt den Punkt.
+- Unicode **NFC** (Finder liefert NFD); Vergleichsschlüssel NFC und kleingeschrieben. Braucht die PHP-Erweiterung `intl`; `Preflight` verlangt sie schon (Passwörter), ein Rückfallweg ist nicht nötig.
 - **Still entfernt** (unsichtbar oder täuschend, im Namen nie nötig): Steuerzeichen (`U+0000` bis `U+001F`, `U+007F`), Bidi-Steuerzeichen (`U+202A` bis `U+202E`, `U+2066` bis `U+2069`), Zeichen ohne Breite (`U+200B` bis `U+200F`, `U+FEFF`, Tag-Zeichen), Leerzeichen und Punkte am Anfang und Ende. Ungültiges UTF-8 wird mit `U+FFFD` ersetzt oder die Datei abgelehnt.
 - **Unverändert erlaubt:** alle übrigen Zeichen, auch `: * ? " < > | \`, Umlaute, Emojis, Leerzeichen innen, und **Windows-reservierte Namen** (`CON`, `NUL`, `COM1` …), weil der Name nur angezeigt und nie als Dateiname benutzt wird. Ausgabe immer maskiert. Ein Name, der danach leer wäre, oder `.`/`..` (gibt es als Ordnername nicht) heißt „Unbenannter Ordner“.
-- Länge je Segment höchstens 255 Zeichen (längere werden gekürzt und gemeldet), Gesamtpfad höchstens 800, Tiefe höchstens 8.
+- Länge je Segment höchstens 255 Zeichen (längere werden gekürzt und gemeldet); dieselbe Namensfunktion benutzt künftig auch `Library::cleanName` (heute `basename`, nur Steuerzeichen, 200 Zeichen; Prüfung 17, H4), Gesamtpfad höchstens 800, Tiefe höchstens 8.
 - Versteckte und Systemdateien werden beim Ordner-Upload **still übersprungen und gezählt**: `.DS_Store`, `._*`, `__MACOSX/`, `Thumbs.db`, `desktop.ini`, Dateien und Ordner mit führendem Punkt.
 - Verschieben: Verbot, einen Ordner in sich selbst oder einen Nachkomme zu legen (Zyklus), Tiefenprüfung nach dem Verschieben, alles in einer Transaktion; Namenskonflikt am Ziel ergibt eine Meldung, kein stilles Überschreiben.
 
@@ -157,9 +157,9 @@ Prüfung je Segment (Ordner- und Dateiname):
 
 **SVG** kann Skripte, fremde Adressen und Ereignisse enthalten und führt sie aus, wenn man die Datei direkt aufruft. Maßnahmen:
 
-1. **Annahme per Positivliste** (nicht Sperrliste): Einlesen mit `DOMDocument` (`LIBXML_NONET`, Entitäten nicht ersetzen, kein externer Zugriff); das W3C-Standard-`DOCTYPE` wird entfernt, jedes andere `DOCTYPE` oder jede `ENTITY`-Deklaration (Entity-Bombe, externe Entität) wird abgelehnt. Wurzelelement muss `svg` im SVG-Namensraum sein. Erlaubt sind nur bekannte Grafik-Elemente und -Attribute (Formen, Pfade, Verläufe, `g`, `defs`, `use` nur mit Verweis auf `#id` der Datei, `clipPath`, `mask`, `text`, `style` mit streng geprüftem CSS).
-2. **Ablehnen** (Datei ist dann kein Logo): `script`, `foreignObject`, `iframe`, `object`, `embed`, `animate`/`set` auf Verweisattribute, jedes `on…`-Attribut, `href`/`xlink:href` auf etwas anderes als `#id` oder `data:image/png|jpeg|webp;base64`, CSS mit `@import`, `url(` auf Nicht-`#`, `expression`, `javascript:`.
-3. **Entfernen statt Ablehnen:** Metadaten fremder Editoren (`sodipodi:`, `inkscape:`, Adobe `i:`/`x:`-Namensräume, `metadata`), Kommentare. Hinweis nach dem Hochladen: „Editor-Metadaten wurden entfernt“. Gespeichert wird nur die bereinigte Fassung; eine Original-SVG wird nicht aufgehoben.
+1. **Annahme per Positivliste** (nicht Sperrliste): Einlesen mit `DOMDocument` (`LIBXML_NONET`, Entitäten nicht ersetzen, kein externer Zugriff); nur UTF-8 ist erlaubt (UTF-16 wird abgelehnt); **nach** dem Lesen wird `$doc->doctype` geprüft (kein DOCTYPE, oder genau das W3C-Standard-DOCTYPE ohne internen Teil), alles andere samt `ENTITY` wird abgelehnt (nicht per Muster auf den Rohbytes). Wurzelelement muss `svg` im SVG-Namensraum sein. Erlaubt sind nur bekannte Grafik-Elemente und -Attribute (Formen, Pfade, Verläufe, `g`, `defs`, `use` nur mit Verweis auf `#id` der Datei; Elemente und Attribute werden nach Namensraum (`namespaceURI`) und `localName` geprüft, nicht nach Präfix, `clipPath`, `mask`, `text`, `style` mit streng geprüftem CSS).
+2. **Ablehnen** (Datei ist dann kein Logo): `script`, `foreignObject`, `iframe`, `object`, `embed`, `animate`/`set` auf Verweisattribute, jedes `on…`-Attribut, `href`/`xlink:href` auf etwas anderes als `#id`, das Element `image` und jedes `data:` (wie der vorhandene Logo-Prüfer und sein Test „eingebettetes Bild“), CSS mit `@import`, `url(` auf Nicht-`#`, `expression`, `javascript:`.
+3. **Entfernen statt Ablehnen:** Metadaten fremder Editoren (`sodipodi:`, `inkscape:`, Adobe `i:`/`x:`-Namensräume, `metadata`), Kommentare. Hinweis nach dem Hochladen: „Editor-Metadaten wurden entfernt“. Gespeichert wird nur die bereinigte Fassung (`saveXML`), die noch einmal durch dieselbe Prüfung läuft; eine Original-SVG wird nicht aufgehoben.
 4. Größe höchstens 1 MB (Standard, einstellbar).
 5. **Auslieferung nur als Bild und mit Schutzkopf:** in Admin und Seiten nur per `<img>` (dort laufen Skripte nie). Wird die SVG direkt aufgerufen (Admin-Route, öffentliche Kopie), liefert der Server `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox` und `X-Content-Type-Options: nosniff`. Für `media/dateien/` kommt das per `.htaccess` (`mod_headers`, wie die vorhandene Cache-Regel).
 6. **Keine Verarbeitung auf dem Server:** SVG wird nie von Imagick oder GD gelesen oder umgewandelt (Imagick-SVG- und Ghostscript-Wege sind ein bekannter Angriffsweg).
@@ -217,7 +217,7 @@ Neue Ereignisse im festen Wortschatz (`Audit::EVENTS`): `folder_created`, `folde
   4. Abschlussbericht: neu, Dublette (wo), übersprungen (Grund), fehlgeschlagen (Grund), angelegte Galerien (Link).
 - **Fortschritt:** Gesamtbalken (Dateien und Bytes) plus Zeile je Datei, Schätzung der Restzeit.
 - **Abbruch:** Knopf „Abbrechen“ beendet nach der laufenden Datei. Ordner und Galerien, die dieser Lauf angelegt hat und die **leer** blieben, werden entfernt (Server-Aufruf `plan/abbrechen`); alles Fertige bleibt.
-- **Fortsetzen:** Die `.part`-Dateien auf dem Server bleiben 24 Stunden. Ein Browser kann nach dem Neuladen die `File`-Objekte nicht behalten; deshalb legt man den Ordner **erneut** ab. Der Server erkennt dann (a) schon fertige Dateien am gleichen Ordner, Namen und Größe und überspringt sie, (b) unfertige Uploads am gleichen Nutzer, Ordner, Namen und Größe und liefert die vorhandene Upload-Kennung mit dem Stand `received`, sodass ab dort weitergeschickt wird. Verlorene Netzverbindung während des Laufs: Wiederholung mit dem vom Server gemeldeten Versatz (409-Antwort, wie heute).
+- **Fortsetzen:** Die `.part`-Dateien auf dem Server bleiben 24 Stunden. Ein Browser kann nach dem Neuladen die `File`-Objekte nicht behalten; deshalb legt man den Ordner **erneut** ab. Der Browser schickt je Datei zusätzlich `lastModified` und einen Fingerabdruck (SHA-256 über die ersten und letzten 64 KB plus Größe, `crypto.subtle`); Name und Größe allein genügen nicht (eine neu exportierte Datei gleicher Größe würde sonst übersprungen oder mit Teilen der alten gemischt; Prüfung 17, H2). Der Server erkennt dann (a) schon fertige Dateien am gleichen Ordner, Namen, Größe und Fingerabdruck und überspringt sie, (b) unfertige Uploads am gleichen Nutzer, Ordner, Namen, Größe und Fingerabdruck und liefert die vorhandene Upload-Kennung mit dem Stand `received`, sodass ab dort weitergeschickt wird. Verlorene Netzverbindung während des Laufs: Wiederholung mit dem vom Server gemeldeten Versatz (409-Antwort, wie heute).
 - **Parallelität:** eine Datei zugleich (all-inkl-Prozessgrenzen, Reihenfolge der Galerie). Stückgröße 4 MB (Obergrenze der Anwendung bleibt 8 MB).
 - Kein Hashen im Browser (spart Speicher); die Dublettenprüfung läuft am Ende des Hochladens jeder Datei wie bisher.
 
