@@ -77,7 +77,8 @@ foreach (['warm', 'klar', 'studio', 'blau'] as $d) {
     check("Öffentliches Design: site.css kennt $d, hell und dunkel (auch nach prefers-color-scheme)", str_contains($siteCss, "/*@set $d hell*/") && str_contains($siteCss, "/*@set $d dunkel*/") && str_contains($siteCss, "[data-design=\"$d\"][data-theme=\"dark\"]") && str_contains($siteCss, "[data-design=\"$d\"]:not([data-theme=\"light\"])"));
 }
 check('Öffentliches Design: Warm unverändert (Farben, Schatten, runde Rahmen), auch ohne data-design', str_contains($siteCss, ':root,:root[data-design="warm"]{color-scheme:light;--bg:#f5f2ed;--surface:#fffdf9;--soft:#eee8df;--ink:#242321;--muted:#6b675f;--line:#d9d3ca;--accent:#c75d3b;--accent-strong:#a7472c;--on-accent:#fff;--bar:rgba(245,242,237,.78);')
-    && str_contains($siteCss, '--shadow:0 1px 2px rgba(36,35,33,.05),0 12px 32px rgba(36,35,33,.08)') && str_contains($siteCss, '--r-card:16px;--r-hero:28px;--r-img:10px;--r-pill:980px') && str_contains($siteCss, ':root:not([data-theme="light"]):not([data-design])'));
+    && str_contains($siteCss, '--shadow:0 1px 2px rgba(36,35,33,.05),0 12px 32px rgba(36,35,33,.08)') && str_contains($siteCss, '--r-card:16px;--r-hero:28px;--r-img:10px;--r-pill:980px') && str_contains($siteCss, ':root:not([data-theme="light"]):not([data-design])')
+    && str_contains($siteCss, ':root:not([data-design])[data-theme="dark"]{'));
 check('Öffentliches Design: Kontrast von Admin und Seite in tools/kontrast.py', (static function () use ($root): bool {
     $out = [];
     exec('python3 ' . escapeshellarg($root . '/tools/kontrast.py') . ' -v 2>&1', $out, $rc);
