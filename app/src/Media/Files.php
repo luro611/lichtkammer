@@ -439,6 +439,11 @@ HT;
             if ($f === null || $f['deleted_at'] === null) {
                 continue;
             }
+            // Erst die Zeile (nur, solange sie im Papierkorb liegt), dann die Dateien: holt jemand die Datei im selben Moment
+            // zurück, bleibt das Original erhalten (Prüfung 19).
+            if ($this->db->run('DELETE FROM files WHERE id = ? AND deleted_at IS NOT NULL', [$id])->rowCount() === 0) {
+                continue;
+            }
             $this->removeCopy($f);
             $abs = $this->absolute($f);
             if ($abs !== null) {
@@ -447,7 +452,6 @@ HT;
             if ($f['legacy_public_path'] !== '' && preg_match('#^dokumente/[A-Za-z0-9][A-Za-z0-9._-]{0,120}\.pdf$#', (string) $f['legacy_public_path']) === 1) {
                 @unlink($this->mediaDir . '/' . $f['legacy_public_path']); // erst jetzt verschwindet die alte öffentliche Adresse
             }
-            $this->db->run('DELETE FROM files WHERE id = ? AND deleted_at IS NOT NULL', [$id]);
             $n++;
         }
         return $n;

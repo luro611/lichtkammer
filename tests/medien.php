@@ -221,6 +221,8 @@ $gl = SvgCheck::sanitize($ill);
 check('SVG: Illustrator-Logo mit W3C-DOCTYPE, style-Block und use #id wird angenommen', str_contains($gl['svg'], '<circle') && str_contains($gl['svg'], '.st0{fill:#FFFFFF;stroke:#000000}') && !str_contains($gl['svg'], 'DOCTYPE'));
 $deepSvg = "<svg $X>" . str_repeat('<g>', 60) . str_repeat('</g>', 60) . '</svg>';
 check('SVG: zu tief verschachtelt wird abgelehnt', $thrown(fn () => SvgCheck::sanitize($deepSvg)));
+check('Prüfung 19: href und xlink:href am selben Element werden beide geprüft (Schlüsselkollision)', $thrown(fn () => SvgCheck::sanitize("<svg $X xmlns:xlink=\"http://www.w3.org/1999/xlink\"><use href=\"https://e.x/p.svg#a\" xlink:href=\"#a\"/></svg>")) && $thrown(fn () => SvgCheck::sanitize("<svg $X xmlns:xlink=\"http://www.w3.org/1999/xlink\"><use xlink:href=\"data:image/svg+xml,x\" href=\"#a\"/></svg>")));
+check('Prüfung 19: SVG nur aus BOM ergibt Meldung statt Absturz; Affinity- und Vectornator-Metadaten werden entfernt statt abgelehnt', $thrown(fn () => SvgCheck::sanitize("\xEF\xBB\xBF")) && !str_contains(SvgCheck::sanitize("<svg $X xmlns:serif=\"http://www.serif.com/\" xmlns:vectornator=\"http://vectornator.io\"><rect serif:id=\"a\" vectornator:layerName=\"b\"/></svg>")['svg'], 'serif'));
 check('SVG: Logo-Prüfung der Einstellungen nutzt dieselbe Klasse', !str_contains(file_get_contents(__DIR__ . '/../app/src/Site/Settings.php'), 'function checkSvg') && str_contains(file_get_contents(__DIR__ . '/../app/src/Site/Settings.php'), 'SvgCheck::sanitize'));
 
 // ======================= Block B: PDF =======================
@@ -234,7 +236,14 @@ $pdfRej = [
     '/JavaScript' => "%PDF-1.4\n1 0 obj<</S/JavaScript/JS(app.alert(1))>>endobj\n%%EOF\n",
     '/OpenAction' => "%PDF-1.4\n1 0 obj<</OpenAction 2 0 R>>endobj\n%%EOF\n",
     'Namens-Tarnung #4A' => "%PDF-1.4\n1 0 obj<</S/#4AavaScript>>endobj\n%%EOF\n",
-    'Namens-Tarnung /J#53' => "%PDF-1.4\n1 0 obj<</S/J#53>>endobj\n%%EOF\n",
+    'Namens-Tarnung /J#53' => "%PDF-1.4\n1 0 obj<</J#53 (app.alert(1))>>endobj\n%%EOF\n",
+    '/JS als Hex-Text' => "%PDF-1.4\n1 0 obj<</JS<6170702e616c657274>>>endobj\n%%EOF\n",
+    '/JS als Verweis' => "%PDF-1.4\n1 0 obj<</JS 12 0 R>>endobj\n%%EOF\n",
+    '/JS nach Kommentar und NUL' => "%PDF-1.4\n1 0 obj<</JS %Tarnung\n\0(x)>>endobj\n%%EOF\n",
+    '/AA-Wörterbuch' => "%PDF-1.4\n1 0 obj<</AA<</O 5 0 R>>>>endobj\n%%EOF\n",
+    '/AA als Verweis' => "%PDF-1.4\n1 0 obj<</AA 7 0 R>>endobj\n%%EOF\n",
+    '/JS mit Leerraum über die Blockgrenze' => "%PDF-1.4\n" . str_repeat('x', 65536 - 9 - 5) . '/JS' . str_repeat(' ', 5000) . "(x)\n%%EOF\n",
+    'Verweis über die Blockgrenze' => "%PDF-1.4\n" . str_repeat('x', 65536 - 9 - 8) . '/JS 12' . str_repeat(' ', 5000) . "0 R\n%%EOF\n",
     'eingebettete Datei' => "%PDF-1.4\n1 0 obj<</Type/EmbeddedFile>>endobj\n%%EOF\n",
     '/Launch' => "%PDF-1.4\n1 0 obj<</S/Launch>>endobj\n%%EOF\n",
     'Marker auf der Blockgrenze' => "%PDF-1.4\n" . str_repeat('x', 65536 - 9 - 4) . "/OpenAction\n%%EOF\n",
@@ -258,6 +267,19 @@ try {
     $thrownOk = false;
 }
 check('PDF: Wörter, die nur mit einem Marker beginnen (/JSON, /AAPL), sind kein Treffer', $thrownOk);
+// Prüfung 19: /JS und /AA stehen in komprimierten Bilddaten zufällig (etwa jedes zweite PDF mit 5 MB Bildern wurde abgelehnt).
+$noise = '';
+for ($i = 0; strlen($noise) < 5 * 1048576; $i++) {
+    $noise .= hash('sha256', 'lk' . $i, true);
+}
+$noise = substr_replace($noise, "/JS\xFE/AA\x00Q/JS)/AA>>/JS 5x", 3 * 1048576, 26);
+$thrownOk = true;
+try {
+    PdfCheck::check($wp("%PDF-1.7\n1 0 obj<</Length 5242880>>stream\n" . $noise . "\nendstream endobj\n%%EOF\n"));
+} catch (MediaException) {
+    $thrownOk = false;
+}
+check('PDF: /JS und /AA ohne passenden Wert (zufällig in Bilddaten) sind kein Treffer, 5 MB Strom wird angenommen', $thrownOk && preg_match('/\/(?:JS|AA)(?![A-Za-z0-9])/', $noise) === 1);
 
 // ======================= Block B: Dateien (Annahme am Inhalt, Ablage, öffentliche Kopie) =======================
 $fi = $svc->files;
@@ -544,6 +566,16 @@ try {
     $rcOk = false;
 }
 check('Prüfung 18: endgültiges Löschen mit lebendem Rest wirft nicht; Foto und Unterordner landen in der Wurzel (Name mit Zusatz bei Gleichheit)', $rcOk && $db->value('SELECT 1 FROM folders WHERE id = ?', [$rc['id']]) === null && $db->value('SELECT folder_id FROM photos WHERE id = ?', [$phRace]) === null && (int) $db->value('SELECT parent_id FROM folders WHERE id = ?', [$rcKid['id']]) === 0 && str_contains((string) $db->value('SELECT name FROM folders WHERE id = ?', [$rcKid['id']]), 'gerettet'));
+// Prüfung 19: Retten mit Zusatz endet auch bei Namen mit 255 Zeichen (vorher Endlosschleife)
+$longName = str_repeat('L', 255);
+$lr = $fo->ensurePath(0, ['LangRennen']);
+$lrKid = $fo->ensurePath($lr['id'], [$longName]);
+$fo->trash($lr['id']);
+$db->run('UPDATE folders SET deleted_at = NULL WHERE id = ?', [$lrKid['id']]);
+$fo->ensurePath(0, [$longName]);
+$t0 = microtime(true);
+$fo->purgeRows([$lr['id']]);
+check('Prüfung 19: Retten eines Ordners mit 255 Zeichen langem Namen endet, Name mit Zusatz', microtime(true) - $t0 < 2 && str_contains((string) $db->value('SELECT name FROM folders WHERE id = ?', [$lrKid['id']]), 'gerettet') && (int) $db->value('SELECT parent_id FROM folders WHERE id = ?', [$lrKid['id']]) === 0);
 check('Prüfung 18: Ordner anlegen unter einem Ordner im Papierkorb wird abgelehnt; Name mit Schrägstrich ebenso', $thrown(fn () => $fo->create($rc['id'], 'x')) && $thrown(fn () => $fo->create(0, 'a/b')) && $thrown(fn () => $fo->ensurePath($rc['id'], ['x'])));
 check('Prüfung 18: weitere unsichtbare Zeichen (U+061C, U+180E, U+3164) fliegen aus Namen, ein Name nur daraus bekommt den Ersatznamen', Names::clean("a\u{061C}b\u{180E}c\u{3164}d")['name'] === 'abcd' && Names::clean("\u{3164}\u{3164}")['name'] === Names::FOLDER_FALLBACK);
 // gelöschte Fotos: Varianten verschwinden in Stapeln bis zum Ende, nicht nur ein Stapel
@@ -555,6 +587,14 @@ $fo->trash($bigRoot['id']);
 $leftBefore = (int) $db->value('SELECT COUNT(DISTINCT photo_id) FROM photo_variants WHERE photo_id IN (SELECT id FROM photos WHERE trash_root_id = ?)', [$bigRoot['id']]);
 $fo->finishTrashWithin($mediaDir, 10.0);
 check('Prüfung 18: Varianten gelöschter Zweige werden bis zum Ende entfernt (mehr als ein Stapel)', $leftBefore > 0 && (int) $db->value('SELECT COUNT(*) FROM photo_variants WHERE photo_id IN (SELECT id FROM photos WHERE trash_root_id = ?)', [$bigRoot['id']]) === 0);
+// Prüfung 19: „Endgültig löschen“ eines Zweigs mit mehr als einem Stapel (200) löscht in einem Klick alles
+$huge = $fo->ensurePath(0, ['Sehr viele']);
+for ($i = 0; $i < 230; $i++) {
+    $fi->ingest(1, $wp("%PDF-1.4\nstapel $i\n%%EOF\n"), 's' . $i . '.pdf', $huge['id']);
+}
+$fo->trash($huge['id']);
+$r = $b->post('/admin/medien/papierkorb', ['_csrf' => $cs(), 'aktion' => 'loeschen', 'ordner_id' => [(string) $huge['id']]]);
+check('Prüfung 19: Endgültig löschen eines Zweigs mit über 200 Einträgen erledigt alles in einem Aufruf', $r->status === 303 && (int) $db->value('SELECT COUNT(*) FROM files WHERE trash_root_id = ?', [$huge['id']]) === 0 && $db->value('SELECT 1 FROM folders WHERE id = ?', [$huge['id']]) === null && str_contains((string) $r->headers['Location'], 'n=230'));
 
 $ab = $pj($plan($b, ['target' => 0, 'folders' => [['path' => ['Abbruch', 'Leer'], 'gallery' => true], ['path' => ['Abbruch', 'Belegt']]], 'files' => []]));
 $abBelegt = (int) $ab['folders'][1]['id'];
@@ -562,12 +602,17 @@ $phAb = $mk(333, $abBelegt, 'bleibt.jpg');
 $can = $pj($b->request('POST', '/admin/medien/plan/abbrechen', ['plan' => $ab['plan']], ['HTTP_X_CSRF_TOKEN' => TestBrowser::csrf($b->get('/admin/medien'))]));
 check('Abbruch: leere Ordner und Galerien des Laufs entfernt, belegte bleiben', $can['ok'] === true && $db->value("SELECT 1 FROM folders WHERE name_key = 'leer'") === null && $db->value("SELECT 1 FROM galleries WHERE title = 'Leer'") === null && $db->value('SELECT 1 FROM folders WHERE id = ?', [$abBelegt]) !== null && $db->value("SELECT 1 FROM folders WHERE name_key = 'abbruch'") !== null);
 check('Abbruch: fremde oder ungültige Plan-Kennung tut nichts', $pj($b->request('POST', '/admin/medien/plan/abbrechen', ['plan' => '../..'], ['HTTP_X_CSRF_TOKEN' => TestBrowser::csrf($b->get('/admin/medien'))]))['ok'] === true);
+// Prüfung 19: ein fertiger Lauf (nicht abgebrochen) wird als erledigt gemeldet; seine leeren Ordner und Galerien bleiben
+$fertig = $pj($plan($b, ['target' => 0, 'folders' => [['path' => ['Fertig', 'Bleibt leer'], 'gallery' => true]], 'files' => []]));
+$done = $pj($b->request('POST', '/admin/medien/plan/fertig', ['plan' => $fertig['plan']], ['HTTP_X_CSRF_TOKEN' => TestBrowser::csrf($b->get('/admin/medien'))]));
 // Plan-Reste nach 24 Stunden
 $ghost = $pj($plan($b, ['target' => 0, 'folders' => [['path' => ['Geist'], 'gallery' => true]], 'files' => []]));
 $m['clock']->advance(86400 + 120);
 $b = lk_login($m, 'lutz', TEST_PASSWORD, $s['secret']);
 $plan($b, ['target' => 0, 'folders' => [], 'files' => []]);
 check('Plan: liegengelassener Plan (Tab geschlossen) wird nach 24 Stunden aufgeräumt, wenn leer', $db->value("SELECT 1 FROM folders WHERE name_key = 'geist'") === null && $db->value("SELECT 1 FROM galleries WHERE title = 'Geist'") === null);
+check('Prüfung 19: fertig gemeldeter Lauf wird nach 24 Stunden nicht aufgeräumt (leere Ordner und Entwurfsgalerie bleiben)', $done['ok'] === true && $db->value("SELECT 1 FROM folders WHERE name_key = 'bleibt leer'") !== null && $db->value("SELECT 1 FROM folders WHERE name_key = 'fertig'") !== null && $db->value("SELECT 1 FROM galleries WHERE title = 'Bleibt leer'") !== null && $db->value('SELECT 1 FROM plan_items WHERE plan = ?', [$fertig['plan']]) === null);
+check('Skript: fertiger Lauf meldet den Plan als erledigt, Abbruch räumt auf', str_contains((string) file_get_contents(dirname(__DIR__) . '/public/assets/js/medien.js'), '/admin/medien/plan/fertig'));
 // Audit: eine Sammelzeile je Lauf
 check('Protokoll: Ordner-Upload schreibt eine Sammelzeile je Lauf ohne Namen (folders=,files=,galleries=)', preg_match('/^folders=\d+,files=\d+,galleries=\d+$/', (string) $db->value("SELECT detail FROM audit_log WHERE event = 'media_upload_run' ORDER BY id DESC LIMIT 1")) === 1 && $svc->audit->verify()['ok']);
 // Begrenzung der Pläne je Stunde

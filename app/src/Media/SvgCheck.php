@@ -23,6 +23,7 @@ final class SvgCheck
         'http://ns.adobe.com/Variables/1.0/', 'http://ns.adobe.com/Flows/1.0/', 'http://ns.adobe.com/GenericCustomNamespace/1.0/',
         'http://ns.adobe.com/XPath/1.0/', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#', 'http://purl.org/dc/elements/1.1/',
         'http://creativecommons.org/ns#', 'http://www.bohemiancoding.com/sketch/ns', 'http://ns.adobe.com/xap/1.0/',
+        'http://www.serif.com/', 'http://vectornator.io', // Affinity, Vectornator/Linearity (Prüfung 19)
     ];
     public const MAX_ELEMENTS = 20000;
     public const MAX_DEPTH = 50;
@@ -83,6 +84,9 @@ final class SvgCheck
         if (str_starts_with($svg, "\xEF\xBB\xBF")) {
             $svg = substr($svg, 3);
         }
+        if (trim($svg) === '') { // nur BOM oder Leerraum: loadXML('') wirft sonst ValueError statt Meldung (Prüfung 19)
+            throw new MediaException('Das ist keine gültige SVG-Datei.');
+        }
         if (!mb_check_encoding($svg, 'UTF-8')) {
             throw self::bad();
         }
@@ -129,7 +133,7 @@ final class SvgCheck
             throw self::bad();
         }
         // Attribute zuerst (Kopie der Liste, da gelöscht wird)
-        foreach (iterator_to_array($el->attributes) as $a) {
+        foreach (iterator_to_array($el->attributes, false) as $a) { // ohne Schlüssel: href und xlink:href hätten denselben (Prüfung 19)
             $ns = (string) $a->namespaceURI;
             $local = $a->localName;
             if ($ns === self::NS_XMLNS) { // Namensraum-Erklärungen: nur SVG und xlink bleiben, Editor-Erklärungen entfallen

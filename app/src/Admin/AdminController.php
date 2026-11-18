@@ -82,6 +82,7 @@ final class AdminController
         $r('POST', '/admin/medien/aufbereiten', 'mediaProcess');
         $r('POST', '/admin/medien/plan', 'mediaPlan');
         $r('POST', '/admin/medien/plan/abbrechen', 'mediaPlanCancel');
+        $r('POST', '/admin/medien/plan/fertig', 'mediaPlanDone');
         $r('POST', '/admin/medien/galerie', 'mediaFolderGallery');
         $r('POST', '/admin/medien/bestand', 'mediaAdopt', false, 'admin');
         $r('GET', '/admin/galerien/zuordnung', 'assignPage');

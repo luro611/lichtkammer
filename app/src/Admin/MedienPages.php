@@ -23,6 +23,7 @@ trait MedienPages
         'umbenannt' => 'Umbenannt.',
         'verschoben' => '{n} Eintrag/Einträge verschoben.',
         'papierkorb' => '{n} Eintrag/Einträge in den Papierkorb gelegt. Dort sind sie 30 Tage wiederherstellbar.',
+        'papierkorb_live' => '{n} Eintrag/Einträge in den Papierkorb gelegt (30 Tage wiederherstellbar). Darunter sind Fotos, die auf der Live-Seite sichtbar sind: bitte neu veröffentlichen, sonst fehlen dort Bilder.',
         'zurueck' => 'Zurückgeholt ({n} Einträge). Fotos werden gleich neu aufbereitet.',
         'geloescht' => '{n} Eintrag/Einträge endgültig gelöscht.',
         'oeffentlich' => 'Die Datei ist öffentlich. Sichtbar auf der Seite wird sie, wo du sie verlinkt hast.',
@@ -164,6 +165,7 @@ trait MedienPages
                 $this->auditLog('folder_renamed', $sess, 'folder=' . $id, $req);
             } else {
                 $this->s->files->rename($id, $req->input('name'));
+                $this->auditLog('file_renamed', $sess, 'file=' . $id, $req);
             }
         } catch (MediaException $e) {
             return $this->medienError($req, $sess, $e->getMessage());
@@ -202,12 +204,12 @@ trait MedienPages
             return $this->medienBack($from, 'nothing');
         }
         $n = 0;
-        $galleries = [];
+        $photoIds = $ph; // für den Hinweis „auf der Live-Seite sichtbar“ (Entwurf 16, 4; Prüfung 19)
         foreach ($fo as $id) {
             try {
                 $r = $this->s->folders->trash($id);
                 $n += $r['folders'] + $r['photos'] + $r['files'];
-                $galleries = array_merge($galleries, $r['galleries']);
+                $photoIds = array_merge($photoIds, array_map('intval', array_column($this->s->db->all('SELECT id FROM photos WHERE trash_root_id = ?', [$id]), 'id')));
                 $this->auditLog('media_trashed', $sess, 'folder=' . $id . ',count=' . ($r['folders'] + $r['photos'] + $r['files']), $req);
             } catch (MediaException) {
                 // Ordner schon weg: überspringen
@@ -223,9 +225,12 @@ trait MedienPages
         if ($single > 0) {
             $this->auditLog('media_trashed', $sess, 'count=' . $single, $req);
         }
-        $this->s->files->unpublishTrashed(); // Dateien, die mit einem Ordner gelöscht wurden, sind sofort nicht mehr öffentlich
+        $deadline = microtime(true) + 10.0;
+        while ($this->s->files->unpublishTrashed() > 0 && microtime(true) < $deadline) { // Dateien, die mit einem Ordner gelöscht wurden, sind sofort nicht mehr öffentlich (alle Stapel, Prüfung 19)
+        }
         $this->s->folders->finishTrashWithin($this->config->mediaDir(), 15.0);
-        return $this->medienBack($from, 'papierkorb', $n + $single);
+        $live = $n + $single > 0 && $photoIds !== [] && $this->s->builder->isLive($photoIds);
+        return $this->medienBack($from, $live ? 'papierkorb_live' : 'papierkorb', $n + $single);
     }
 
     // --- Papierkorb ---
@@ -246,9 +251,12 @@ trait MedienPages
         $purge = $req->input('aktion') === 'loeschen';
         $count = 0;
         if ($purge) {
+            $deadline = microtime(true) + 15.0; // große Zweige in Stapeln bis zum Ende, unter dem Zeitlimit von all-inkl (Prüfung 19)
             foreach ($rootIds as $id) {
-                $r = $this->s->branch->purgeRoot($id, 200);
-                $count += $r['purged'];
+                do {
+                    $r = $this->s->branch->purgeRoot($id, 200);
+                    $count += $r['purged'];
+                } while ($r['remaining'] > 0 && $r['purged'] > 0 && microtime(true) < $deadline);
             }
             $count += $this->s->files->purge($fileIds);
             if ($count > 0) {
@@ -269,7 +277,8 @@ trait MedienPages
         if ($n > 0) {
             $this->auditLog('media_restored', $sess, 'count=' . $n, $req);
         }
-        return $this->done('/admin/medien/papierkorb', 'zurueck', $count + $n);
+        // Zurückgeholte Fotos warten auf neue Varianten; die Medienseite bereitet sie auf (Prüfung 19), der Papierkorb nicht
+        return $this->done($this->s->browser->pendingCount() > 0 ? '/admin/medien' : '/admin/medien/papierkorb', 'zurueck', $count + $n);
     }
 
     // --- Dateien: Auslieferung und öffentlich ---
@@ -533,6 +542,20 @@ trait MedienPages
         return Response::json(['ok' => true, 'removed' => $n]);
     }
 
+    /**
+     * Lauf zu Ende gebracht (nicht abgebrochen): Der Plan gilt als erledigt, das Aufräumen nach 24 Stunden lässt seine Ordner und
+     * Galerien in Ruhe, auch wenn sie leer sind (Prüfung 19). Die Zeilen bleiben für die Begrenzung je Stunde stehen (ref_id = 0).
+     */
+    public function mediaPlanDone(Request $req, array $p, ?array $sess): Response
+    {
+        $token = $req->input('plan');
+        if (preg_match('/^[a-f0-9]{16}$/', $token) !== 1) {
+            return Response::json(['ok' => true]);
+        }
+        $this->s->db->run('UPDATE plan_items SET ref_id = 0 WHERE plan = ? AND user_id = ?', [$token, (int) $sess['user_id']]);
+        return Response::json(['ok' => true]);
+    }
+
     /** Entfernt die von einem Plan angelegten Ordner und Entwurfs-Galerien, soweit sie leer geblieben sind. */
     private function planRemove(string $token, ?int $userId): int
     {
@@ -540,6 +563,10 @@ trait MedienPages
         $n = 0;
         foreach ($items as $it) {
             $ref = (int) $it['ref_id'];
+            if ($ref < 1) { // Lauf war fertig: nichts entfernen
+                $this->s->db->run('DELETE FROM plan_items WHERE id = ?', [$it['id']]);
+                continue;
+            }
             if ($it['kind'] === 'gallery') {
                 if ($this->s->db->value('SELECT 1 FROM gallery_photos WHERE gallery_id = ?', [$ref]) === null && $this->s->db->value("SELECT 1 FROM galleries WHERE id = ? AND status = 'draft'", [$ref]) !== null) {
                     $this->s->db->run('DELETE FROM galleries WHERE id = ?', [$ref]);

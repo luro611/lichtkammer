@@ -296,9 +296,19 @@ final class Catalog
             if ($p === null) {
                 continue;
             }
-            $this->removeVariants($id);
+            // Erst die Zeile (nur, solange sie im Papierkorb liegt), dann Varianten und Original: ein gleichzeitiges Wiederherstellen
+            // (auch eines ganzen Ordners) verliert so nie das Original (Prüfung 19). Die Variantenpfade vorher lesen: ON DELETE CASCADE.
+            $variants = $this->db->all('SELECT path FROM photo_variants WHERE photo_id = ?', [$id]);
+            if ($this->db->run('DELETE FROM photos WHERE id = ? AND deleted_at IS NOT NULL', [$id])->rowCount() === 0) {
+                continue;
+            }
+            foreach ($variants as $v) {
+                $abs = $this->mediaDir . '/' . $v['path'];
+                if (is_file($abs)) {
+                    @unlink($abs);
+                }
+            }
             $this->db->run('UPDATE galleries SET cover_photo_id = NULL WHERE cover_photo_id = ?', [$id]);
-            $this->db->run('DELETE FROM photos WHERE id = ? AND deleted_at IS NOT NULL', [$id]);
             $rel = (string) $p['original_path'];
             $orig = $this->originalsDir . '/' . $rel;
             if (!str_contains($rel, '..') && $rel[0] !== '/' && is_file($orig)) { // nie außerhalb des Originale-Ordners löschen

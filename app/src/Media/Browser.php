@@ -45,7 +45,8 @@ final class Browser
         $total = (int) $this->db->value("SELECT COUNT(*) FROM ($union)", $args);
         $pages = max(1, (int) ceil($total / self::PAGE));
         $page = min(max(1, $page), $pages);
-        $order = (self::SORT[$sort] ?? self::SORT['name']) . ($desc ? ' DESC' : ' ASC') . ', id';
+        $dir = $desc ? ' DESC' : ' ASC';
+        $order = implode(', ', array_map(static fn (string $c): string => $c . $dir, explode(', ', self::SORT[$sort] ?? self::SORT['name']))) . ', id'; // Richtung für jede Spalte („art“ hat zwei)
         $rows = $this->db->all("SELECT * FROM ($union) ORDER BY $order LIMIT " . self::PAGE . ' OFFSET ' . (($page - 1) * self::PAGE), $args);
         return ['rows' => $rows, 'total' => $total, 'page' => $page, 'pages' => $pages];
     }

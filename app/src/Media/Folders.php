@@ -411,7 +411,7 @@ final class Folders
                     $name = (string) $kid['name'];
                     $key = (string) $kid['name_key'];
                     for ($i = 2; $this->db->value('SELECT 1 FROM folders WHERE parent_id = 0 AND name_key = ? AND deleted_at IS NULL', [$key]) !== null; $i++) {
-                        $n2 = Names::clean($kid['name'] . ' (gerettet ' . $i . ')');
+                        $n2 = Names::clean(mb_substr((string) $kid['name'], 0, 200) . ' (gerettet ' . $i . ')'); // gekürzt: der Zusatz muss immer passen
                         $name = $n2['name'];
                         $key = $n2['key'];
                     }

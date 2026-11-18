@@ -280,7 +280,7 @@
       var lab = el('label'); var r = el('input'); r.type = 'radio'; r.name = 'gal'; r.value = m[0]; r.checked = saved === m[0]; radios[m[0]] = r;
       lab.appendChild(r); lab.appendChild(el('span', null, m[1])); opts.appendChild(lab);
     });
-    if (!document.querySelector('input[name=gal]:checked') && radios.none) { radios.none.checked = true; }
+    if (!opts.querySelector('input[name=gal]:checked') && radios.none) { radios.none.checked = true; } // in opts suchen: der Dialog hängt noch nicht im Dokument
     dialog.appendChild(opts);
     var note2 = el('p', 'small muted', 'Neue Galerien sind immer Entwürfe: nichts wird durch das Hochladen öffentlich.'); dialog.appendChild(note2);
     var list = el('ul', 'fl'); list.hidden = true; dialog.appendChild(list);
@@ -456,7 +456,10 @@
 
     doBatch(0).catch(function () { report.failed.push(['Ordner-Upload', 'Unerwarteter Fehler.']); }).then(function () {
       var cancelled = ui.cancel;
-      var cleanup = cancelled ? tokens.reduce(function (c, t) { return c.then(function () { return post('/admin/medien/plan/abbrechen', formBody({ plan: t }), { 'Content-Type': 'application/x-www-form-urlencoded' }); }); }, Promise.resolve()) : Promise.resolve();
+      // Abbruch: leer gebliebene Ordner und Galerien des Laufs entfernen. Fertig: Plan als erledigt melden, damit das Aufräumen
+      // nach 24 Stunden die (auch absichtlich leeren) Ordner des Laufs nicht anfasst.
+      var endUrl = cancelled ? '/admin/medien/plan/abbrechen' : '/admin/medien/plan/fertig';
+      var cleanup = tokens.reduce(function (c, t) { return c.then(function () { return post(endUrl, formBody({ plan: t }), { 'Content-Type': 'application/x-www-form-urlencoded' }).catch(function () { return null; }); }); }, Promise.resolve());
       return cleanup.then(function () { running = false; showReport(report, false, cancelled); });
     });
   }
@@ -530,7 +533,8 @@
   main.addEventListener('dragleave', function (e) { if (!main.contains(e.relatedTarget)) { box.classList.remove('over'); } });
   main.addEventListener('drop', function (e) {
     box.classList.remove('over');
-    if (!isFiles(e) || e.defaultPrevented) { return; }
+    // Abgelegt auf einem Ordner: das übernimmt der Ordner-Empfänger (document), sonst landete alles im aktuellen Ordner
+    if (!isFiles(e) || e.defaultPrevented || dropTarget(e)) { return; }
     e.preventDefault();
     collectFromDrop(e.dataTransfer).then(function (items) { begin(items, curFolder); });
   });
@@ -544,7 +548,7 @@
     var loop = function () {
       fetch('/admin/medien/aufbereiten', { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRF-Token': csrf, 'X-Requested-With': 'fetch' } })
         .then(function (r) { return r.json(); })
-        .then(function (j) { if (j && j.remaining > 0) { window.setTimeout(loop, 500); } else { window.location.reload(); } })
+        .then(function (j) { if (j && j.remaining > 0) { window.setTimeout(loop, 500); } else if (running) { window.setTimeout(loop, 3000); } else { window.location.reload(); } }) // nie neu laden, während ein Upload läuft
         .catch(function () { /* Knopf bleibt als Rückfall */ });
     };
     window.setTimeout(loop, 300);

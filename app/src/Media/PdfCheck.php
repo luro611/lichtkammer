@@ -12,8 +12,21 @@ namespace Lichtkammer\Media;
 final class PdfCheck
 {
     private const BLOCK = 65536;
-    private const OVERLAP = 256;
-    private const MARKERS = '/\/(?:JavaScript|JS|OpenAction|AA|Launch|EmbeddedFile|RichMedia|XFA|SubmitForm|GoToE|GoToR|ImportData)(?![A-Za-z0-9])/';
+    private const OVERLAP = 4096;
+    /** Lange Namen: in Binärdaten (Bilder, Schriften) praktisch nie zufällig. */
+    private const MARKERS = '/\/(?:JavaScript|OpenAction|Launch|EmbeddedFile|RichMedia|XFA|SubmitForm|GoToE|GoToR|ImportData)(?![A-Za-z0-9])/';
+    /** Leerraum und Kommentare zwischen PDF-Wörtern (besitzergreifend: kein Zurückverfolgen). */
+    private const WS = '(?:[\x00\t\n\f\r ]|%[^\r\n]*+)++';
+    /** Verweis „n g R“; am Ende des Puffers abgeschnitten zählt er auch (der Rest liegt im nächsten Block). */
+    private const REF = '\d++(?:' . self::WS . '(?:\d++(?:' . self::WS . '(?:R|\z)|\z)|\z)|\z)';
+    /** Wert von /JS: Text „(“ oder Hex-Text „<“ (danach Hex-Ziffer, Leerraum oder „>“). */
+    private const JS_VALUE = '(?:\(|<(?:[0-9A-Fa-f\x00\t\n\f\r >]|\z))';
+    /**
+     * Kurze Namen (/JS, /AA) stehen in komprimierten Bild- und Schriftdaten zufällig etwa einmal je 10 MB. Sie zählen deshalb nur
+     * mit einem passenden Wert dahinter: /JS mit Text, Hex-Text oder Verweis, /AA mit Wörterbuch << oder Verweis. Steht der Name
+     * am Ende des Puffers (Wert im nächsten Block, auch nach langem Leerraum), zählt er ebenfalls.
+     */
+    private const SHORT = '/\/(?:JS(?:' . self::JS_VALUE . '|\z|' . self::WS . '(?:' . self::JS_VALUE . '|' . self::REF . '|\z))|AA(?:<(?:<|\z)|\z|' . self::WS . '(?:<(?:<|\z)|' . self::REF . '|\z)))/';
 
     /** @throws MediaException */
     public static function check(string $file): void
@@ -40,8 +53,13 @@ final class PdfCheck
                 }
                 $buf = $tail . $block;
                 // Namens-Tarnung auflösen: /Java#53cript → /JavaScript
-                $plain = preg_replace_callback('/#([0-9A-Fa-f]{2})/', static fn (array $m): string => chr((int) hexdec($m[1])), $buf) ?? $buf;
-                if (preg_match(self::MARKERS, $plain) === 1) {
+                $plain = preg_replace_callback('/#([0-9A-Fa-f]{2})/', static fn (array $m): string => chr((int) hexdec($m[1])), $buf);
+                $long = $plain === null ? false : preg_match(self::MARKERS, $plain);
+                $short = $plain === null ? false : preg_match(self::SHORT, $plain);
+                if ($long === false || $short === false) { // Prüfung nicht möglich: lieber ablehnen als durchlassen
+                    throw new MediaException('Das PDF konnte nicht geprüft werden und wird nicht angenommen.');
+                }
+                if ($long === 1 || $short === 1) {
                     throw new MediaException('Dieses PDF enthält aktive Inhalte (Skripte, Startaktionen oder eingebettete Dateien) und wird nicht angenommen. Bitte ein „flaches“ PDF exportieren.');
                 }
                 $tail = substr($buf, -self::OVERLAP);
