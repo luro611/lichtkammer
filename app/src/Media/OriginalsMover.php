@@ -31,7 +31,26 @@ final class OriginalsMover
         if ($a === false || ($b !== false && $a === $b) || rtrim($legacy, '/') === rtrim($new, '/')) {
             return null;
         }
+        // Ein Ordner im anderen (z. B. LK_ORIGINALS_DIR=<Webroot>/originals/neu): kein Umzug, sonst verschachtelt sich der
+        // Bestand bei jedem Durchgang eine Ebene tiefer (Prüfung 22, B3).
+        $na = rtrim($a, '/') . '/';
+        $nb = rtrim($b !== false ? $b : self::resolve($new), '/') . '/';
+        if (str_starts_with($nb, $na) || str_starts_with($na, $nb)) {
+            return null;
+        }
         return $legacy;
+    }
+
+    /** Pfad auflösen, auch wenn der Ordner noch nicht existiert (nächster vorhandener Elternordner per realpath). */
+    private static function resolve(string $dir): string
+    {
+        $rest = [];
+        while ($dir !== '' && !is_dir($dir) && dirname($dir) !== $dir) {
+            array_unshift($rest, basename($dir));
+            $dir = dirname($dir);
+        }
+        $real = realpath($dir);
+        return ($real === false ? $dir : rtrim($real, '/')) . ($rest !== [] ? '/' . implode('/', $rest) : '');
     }
 
     /** Anzahl Dateien, die im alten Ordner noch auf den Umzug warten (ohne Sperrdateien). */
@@ -118,39 +137,18 @@ final class OriginalsMover
         if (is_link($from) || !is_file($from)) {
             return 'skipped';
         }
-        $dir = dirname($to);
-        if (!is_dir($dir)) {
-            $old = umask(0077);
-            @mkdir($dir, 0700, true);
-            umask($old);
-        }
-        if (file_exists($to)) { // nie überschreiben: gleicher Inhalt -> Quelle ist überflüssig, sonst Konflikt
-            if (is_file($to) && hash_file('sha256', $from) === hash_file('sha256', $to)) {
+        if (file_exists($to) || is_link($to)) { // nie überschreiben: gleicher Inhalt -> Quelle ist überflüssig, sonst Konflikt
+            if (is_file($to) && !is_link($to) && hash_file('sha256', $from) === hash_file('sha256', $to)) {
                 return @unlink($from) ? 'moved' : 'skipped';
             }
             return 'conflict';
         }
-        if (@rename($from, $to)) {
-            return 'moved';
-        }
-        // anderes Dateisystem: kopieren, prüfen, erst dann die Quelle entfernen
-        $in = @fopen($from, 'rb');
-        $out = @fopen($to, 'xb');
-        if ($in === false || $out === false) {
-            if (is_resource($in)) {
-                fclose($in);
-            }
-            return 'skipped';
-        }
-        $ok = stream_copy_to_stream($in, $out) === filesize($from);
-        fclose($in);
-        fclose($out);
-        if (!$ok || hash_file('sha256', $from) !== hash_file('sha256', $to)) {
-            @unlink($to);
-            return 'skipped';
-        }
-        @chmod($to, 0600);
-        return @unlink($from) ? 'moved' : 'skipped';
+        // gleiches Dateisystem: umbenennen; sonst kopieren in eine Teildatei, prüfen, dann erst die Quelle löschen
+        return match (SafeMove::file($from, $to)) {
+            'moved' => 'moved',
+            'exists' => 'conflict',
+            default => 'skipped',
+        };
     }
 
     /** @return list<string> relative Pfade aller Dateien außer .htaccess/index.html im Wurzelordner */

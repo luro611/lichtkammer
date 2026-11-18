@@ -9,6 +9,7 @@ use Lichtkammer\Auth\Database;
 use Lichtkammer\Auth\Keys;
 use Lichtkammer\Auth\Schema;
 use Lichtkammer\Config;
+use Lichtkammer\Media\SafeMove;
 
 /**
  * Sicherung einspielen (Entwurf 20, H2/E12), auch auf all-inkl ohne SSH.
@@ -277,9 +278,13 @@ final class Restore
         foreach ($list as $rel => $sha) {
             $from = $src . '/' . $rel;
             $to = $dst . '/' . $rel;
-            if (is_file($to)) { // schon da
-                if (is_file($from) && !is_link($from) && hash_file('sha256', $to) === $sha) {
-                    @unlink($from);
+            if (file_exists($to) || is_link($to)) { // schon da: nie überschreiben
+                if (is_file($from) && !is_link($from)) {
+                    if (is_file($to) && !is_link($to) && hash_file('sha256', $to) === $sha) {
+                        @unlink($from);
+                    } else {
+                        $r['bad']++; // Ziel weicht von der Liste ab: Quelle bleibt liegen, sichtbar melden (Prüfung 22, B2)
+                    }
                 }
                 continue;
             }
@@ -295,30 +300,10 @@ final class Restore
                 $r['bad']++;
                 continue;
             }
-            $old = umask(0077);
-            if (!is_dir(dirname($to))) {
-                @mkdir(dirname($to), 0700, true);
-            }
-            umask($old);
-            if (@rename($from, $to)) {
-                $r['moved']++;
-                continue;
-            }
-            $in = @fopen($from, 'rb');
-            $out = @fopen($to, 'xb');
-            $ok = $in !== false && $out !== false && stream_copy_to_stream($in, $out) === filesize($from);
-            if (is_resource($in)) {
-                fclose($in);
-            }
-            if (is_resource($out)) {
-                fclose($out);
-            }
-            if ($ok && hash_file('sha256', $to) === $sha) {
-                @chmod($to, 0600);
-                @unlink($from);
+            // gleiches Dateisystem: umbenennen; sonst Teildatei, Prüfsumme, dann erst umbenennen und Quelle löschen (Prüfung 22, B1)
+            if (SafeMove::file($from, $to, $sha) === 'moved') {
                 $r['moved']++;
             } else {
-                @unlink($to);
                 $r['bad']++;
             }
         }

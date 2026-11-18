@@ -95,7 +95,6 @@ final class Request
         return is_string($v) ? $v : '';
     }
 
-    /** Maßgeblich ist nur REMOTE_ADDR (in Docker setzt mod_remoteip sie für vertraute Proxys). */
     /** Angefragter Host, klein geschrieben, ohne Port; leer, wenn ungültig. */
     public function host(): string
     {
@@ -112,6 +111,7 @@ final class Request
         return '/' . ltrim($uri, '/');
     }
 
+    /** Maßgeblich ist nur REMOTE_ADDR (in Docker setzt mod_remoteip sie für vertraute Proxys). */
     public function remoteAddr(): string
     {
         return (string) ($this->server['REMOTE_ADDR'] ?? '');

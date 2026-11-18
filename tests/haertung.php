@@ -260,3 +260,32 @@ check('Eigener Kopf als Ausweichweg', (new Request(['HTTP_X_LICHTKAMMER_TOKEN' =
 $ht = (string) file_get_contents(__DIR__ . '/../public/.htaccess');
 check('.htaccess: HTTP→HTTPS mit Ausnahmen (localhost, /health, .well-known) und nur für die erste Anfrage', str_contains($ht, 'RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]') && str_contains($ht, '!^/health$') && str_contains($ht, 'well-known') && str_contains($ht, '%{ENV:REDIRECT_STATUS} ^$') && str_contains($ht, '127\.0\.0\.1'));
 check('.htaccess: Authorization wird durchgereicht, nosniff für Apache-Dateien, bak/sql/zip gesperrt', str_contains($ht, 'E=HTTP_AUTHORIZATION') && str_contains($ht, 'X-Content-Type-Options "nosniff"') && str_contains($ht, '|bak|sql|zip|md)'));
+
+// ======================= Prüfung 22: Nachbesserungen =======================
+// B1: Kopierweg (anderes Dateisystem) hinterlässt nie eine halbe Datei unter dem endgültigen Namen.
+$sm = $h . '/sm';
+@mkdir($sm . '/von', 0700, true);
+file_put_contents($sm . '/von/a.jpg', 'Original-A');
+@mkdir($sm . '/nach/aa', 0700, true);
+file_put_contents($sm . '/nach/aa/a.jpg' . \Lichtkammer\Media\SafeMove::PART_SUFFIX, 'abgebrochen'); // Rest eines abgebrochenen Laufs
+check('SafeMove: Kopierweg ersetzt eine alte Teildatei, prüft und verschiebt', \Lichtkammer\Media\SafeMove::file($sm . '/von/a.jpg', $sm . '/nach/aa/a.jpg', hash('sha256', 'Original-A'), true) === 'moved'
+    && file_get_contents($sm . '/nach/aa/a.jpg') === 'Original-A' && !file_exists($sm . '/von/a.jpg') && !file_exists($sm . '/nach/aa/a.jpg' . \Lichtkammer\Media\SafeMove::PART_SUFFIX)
+    && (fileperms($sm . '/nach/aa/a.jpg') & 0077) === 0);
+file_put_contents($sm . '/von/b.jpg', 'Original-B');
+check('SafeMove: falsche Prüfsumme → nichts am Ziel, Quelle bleibt', \Lichtkammer\Media\SafeMove::file($sm . '/von/b.jpg', $sm . '/nach/b.jpg', hash('sha256', 'anders'), true) === 'failed'
+    && !file_exists($sm . '/nach/b.jpg') && !file_exists($sm . '/nach/b.jpg' . \Lichtkammer\Media\SafeMove::PART_SUFFIX) && file_get_contents($sm . '/von/b.jpg') === 'Original-B');
+file_put_contents($sm . '/nach/c.jpg', 'schon-da');
+file_put_contents($sm . '/von/c.jpg', 'neu');
+check('SafeMove: vorhandenes Ziel wird nie überschrieben (beide Wege)', \Lichtkammer\Media\SafeMove::file($sm . '/von/c.jpg', $sm . '/nach/c.jpg', null, true) === 'exists'
+    && \Lichtkammer\Media\SafeMove::file($sm . '/von/c.jpg', $sm . '/nach/c.jpg') === 'exists' && file_get_contents($sm . '/nach/c.jpg') === 'schon-da' && file_get_contents($sm . '/von/c.jpg') === 'neu');
+
+// B2: Eine abweichende Datei am Ziel (z. B. halbe Kopie) wird beim Zurückholen als Fehler gemeldet, nicht still übergangen.
+check('Originale: abweichende Datei am Ziel zählt als Fehler, Quelle bleibt liegen', $mv2['bad'] === 1 && is_file($F['config']->restoreDir() . '/originals/' . $photoRel));
+
+// B3: LK_ORIGINALS_DIR innerhalb des alten Ordners → kein Umzug (sonst wandert der Bestand bei jedem Lauf eine Ebene tiefer).
+$web = $h . '/m5';
+$cm5 = $allInkl($web, ['LK_ORIGINALS_DIR' => $web . '/originals/neu', 'LK_ALLOW_DATA_IN_WEBROOT' => '1']);
+Preflight::prepareDataDir($cm5);
+$putOrig($web . '/originals', 'ab/x.jpg', 'X');
+$r5 = OriginalsMover::run($cm5);
+check('Verschachtelte Ordner: kein Umzug, nichts bewegt', OriginalsMover::legacyDir($cm5) === null && $r5['moved'] === 0 && file_get_contents($web . '/originals/ab/x.jpg') === 'X' && !file_exists($web . '/originals/neu/ab'));

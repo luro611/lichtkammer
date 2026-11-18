@@ -18,8 +18,9 @@ Originale enthalten **alle Metadaten, auch GPS**. Bisher lagen sie auf all-inkl 
 ## Reihenfolge für den Testserver (nur nach Freigabe durch Lutz)
 
 1. Sicherung der Datenbank im Admin ist nicht nötig (die Datenbank wird nicht berührt), aber ein Blick in den Admin vorher: Fotozahl notieren.
-2. In `app/.env` auf dem Server die Zeile `LK_ORIGINALS_DIR=/www/htdocs/vXXXXXX/lichtkammer-originals` ergänzen (mit `./deploy.sh --env-setzen LK_ORIGINALS_DIR=…`, siehe `Umstellung-Server.md`).
-3. Neuen Code hochladen (`./deploy.sh --jetzt`, vorher Probelauf ohne `--jetzt`). **Beide Schritte kurz hintereinander:** Der alte Code würde mit der neuen Zeile den leeren neuen Ordner sehen; der neue Code ohne die Zeile startet den Admin nicht.
+2. Neuen Code hochladen (`./deploy.sh --jetzt`, vorher Probelauf ohne `--jetzt`). Bis zum nächsten Schritt zeigt der Admin „nicht verfügbar“, die öffentliche Seite läuft weiter.
+3. Sofort danach in `app/.env` auf dem Server die Zeile `LK_ORIGINALS_DIR=/www/htdocs/vXXXXXX/lichtkammer-originals` ergänzen (`./deploy.sh --env-setzen LK_ORIGINALS_DIR=…`, siehe `Umstellung-Server.md`). **In dieser Reihenfolge:** Umgekehrt würde der alte Code mit der neuen Zeile den leeren neuen Ordner benutzen (fehlende Originale, neue Uploads landen dort).
+   **`LK_ORIGINALS_DIR` später nicht mehr ändern:** Die App zieht nur aus `<Webroot>/originals` um, nicht von einem früheren `LK_ORIGINALS_DIR` an ein neues.
 4. `/admin/login` aufrufen, anmelden. Der Umzug läuft dabei. Danach prüfen:
    - Fotozahl unverändert, ein Foto öffnen, eine Galerie veröffentlichen (Vorschau) und Bilder werden angezeigt.
    - Das Warnband „liegen noch im alten Ordner“ ist weg.
