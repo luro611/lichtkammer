@@ -4,6 +4,8 @@
 #   ./deploy.sh --einrichten --probe    Probelauf: zeigt nur, was passieren würde (erzeugt und überträgt nichts)
 #   ./deploy.sh --einrichten            wirklich einrichten (nur nach Freigabe durch Lutz)
 #   ./deploy.sh --token-entfernen       LK_SETUP_TOKEN aus der Server-.env löschen (nach der Einrichtung)
+#   ./deploy.sh --env-setzen NAME=WERT [--probe]
+#                                       einen erlaubten Wert in der Server-.env setzen oder ändern (Entwurf 20, M5)
 # Nicht Teil davon: Schlüssel-Rotation und Änderungen an einer vorhandenen .env.
 # Der Schlüssel LK_APP_KEY wird nie ausgegeben, nie als Programm-Argument übergeben und nie ins Repository geschrieben.
 set -euo pipefail
@@ -11,17 +13,20 @@ umask 077
 
 fehler() { echo "Abbruch: $*" >&2; exit 1; }
 
-MODUS="" PROBE=0
-for a in "$@"; do
-  case "$a" in
+AUFRUF="./deploy.sh --einrichten [--probe] | --token-entfernen | --env-setzen NAME=WERT [--probe]"
+MODUS="" PROBE=0 ENV_PAAR=""
+while (( $# )); do
+  case "$1" in
     --einrichten) MODUS=einrichten ;;
     --token-entfernen) MODUS=token ;;
+    --env-setzen) MODUS=envsetzen; shift; (( $# )) || fehler "Nach --env-setzen fehlt NAME=WERT. Aufruf: $AUFRUF"; ENV_PAAR="$1" ;;
     --probe) PROBE=1 ;;
-    *) fehler "Unbekanntes Argument \"$a\". Aufruf: ./deploy.sh --einrichten [--probe] | --token-entfernen" ;;
+    *) fehler "Unbekanntes Argument \"$1\". Aufruf: $AUFRUF" ;;
   esac
+  shift
 done
-[[ -n "$MODUS" ]] || fehler "Aufruf: ./deploy.sh --einrichten [--probe] | --token-entfernen"
-(( PROBE )) && [[ "$MODUS" == token ]] && fehler "--probe gibt es nur zusammen mit --einrichten."
+[[ -n "$MODUS" ]] || fehler "Aufruf: $AUFRUF"
+(( PROBE )) && [[ "$MODUS" == token ]] && fehler "--probe gibt es nur zusammen mit --einrichten oder --env-setzen."
 
 cd "$(dirname "$0")/.."
 DOMAIN="" FTP_HOST="" FTP_USER="" LK_SITE_NAME="" LK_DATA_DIR="" LK_ORIGINALS_DIR=""
@@ -33,7 +38,7 @@ command -v lftp >/dev/null || fehler "lftp fehlt (brew install lftp)."
 BASE_URL="https://$DOMAIN"
 SITE_NAME="${LK_SITE_NAME:-Lichtkammer}"
 # Keine Vorgabe mehr im Code (Prüfung 21, N3): beide Ordner kommen aus deploy/.env, beide liegen über dem Webroot.
-[[ -n "$LK_DATA_DIR" && -n "$LK_ORIGINALS_DIR" ]] || fehler "In deploy/.env fehlen LK_DATA_DIR und LK_ORIGINALS_DIR (beide oberhalb des Webroots, z. B. /www/htdocs/vXXXXXX/lichtkammer-data und .../lichtkammer-originals). Vorlage: deploy/env.beispiel"
+[[ "$MODUS" != einrichten || ( -n "$LK_DATA_DIR" && -n "$LK_ORIGINALS_DIR" ) ]] || fehler "In deploy/.env fehlen LK_DATA_DIR und LK_ORIGINALS_DIR (beide oberhalb des Webroots, z. B. /www/htdocs/vXXXXXX/lichtkammer-data und .../lichtkammer-originals). Vorlage: deploy/env.beispiel"
 DATA_DIR="$LK_DATA_DIR"
 ORIGINALS_DIR="$LK_ORIGINALS_DIR"
 for w in "$SITE_NAME" "$DATA_DIR" "$ORIGINALS_DIR" "$DOMAIN"; do
@@ -169,6 +174,49 @@ TXT
  und sollte zusätzlich in den Passwort-Manager.
 ==========================================================
 TXT
+  exit 0
+fi
+
+# --- --env-setzen NAME=WERT ---
+if [[ "$MODUS" == envsetzen ]]; then
+  # Nur Werte, die kein Geheimnis sind und die sich im Betrieb ändern. LK_APP_KEY, die Token und Passwörter gehören nicht dazu.
+  ERLAUBT=(LK_BASE_URL LK_NOINDEX LK_ORIGINALS_DIR LK_RESTORE_DIR LK_REDIRECT_HOSTS LK_REDIRECTS_PERMANENT LK_SITE_NAME LK_ENV)
+  [[ "$ENV_PAAR" == *=* ]] || fehler "Erwartet wird NAME=WERT (zum Beispiel LK_NOINDEX=0)."
+  NAME="${ENV_PAAR%%=*}" WERT="${ENV_PAAR#*=}"
+  (( ${ERLAUBT[(Ie)$NAME]} )) || fehler "$NAME darf so nicht gesetzt werden. Erlaubt: ${ERLAUBT[*]}. Schlüssel und Token bleiben davon ausgenommen."
+  [[ "$WERT" != *[$'\n\r"\'\\ #']* && -n "$WERT" ]] || fehler "Der Wert darf nicht leer sein und keine Leerzeichen, Zeilenumbrüche, Anführungszeichen, Backslashes oder # enthalten."
+  case "$NAME" in
+    LK_BASE_URL) [[ "$WERT" =~ '^https://[A-Za-z0-9.-]+(:[0-9]+)?$' ]] || fehler "LK_BASE_URL muss die Form https://www.beispiel.de haben (ohne Pfad, ohne Schrägstrich am Ende)." ;;
+    LK_NOINDEX|LK_REDIRECTS_PERMANENT) [[ "$WERT" == 0 || "$WERT" == 1 ]] || fehler "$NAME erwartet 0 oder 1." ;;
+    LK_ENV) [[ "$WERT" == production || "$WERT" == development ]] || fehler "LK_ENV erwartet production oder development." ;;
+    LK_ORIGINALS_DIR|LK_RESTORE_DIR) [[ "$WERT" == /* ]] || fehler "$NAME erwartet einen absoluten Pfad." ;;
+    LK_REDIRECT_HOSTS) [[ "$WERT" =~ '^[A-Za-z0-9.,-]+$' ]] || fehler "LK_REDIRECT_HOSTS erwartet Hostnamen, durch Komma getrennt, ohne Leerzeichen." ;;
+  esac
+  echo "== Wert setzen für $DOMAIN: $NAME=$WERT"
+  server_env_vorhanden || fehler "Auf dem Server liegt keine app/.env."
+  TMP=$(mktemp -d "${TMPDIR:-/tmp}/lk-envsetzen.XXXXXX")
+  chmod 700 "$TMP"
+  ( cd "$TMP" && ftp "get /app/.env -o .env" ) >/dev/null || fehler "app/.env konnte nicht geladen werden."
+  chmod 600 "$TMP/.env"
+  grep -q '^LK_APP_KEY=.\{20,\}' "$TMP/.env" || fehler "Die Server-.env enthält keinen Schlüssel; sie wird nicht verändert."
+  ALT=$(grep "^$NAME=" "$TMP/.env" | tail -n 1 | cut -d= -f2- || true)
+  if [[ -n "$ALT" ]]; then echo "   bisher: $NAME=$ALT"; else echo "   bisher: nicht gesetzt"; fi
+  if [[ "$ALT" == "$WERT" ]]; then
+    echo "== Der Wert steht schon so in der Server-.env. Nichts zu tun."
+    exit 0
+  fi
+  if (( PROBE )); then
+    echo "== PROBELAUF – nichts wurde verändert. Ohne --probe würde $NAME=$WERT in app/.env gesetzt (Rechte 600), der Schlüssel bliebe unangetastet und wird nie angezeigt."
+    exit 0
+  fi
+  { grep -v "^$NAME=" "$TMP/.env" || true; print -r -- "$NAME=$WERT"; } > "$TMP/neu"
+  chmod 600 "$TMP/neu"
+  grep -q '^LK_APP_KEY=' "$TMP/neu" || fehler "Interner Fehler: Schlüsselzeile fehlt nach der Änderung; nichts hochgeladen."
+  mv "$TMP/neu" "$TMP/.env"
+  ( cd "$TMP" && ftp "put -O /app .env; chmod 600 /app/.env" ) >/dev/null || fehler "Hochladen fehlgeschlagen. Die Server-.env ist unverändert."
+  echo "== $NAME in app/.env auf dem Server gesetzt (Rechte 600). Der Schlüssel wurde nicht angezeigt."
+  CODE=$(http_code)
+  [[ "$CODE" == 403 || "$CODE" == 404 ]] && echo "== $BASE_URL/app/.env liefert $CODE. Gut." || { echo "!! $BASE_URL/app/.env liefert \"$CODE\", erwartet 403 oder 404." >&2; exit 1; }
   exit 0
 fi
 

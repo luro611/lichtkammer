@@ -10,8 +10,9 @@ cd "$(dirname "$0")"
 
 # Einmalige Einrichtung des Servers (app/.env): siehe deploy/einrichten.sh
 #   ./deploy.sh --einrichten --probe   Probelauf   |   ./deploy.sh --einrichten   echt   |   ./deploy.sh --token-entfernen
+#   ./deploy.sh --env-setzen NAME=WERT [--probe]   einen erlaubten Wert in der Server-.env ändern (z. B. LK_BASE_URL)
 case "${1:-}" in
-  --einrichten|--token-entfernen) exec ./deploy/einrichten.sh "$@" ;;
+  --einrichten|--token-entfernen|--env-setzen) exec ./deploy/einrichten.sh "$@" ;;
 esac
 
 fehler() { echo "Abbruch: $*" >&2; exit 1; }
