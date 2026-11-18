@@ -13,7 +13,7 @@ use Lichtkammer\Media\SvgCheck;
 final class Settings
 {
     /** Designs der öffentlichen Seite (Entwurf 25); Vorgabe und heutiges br-foto-Aussehen ist „warm“. */
-    public const DESIGNS = ['warm' => 'Warm', 'klar' => 'Klar', 'studio' => 'Studio', 'blau' => 'Blau'];
+    public const DESIGNS = ['warm' => 'Warm', 'klar' => 'Klar', 'studio' => 'Studio', 'blau' => 'Blau', 'rot' => 'Rot', 'gruen' => 'Grün'];
     public const DESIGN_DEFAULT = 'warm';
 
     public function __construct(private readonly Database $db, private readonly Config $config)

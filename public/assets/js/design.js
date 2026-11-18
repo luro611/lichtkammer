@@ -1,11 +1,11 @@
-/* Design (Warm, Klar, Studio, Blau) und Farbschema (hell / dunkel) wählen und merken.
+/* Design (Warm, Klar, Studio, Blau, Rot, Grün) und Farbschema (hell / dunkel) wählen und merken.
    Wird im <head> synchron geladen, damit beim ersten Zeichnen schon alles stimmt (kein Flackern). */
 (function () {
   var root = document.documentElement;
   var KEY_D = 'lichtkammer-design', KEY_T = 'lichtkammer-theme';
   function get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* ohne Speicher: gilt nur bis zum Neuladen */ } }
-  var DESIGNS = ['warm', 'klar', 'studio', 'blau'];
+  var DESIGNS = ['warm', 'klar', 'studio', 'blau', 'rot', 'gruen'];
   // Alte gespeicherte Namen (bis 0.2): lurohome wird warm, rothe wird klar. Alles Unbekannte: warm.
   function known(v) { v = v === 'lurohome' ? 'warm' : (v === 'rothe' ? 'klar' : v); return DESIGNS.indexOf(v) >= 0 ? v : 'warm'; }
   var d0 = get(KEY_D), d = known(d0);

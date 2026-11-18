@@ -6,7 +6,7 @@
 @font-face{font-family:Archivo;src:url(../fonts/Archivo-Variable.ttf) format("truetype");font-weight:100 900;font-style:normal;font-display:swap}
 @font-face{font-family:GeistMono;src:url(../fonts/GeistMono-Variable.ttf) format("truetype");font-weight:100 900;font-style:normal;font-display:swap}
 
-/* Vier Designs (Warm, Klar, Studio, Blau), je hell und dunkel. Umschalter: data-design und data-theme am <html>, gesetzt von /assets/js/design.js.
+/* Sechs Designs (Warm, Klar, Studio, Blau, Rot, Grün), je hell und dunkel. Umschalter: data-design und data-theme am <html>, gesetzt von /assets/js/design.js.
    Die Marker vor den Farbsätzen liest tools/kontrast.py und rechnet WCAG AA nach. */
 :root{
   --on-accent:#fff;
@@ -37,6 +37,16 @@
 /*@set blau dunkel*/
 :root[data-design="blau"][data-theme="dark"]{color-scheme:dark;--bg:#0b1524;--surface:#122036;--soft:#1a2b46;--ink:#e8eefb;--muted:#9fb0cc;--line:#264063;--accent:#6ea2ff;--accent-strong:#93b9ff;--on-accent:#0b1524;--bar:rgba(11,21,36,.78);--btn-bg:#6ea2ff;--btn-fg:#0b1524}
 @media (prefers-color-scheme:dark){:root[data-design="blau"]:not([data-theme="light"]){color-scheme:dark;--bg:#0b1524;--surface:#122036;--soft:#1a2b46;--ink:#e8eefb;--muted:#9fb0cc;--line:#264063;--accent:#6ea2ff;--accent-strong:#93b9ff;--on-accent:#0b1524;--bar:rgba(11,21,36,.78);--btn-bg:#6ea2ff;--btn-fg:#0b1524}}
+/*@set rot hell*/
+:root[data-design="rot"]{color-scheme:light;--bg:#fbf5f4;--surface:#ffffff;--soft:#f5e8e6;--ink:#2a1618;--muted:#6e5457;--line:#e6d3d0;--accent:#c8102e;--accent-strong:#a50d26;--on-accent:#fff;--bar:rgba(251,245,244,.8);--btn-bg:#a50d26;--btn-fg:#fff;--shadow:0 1px 2px rgba(42,22,24,.05),0 12px 32px rgba(42,22,24,.07);--r-card:12px;--r-hero:24px;--r-input:9px;--r-pill:980px;--r-seg:8px;--f-head:var(--f-body);--head-w:600;--head-track:-.035em;--head-lh:1.04;--lc-label:none;--f-nav:var(--f-mono)}
+/*@set rot dunkel*/
+:root[data-design="rot"][data-theme="dark"]{color-scheme:dark;--bg:#1c1213;--surface:#271a1b;--soft:#331f21;--ink:#f7ecec;--muted:#c0a5a8;--line:#4a2d30;--accent:#ff6b7d;--accent-strong:#ff9aa6;--on-accent:#1c1213;--bar:rgba(28,18,19,.8);--btn-bg:#ff6b7d;--btn-fg:#1c1213;--shadow:0 1px 2px rgba(0,0,0,.3),0 12px 32px rgba(0,0,0,.35)}
+@media (prefers-color-scheme:dark){:root[data-design="rot"]:not([data-theme="light"]){color-scheme:dark;--bg:#1c1213;--surface:#271a1b;--soft:#331f21;--ink:#f7ecec;--muted:#c0a5a8;--line:#4a2d30;--accent:#ff6b7d;--accent-strong:#ff9aa6;--on-accent:#1c1213;--bar:rgba(28,18,19,.8);--btn-bg:#ff6b7d;--btn-fg:#1c1213;--shadow:0 1px 2px rgba(0,0,0,.3),0 12px 32px rgba(0,0,0,.35)}}
+/*@set gruen hell*/
+:root[data-design="gruen"]{color-scheme:light;--bg:#f3f6f1;--surface:#ffffff;--soft:#e5ece1;--ink:#17251b;--muted:#556458;--line:#d1dccd;--accent:#2f7d4f;--accent-strong:#226b3f;--on-accent:#fff;--bar:rgba(243,246,241,.8);--btn-bg:#226b3f;--btn-fg:#fff;--shadow:0 1px 2px rgba(23,37,27,.05),0 10px 28px rgba(23,37,27,.07);--r-card:8px;--r-hero:14px;--r-input:6px;--r-pill:6px;--r-seg:5px}
+/*@set gruen dunkel*/
+:root[data-design="gruen"][data-theme="dark"]{color-scheme:dark;--bg:#101a14;--surface:#17251c;--soft:#1f3226;--ink:#e9f4ec;--muted:#9db5a4;--line:#2d4636;--accent:#5fcf8a;--accent-strong:#8fe0ac;--on-accent:#101a14;--bar:rgba(16,26,20,.8);--btn-bg:#5fcf8a;--btn-fg:#101a14;--shadow:0 1px 2px rgba(0,0,0,.3),0 10px 28px rgba(0,0,0,.35)}
+@media (prefers-color-scheme:dark){:root[data-design="gruen"]:not([data-theme="light"]){color-scheme:dark;--bg:#101a14;--surface:#17251c;--soft:#1f3226;--ink:#e9f4ec;--muted:#9db5a4;--line:#2d4636;--accent:#5fcf8a;--accent-strong:#8fe0ac;--on-accent:#101a14;--bar:rgba(16,26,20,.8);--btn-bg:#5fcf8a;--btn-fg:#101a14;--shadow:0 1px 2px rgba(0,0,0,.3),0 10px 28px rgba(0,0,0,.35)}}
 
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
@@ -53,7 +63,7 @@ a{color:var(--accent-strong);text-underline-offset:3px}a:hover{color:var(--accen
 .eyebrow{font:600 11px var(--f-mono);text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:0 0 18px}
 h1{font:var(--head-w) clamp(54px,9vw,112px)/var(--head-lh) var(--f-head);letter-spacing:var(--head-track);margin:0;text-wrap:balance}
 h1 em,h2 em,.h-page em{color:var(--accent);font-style:italic}
-:root:is([data-design="klar"],[data-design="studio"]) :is(h1,h2,.h-page) em{font-style:normal}
+:root:is([data-design="klar"],[data-design="studio"],[data-design="rot"]) :is(h1,h2,.h-page) em{font-style:normal}
 h2{font:var(--head-w) clamp(38px,5.4vw,68px)/1 var(--f-head);letter-spacing:var(--head-track);margin:0 0 18px;text-wrap:balance}
 .intro{max-width:620px;color:var(--muted);font-size:18px;margin:24px 0 32px}
 .mono{font-family:var(--f-mono)}

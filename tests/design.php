@@ -17,12 +17,12 @@ $s = lk_setup($m);
 $admin = $s['b']->get('/admin');
 
 foreach (['Anmeldeseite' => $login, 'Admin' => $admin] as $name => $r) {
-    check("Design: $name hat alle vier Design-Knöpfe", str_contains($r->body, 'data-design-set="warm"') && str_contains($r->body, 'data-design-set="klar"') && str_contains($r->body, 'data-design-set="studio"') && str_contains($r->body, 'data-design-set="blau"') && !str_contains($r->body, 'data-design-set="rothe"') && str_contains($r->body, 'data-theme-set="dark"') && str_contains($r->body, 'data-theme-set="light"'));
+    check("Design: $name hat alle sechs Design-Knöpfe", str_contains($r->body, 'data-design-set="warm"') && str_contains($r->body, 'data-design-set="klar"') && str_contains($r->body, 'data-design-set="studio"') && str_contains($r->body, 'data-design-set="blau"') && str_contains($r->body, 'data-design-set="rot"') && str_contains($r->body, 'data-design-set="gruen"') && !str_contains($r->body, 'data-design-set="rothe"') && str_contains($r->body, 'data-theme-set="dark"') && str_contains($r->body, 'data-theme-set="light"'));
     check("Design: $name lädt design.js im Kopf (vor dem Inhalt)", preg_match('~<script src="/assets/js/design\.js"></script>\s*</head>~', $r->body) === 1);
     check("Design: $name ohne Inline-Style und Inline-Skript", !preg_match('~\sstyle=|<script(?![^>]*\ssrc=)|\sonclick=~i', $r->body));
 }
 
-foreach (['warm', 'klar', 'studio', 'blau'] as $d) {
+foreach (['warm', 'klar', 'studio', 'blau', 'rot', 'gruen'] as $d) {
     check("Design: CSS kennt $d, hell und dunkel", str_contains($css, "[data-design=\"$d\"]") && str_contains($css, "[data-design=\"$d\"][data-theme=\"dark\"]") && str_contains($css, "/*@set $d hell*/") && str_contains($css, "/*@set $d dunkel*/"));
 }
 check('Design: Warm mit 2 px Radien, Klar und Studio rund, Blau klein', str_contains($css, '--r-card:2px') && str_contains($css, '--r-card:14px') && str_contains($css, '--r-card:18px') && str_contains($css, '--r-card:6px'));
@@ -33,7 +33,7 @@ check('Design: Kontrast aller Designs mindestens WCAG AA (tools/kontrast.py)', (
 })());
 check('Design: Schriften nur lokal', !preg_match('~https?://|@import~i', $css));
 check('Design: Skript merkt Wahl, fängt gesperrten Speicher ab', str_contains($js, 'localStorage') && str_contains($js, 'catch') && str_contains($js, "'lichtkammer-design'"));
-check('Design: Skript setzt nur bekannte Werte und bildet alte Namen ab', str_contains($js, "['warm', 'klar', 'studio', 'blau']") && str_contains($js, "'lurohome' ? 'warm'") && str_contains($js, "'rothe' ? 'klar'"));
+check('Design: Skript setzt nur bekannte Werte und bildet alte Namen ab', str_contains($js, "['warm', 'klar', 'studio', 'blau', 'rot', 'gruen']") && str_contains($js, "'lurohome' ? 'warm'") && str_contains($js, "'rothe' ? 'klar'"));
 check('Design: Skript ohne eval und ohne externe Quellen', !preg_match('~eval\(|innerHTML|https?://~', $js));
 
 // --- Admin-Navigation und Seiten (Entwurf 23) ---
@@ -73,7 +73,7 @@ check('Design: CSS-Kommentare sind sauber geschlossen (keine verschluckte Regel)
 
 // --- Design der öffentlichen Seite (Entwurf 25) ---
 $siteCss = (string) file_get_contents($root . '/public/assets/css/site.css');
-foreach (['warm', 'klar', 'studio', 'blau'] as $d) {
+foreach (['warm', 'klar', 'studio', 'blau', 'rot', 'gruen'] as $d) {
     check("Öffentliches Design: site.css kennt $d, hell und dunkel (auch nach prefers-color-scheme)", str_contains($siteCss, "/*@set $d hell*/") && str_contains($siteCss, "/*@set $d dunkel*/") && str_contains($siteCss, "[data-design=\"$d\"][data-theme=\"dark\"]") && str_contains($siteCss, "[data-design=\"$d\"]:not([data-theme=\"light\"])"));
 }
 check('Öffentliches Design: Warm unverändert (Farben, Schatten, runde Rahmen), auch ohne data-design', str_contains($siteCss, ':root,:root[data-design="warm"]{color-scheme:light;--bg:#f5f2ed;--surface:#fffdf9;--soft:#eee8df;--ink:#242321;--muted:#6b675f;--line:#d9d3ca;--accent:#c75d3b;--accent-strong:#a7472c;--on-accent:#fff;--bar:rgba(245,242,237,.78);')
@@ -83,5 +83,5 @@ check('Öffentliches Design: Kontrast von Admin und Seite in tools/kontrast.py',
     $out = [];
     exec('python3 ' . escapeshellarg($root . '/tools/kontrast.py') . ' -v 2>&1', $out, $rc);
     $t = implode("\n", $out);
-    return $rc === 127 || ($rc === 0 && str_contains($t, 'site:studio/hell') && str_contains($t, 'site:blau/dunkel') && str_contains($t, 'app:klar/hell'));
+    return $rc === 127 || ($rc === 0 && str_contains($t, 'site:studio/hell') && str_contains($t, 'site:blau/dunkel') && str_contains($t, 'site:rot/hell') && str_contains($t, 'app:gruen/dunkel') && str_contains($t, 'app:klar/hell'));
 })());

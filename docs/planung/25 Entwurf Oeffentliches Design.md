@@ -27,3 +27,14 @@ Unter **Einstellungen** gibt es das Feld „Design der öffentlichen Seite“ mi
 ## Offene Punkte
 
 Keine, außer D4 (Hell/Dunkel-Knopf bleibt, solange Lutz nichts anderes sagt).
+
+## Nachtrag: zwei weitere Designs, Rot und Grün (18.11.2026)
+
+Wunsch von Lutz. Es gibt jetzt sechs Designs: Warm, Klar, Studio, Blau, **Rot** und **Grün** (Werte `rot` und `gruen`, ohne Umlaut). Sie gelten an beiden Stellen: im Admin-Umschalter (`app.css`, `design.js`) und als Design der öffentlichen Seite (`site.css`, `Settings::DESIGNS`). Risiko: niedrig, es kommen nur Farbsätze und Formen dazu; Speicherformat und Standard bleiben, gespeicherte Werte der alten vier Designs gelten weiter.
+
+| Design | Anmutung | Formen |
+|---|---|---|
+| Rot | Warmes Rot (`#c8102e`) auf Rosé, im Dunkel Schwarzrot mit hellem Rot | rund, Überschriften in Inter, Akzentwort aufrecht (wie Klar) |
+| Grün | Gedecktes Grün (`#2f7d4f`) auf hellem Salbei, im Dunkel Waldgrün | mittlere Radien (8/14 px), Serifenüberschriften mit kursivem Akzentwort |
+
+Kontrast: alle Paare nach WCAG AA mit `tools/kontrast.py` (Admin und Seite), Ergebnis 0 Fehler.

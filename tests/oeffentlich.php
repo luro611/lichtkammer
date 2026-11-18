@@ -127,13 +127,13 @@ check('Öffentlich: Seitenname und Titelfoto-Text', str_contains($home->body, '<
 // --- Design der öffentlichen Seite (Entwurf 25): Einstellung, Vorschau, Veröffentlichen ---
 check('Design öffentlich: Vorgabe ist Warm und steht fest im HTML (data-design am <html>)', $svc->settings->all()['design'] === 'warm' && str_contains($home->body, '<html lang="de" data-design="warm">') && str_contains($gal->body, '<html lang="de" data-design="warm">'));
 $setPg = $b->get('/admin/einstellungen')->body;
-check('Design öffentlich: Einstellungen bieten alle vier Designs, Warm ist gewählt', str_contains($setPg, 'name="design" value="warm" checked') && str_contains($setPg, 'name="design" value="klar"') && str_contains($setPg, 'name="design" value="studio"') && str_contains($setPg, 'name="design" value="blau"'));
+check('Design öffentlich: Einstellungen bieten alle sechs Designs, Warm ist gewählt', str_contains($setPg, 'name="design" value="warm" checked') && str_contains($setPg, 'name="design" value="klar"') && str_contains($setPg, 'name="design" value="studio"') && str_contains($setPg, 'name="design" value="blau"') && str_contains($setPg, 'name="design" value="rot"') && str_contains($setPg, 'name="design" value="gruen"'));
 $bad = $b->post('/admin/einstellungen', ['_csrf' => $csrf, 'site_name' => 'br.foto', 'tagline' => 'Licht & <Schatten>', 'hero_photo_id' => (string) $p3, 'design' => 'rosa"><script>']);
 check('Design öffentlich: unbekanntes Design wird abgelehnt, nichts geändert', $bad->status === 200 && str_contains($bad->body, 'Dieses Design gibt es nicht') && $svc->settings->all()['design'] === 'warm');
 $b->post('/admin/einstellungen', ['_csrf' => $csrf, 'site_name' => 'br.foto', 'tagline' => 'Licht & <Schatten>', 'hero_photo_id' => (string) $p3]);
 check('Design öffentlich: Speichern ohne Designfeld lässt das Design unverändert', $svc->settings->all()['design'] === 'warm');
 $planWarm = $svc->builder->plan();
-$designs = ['klar', 'studio', 'blau'];
+$designs = ['klar', 'studio', 'blau', 'rot', 'gruen'];
 foreach ($designs as $dd) {
     $b->post('/admin/einstellungen', ['_csrf' => $csrf, 'site_name' => 'br.foto', 'tagline' => 'Licht & <Schatten>', 'hero_photo_id' => (string) $p3, 'design' => $dd]);
     $rr = $svc->builder->renderer()->all();

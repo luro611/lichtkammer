@@ -13,7 +13,7 @@
   --r-card:16px;--r-hero:28px;--r-img:10px;--r-pill:980px;
   --f-head:var(--f-display);--head-w:400;--head-track:-.03em;--head-lh:1;
 }
-/* Vier Designs (Warm, Klar, Studio, Blau) für die öffentliche Seite, je hell und dunkel. Das Design steht beim Veröffentlichen als data-design am <html>;
+/* Sechs Designs (Warm, Klar, Studio, Blau, Rot, Grün) für die öffentliche Seite, je hell und dunkel. Das Design steht beim Veröffentlichen als data-design am <html>;
    Besucher bekommen hell/dunkel nach prefers-color-scheme (oder dem Knopf). Farben wie im Admin (app.css). Die Marker liest tools/kontrast.py. */
 /*@set warm hell*/
 :root,:root[data-design="warm"]{color-scheme:light;--bg:#f5f2ed;--surface:#fffdf9;--soft:#eee8df;--ink:#242321;--muted:#6b675f;--line:#d9d3ca;--accent:#c75d3b;--accent-strong:#a7472c;--on-accent:#fff;--bar:rgba(245,242,237,.78);--btn-bg:#242321;--btn-fg:#f5f2ed;--shadow:0 1px 2px rgba(36,35,33,.05),0 12px 32px rgba(36,35,33,.08)}
@@ -38,6 +38,16 @@
 /*@set blau dunkel*/
 :root[data-design="blau"][data-theme="dark"]{color-scheme:dark;--bg:#0b1524;--surface:#122036;--soft:#1a2b46;--ink:#e8eefb;--muted:#9fb0cc;--line:#264063;--accent:#6ea2ff;--accent-strong:#93b9ff;--on-accent:#0b1524;--bar:rgba(11,21,36,.78);--btn-bg:#6ea2ff;--btn-fg:#0b1524;--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35)}
 @media (prefers-color-scheme:dark){:root[data-design="blau"]:not([data-theme="light"]){color-scheme:dark;--bg:#0b1524;--surface:#122036;--soft:#1a2b46;--ink:#e8eefb;--muted:#9fb0cc;--line:#264063;--accent:#6ea2ff;--accent-strong:#93b9ff;--on-accent:#0b1524;--bar:rgba(11,21,36,.78);--btn-bg:#6ea2ff;--btn-fg:#0b1524;--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35)}}
+/*@set rot hell*/
+:root[data-design="rot"]{color-scheme:light;--bg:#fbf5f4;--surface:#ffffff;--soft:#f5e8e6;--ink:#2a1618;--muted:#6e5457;--line:#e6d3d0;--accent:#c8102e;--accent-strong:#a50d26;--on-accent:#fff;--bar:rgba(251,245,244,.8);--btn-bg:#a50d26;--btn-fg:#fff;--shadow:0 1px 2px rgba(42,22,24,.05),0 12px 32px rgba(42,22,24,.07);--r-card:12px;--r-hero:24px;--r-img:9px;--r-pill:980px;--f-head:var(--f-body);--head-w:600;--head-track:-.035em;--head-lh:1.04}
+/*@set rot dunkel*/
+:root[data-design="rot"][data-theme="dark"]{color-scheme:dark;--bg:#1c1213;--surface:#271a1b;--soft:#331f21;--ink:#f7ecec;--muted:#c0a5a8;--line:#4a2d30;--accent:#ff6b7d;--accent-strong:#ff9aa6;--on-accent:#1c1213;--bar:rgba(28,18,19,.8);--btn-bg:#ff6b7d;--btn-fg:#1c1213;--shadow:0 1px 2px rgba(0,0,0,.3),0 12px 32px rgba(0,0,0,.35)}
+@media (prefers-color-scheme:dark){:root[data-design="rot"]:not([data-theme="light"]){color-scheme:dark;--bg:#1c1213;--surface:#271a1b;--soft:#331f21;--ink:#f7ecec;--muted:#c0a5a8;--line:#4a2d30;--accent:#ff6b7d;--accent-strong:#ff9aa6;--on-accent:#1c1213;--bar:rgba(28,18,19,.8);--btn-bg:#ff6b7d;--btn-fg:#1c1213;--shadow:0 1px 2px rgba(0,0,0,.3),0 12px 32px rgba(0,0,0,.35)}}
+/*@set gruen hell*/
+:root[data-design="gruen"]{color-scheme:light;--bg:#f3f6f1;--surface:#ffffff;--soft:#e5ece1;--ink:#17251b;--muted:#556458;--line:#d1dccd;--accent:#2f7d4f;--accent-strong:#226b3f;--on-accent:#fff;--bar:rgba(243,246,241,.8);--btn-bg:#226b3f;--btn-fg:#fff;--shadow:0 1px 2px rgba(23,37,27,.05),0 10px 28px rgba(23,37,27,.07);--r-card:8px;--r-hero:14px;--r-img:6px;--r-pill:8px}
+/*@set gruen dunkel*/
+:root[data-design="gruen"][data-theme="dark"]{color-scheme:dark;--bg:#101a14;--surface:#17251c;--soft:#1f3226;--ink:#e9f4ec;--muted:#9db5a4;--line:#2d4636;--accent:#5fcf8a;--accent-strong:#8fe0ac;--on-accent:#101a14;--bar:rgba(16,26,20,.8);--btn-bg:#5fcf8a;--btn-fg:#101a14;--shadow:0 1px 2px rgba(0,0,0,.3),0 10px 28px rgba(0,0,0,.35)}
+@media (prefers-color-scheme:dark){:root[data-design="gruen"]:not([data-theme="light"]){color-scheme:dark;--bg:#101a14;--surface:#17251c;--soft:#1f3226;--ink:#e9f4ec;--muted:#9db5a4;--line:#2d4636;--accent:#5fcf8a;--accent-strong:#8fe0ac;--on-accent:#101a14;--bar:rgba(16,26,20,.8);--btn-bg:#5fcf8a;--btn-fg:#101a14;--shadow:0 1px 2px rgba(0,0,0,.3),0 10px 28px rgba(0,0,0,.35)}}
 @media (min-width:700px){:root{--rh:220px}}
 @media (min-width:1200px){:root{--rh:260px}}
 
@@ -75,7 +85,7 @@ h1,h2{font-family:var(--f-head);font-weight:var(--head-w);letter-spacing:var(--h
 h1{font-size:clamp(44px,8vw,96px)}.h-page{font-size:clamp(40px,6vw,72px);margin-bottom:12px}
 h2{font-size:clamp(32px,4.4vw,52px)}
 h1 em,h2 em{color:var(--accent);font-style:italic}
-:root:is([data-design="klar"],[data-design="studio"]) :is(h1,h2) em{font-style:normal}
+:root:is([data-design="klar"],[data-design="studio"],[data-design="rot"]) :is(h1,h2) em{font-style:normal}
 .eyebrow{font:600 11px var(--f-mono);text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:32px 0 14px}.eyebrow a{color:inherit}
 .meta{color:var(--muted);font-size:13px;margin:0 0 20px}
 .block{padding-block:32px 56px}.narrow{max-width:720px}
