@@ -6,10 +6,18 @@ Versionen: 0.x bis zum öffentlichen Release, danach 1.0.0.
 ## [Unveröffentlicht]
 
 ### Neu
+- **Medien** (`/admin/medien`): Ordner wie im Finder für Fotos, PDFs und Logos. Ordnerbaum, Pfadleiste, Liste und Symbole, Suche, Sortieren, Mehrfachauswahl (Klick, Umschalt, Strg/Cmd, Tastatur), Ziehen zum Verschieben (auch „Verschieben nach …“ als Knopf), Umbenennen, Neuer Ordner. Ordner sind nur Datenbankzeilen: auf der Festplatte liegt jede Datei unter einem Zufallsnamen, Namen aus dem Browser werden nie zu Pfaden.
+- **Ordner-Upload** per Ziehen vom Mac, Windows oder Linux oder „Ordner hochladen“. Vor dem Start eine Zusammenfassung mit der Wahl: nur ablegen, jeder Ordner mit Fotos wird eine Galerie oder nur der oberste Ordner. Der Ordnername wird unverändert (nach NFC) zum Namen im Medienbereich und zum Galerietitel; Galerien sind immer Entwürfe. Dubletten bleiben am alten Platz und kommen in die neue Galerie. Fortsetzen nach Abbruch über einen Fingerabdruck der Datei, Abbrechen räumt leere Ordner und Galerien auf, Systemdateien (`.DS_Store`, `Thumbs.db` …) werden übersprungen.
+- **Dateien**: PDF (bis 50 MB, `LK_MAX_FILE_MB`), SVG (bis 1 MB, Editor-Metadaten werden entfernt, aktive Inhalte abgelehnt), PNG/JPEG/WebP als Datei (bis 5 MB, unverändert). Typ nur am Inhalt. Privat unter `<Datenordner>/files/`, auf Schalter „öffentlich“ eine Kopie unter `media/dateien/` (SVG nur nach Selbsttest des Schutzkopfes). Private Dateien nur über `/admin/medien/datei/<id>` (Download, Range, feste Köpfe).
+- **Papierkorb für Ordner**: ein Zweig kommt als Ganzes zurück (zusammenführen bei gleichem Namen), 30 Tage, in Stapeln. „Aus diesem Ordner Galerie machen“, „Bestand übernehmen“ (PDFs aus `media/dokumente`).
+- Protokoll: `folder_created`, `folder_renamed`, `media_moved`, `media_trashed`, `media_restored`, `media_purged`, `file_uploaded`, `file_public_changed`, `folder_gallery_created`, `media_upload_run` (nur Kennungen und Zahlen, nie Namen).
 - Anmeldung: Auf der Seite „Zweiter Faktor“ kann man „Auf diesem Gerät 24 Stunden lang nicht erneut nach dem Code fragen“ ankreuzen (Vorgabe: aus). Danach genügt auf diesem Gerät 24 Stunden lang das Passwort. Das Gerät wird über ein zufälliges Token (Cookie `lk_dev`, HttpOnly, Strict, Secure) erkannt; in der Datenbank steht nur ein Hash. Es gilt nur für dasselbe Konto und denselben Browser (User-Agent), läuft fest nach 24 Stunden ab (wird nicht verlängert) und wird nur nach einem TOTP-Code gesetzt, nicht nach einem Wiederherstellungscode. Höchstens 10 Geräte je Konto. Abmelden (nur dieses Gerät), Passwortänderung, „Sitzungen beenden“, Konto sperren oder zurücksetzen und neue Einrichtung des Authenticators widerrufen das Vertrauen. Ein mitgeschicktes, aber nicht angenommenes Token wird aus dem Browser gelöscht; gehört es einem anderen Konto oder kommt es aus einem anderen Browser, steht das im Protokoll (`device_trust_rejected`, `reason=user|ua`), weil das bei richtigem Passwort auf ein kopiertes Cookie hindeutet. Protokoll außerdem: `device_trusted`, `device_trust_used`.
 - Startseiten-Fotos: Feld für die Wechselzeit (gab es bisher nur beim Karussell).
 
 ### Geändert
+- Namen von Fotos, Ordnern und Dateien laufen durch eine Regel (`Media/Names`): Unicode NFC, unsichtbare und täuschende Zeichen (z. B. Rechts-nach-links-Zeichen) werden entfernt, höchstens 255 Zeichen (vorher 200).
+- Die SVG-Prüfung der Logos ist jetzt dieselbe Klasse wie in der Medienverwaltung (`Media/SvgCheck`, Positivliste, UTF-16 und fremde Namensräume abgelehnt); gespeichert wird die bereinigte Fassung.
+- Upload in Stücken: Stückgröße 4 MB; `start` kann Ordner, Art (Foto oder Datei) und Fingerabdruck mitnehmen, ein unfertiger Upload wird fortgesetzt.
 - Mein Konto: Neue Wiederherstellungscodes verlangen jetzt Passwort und Code aus der App (bisher nur das Passwort). Grund: Eine Sitzung von einem vertrauten Gerät entsteht ohne zweiten Faktor; mit dem Passwort allein sollen daraus keine dauerhaften Ersatzcodes werden.
 - Karussell: Wechselzeit als Zahlenfeld von 2 bis 30 Sekunden (Standard 6) statt Auswahl 4/6/8/12 (serverseitig bisher 3 bis 15). Beim schnellen Wischen rastet jede Folie ein (`scroll-snap-stop`), es wird keine mehr übersprungen.
 
@@ -18,6 +26,8 @@ Versionen: 0.x bis zum öffentlichen Release, danach 1.0.0.
 - Anmeldung: Der Haken „nicht erneut nach dem Code fragen“ blieb nach einem falsch eingetippten Code nicht gesetzt. Nach einer Passwortänderung wird das eigene (dann ungültige) Gerätecookie gelöscht, und der Hinweis nennt die Geräte.
 
 ### Hinweise zum Update
+- Datenbank-Migration 10 (Tabellen `folders`, `files`, `plan_items`, neue Spalten bei `photos` und `uploads`, nur additiv; vorher wird `…vor-schema-9.bak` angelegt) läuft beim ersten Aufruf selbst. Alte Fotos bleiben auf der obersten Ebene von Medien.
+- Datensicherung: `files/` im Datenordner (Docker: Volume `lk-data`) gehört dazu.
 - Datenbank-Migration 9 (Tabelle `trusted_devices`, nur additiv) läuft beim ersten Aufruf selbst.
 
 ## [0.1.0-rc1] – Probelauf des Release-Ablaufs
