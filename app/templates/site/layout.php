@@ -1,9 +1,9 @@
-<?php /** @var \Lichtkammer\Site\Renderer $h @var array<string,mixed> $page @var array $nav @var string $site @var \Lichtkammer\Config $config @var callable $asset @var string $canonical @var string $ogImage @var bool $hasGalleries */
+<?php /** @var \Lichtkammer\Site\Renderer $h @var array<string,mixed> $page @var array $nav @var string $site @var \Lichtkammer\Config $config @var callable $asset @var string $canonical @var string $design @var string $ogImage @var bool $hasGalleries */
 $e = static fn (?string $s): string => \Lichtkammer\Site\Renderer::h($s);
 $fav = $h->favicon();
 ?>
 <!doctype html>
-<html lang="de">
+<html lang="de" data-design="<?= $e($design) ?>">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">

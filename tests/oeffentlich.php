@@ -123,6 +123,28 @@ $list = $anon->get('/galerien/');
 $gal = $anon->get("/galerien/$slug1/");
 check('Öffentlich: Startseite, Übersicht, Galerie erreichbar ohne Anmeldung', $home->status === 200 && $list->status === 200 && $gal->status === 200);
 check('Öffentlich: Seitenname und Titelfoto-Text', str_contains($home->body, '<title>br.foto</title>') && str_contains($home->body, 'Licht &amp; &lt;Schatten&gt;') && str_contains($home->body, '<span class="dot">.</span>'));
+
+// --- Design der öffentlichen Seite (Entwurf 25): Einstellung, Vorschau, Veröffentlichen ---
+check('Design öffentlich: Vorgabe ist Warm und steht fest im HTML (data-design am <html>)', $svc->settings->all()['design'] === 'warm' && str_contains($home->body, '<html lang="de" data-design="warm">') && str_contains($gal->body, '<html lang="de" data-design="warm">'));
+$setPg = $b->get('/admin/einstellungen')->body;
+check('Design öffentlich: Einstellungen bieten alle vier Designs, Warm ist gewählt', str_contains($setPg, 'name="design" value="warm" checked') && str_contains($setPg, 'name="design" value="klar"') && str_contains($setPg, 'name="design" value="studio"') && str_contains($setPg, 'name="design" value="blau"'));
+$bad = $b->post('/admin/einstellungen', ['_csrf' => $csrf, 'site_name' => 'br.foto', 'tagline' => 'Licht & <Schatten>', 'hero_photo_id' => (string) $p3, 'design' => 'rosa"><script>']);
+check('Design öffentlich: unbekanntes Design wird abgelehnt, nichts geändert', $bad->status === 200 && str_contains($bad->body, 'Dieses Design gibt es nicht') && $svc->settings->all()['design'] === 'warm');
+$b->post('/admin/einstellungen', ['_csrf' => $csrf, 'site_name' => 'br.foto', 'tagline' => 'Licht & <Schatten>', 'hero_photo_id' => (string) $p3]);
+check('Design öffentlich: Speichern ohne Designfeld lässt das Design unverändert', $svc->settings->all()['design'] === 'warm');
+$planWarm = $svc->builder->plan();
+$designs = ['klar', 'studio', 'blau'];
+foreach ($designs as $dd) {
+    $b->post('/admin/einstellungen', ['_csrf' => $csrf, 'site_name' => 'br.foto', 'tagline' => 'Licht & <Schatten>', 'hero_photo_id' => (string) $p3, 'design' => $dd]);
+    $rr = $svc->builder->renderer()->all();
+    check("Design öffentlich: $dd steht in allen erzeugten Seiten", $svc->settings->all()['design'] === $dd && $rr !== [] && count(array_filter($rr, static fn ($c, $k) => str_ends_with($k, '/') && str_contains($c, '<html lang="de" data-design="' . $dd . '">'), ARRAY_FILTER_USE_BOTH)) === count(array_filter(array_keys($rr), static fn ($k) => str_ends_with($k, '/'))));
+    check("Design öffentlich: Vorschau zeigt $dd, die veröffentlichte Seite bleibt Warm bis zum nächsten Veröffentlichen", str_contains($b->get('/admin/vorschau')->body, 'data-design="' . $dd . '"') && str_contains($anon->get('/')->body, 'data-design="warm"'));
+}
+$planBlau = $svc->builder->plan();
+check('Design öffentlich: nach dem Wechsel zeigt der Probelauf Seiten als geändert (alle erzeugten Seiten, nicht nur eine)', $planWarm['changes'] === [] && count(array_filter($planBlau['changes'], static fn ($c) => $c['kind'] === 'geändert')) >= 3);
+$b->post('/admin/einstellungen', ['_csrf' => $csrf, 'site_name' => 'br.foto', 'tagline' => 'Licht & <Schatten>', 'hero_photo_id' => (string) $p3, 'design' => 'warm']);
+check('Design öffentlich: zurück auf Warm ergibt dieselben Dateien wie vorher (keine Änderung gegenüber der Fassung)', $svc->builder->plan()['changes'] === $planWarm['changes']);
+check('Design öffentlich: Protokoll ohne Designwert, nur Ereignis', (int) $db->value("SELECT COUNT(*) FROM audit_log WHERE event='settings_saved'") >= 1);
 check('Öffentlich: Hero-Foto aus Entwurfsgalerie wird nicht genommen, stattdessen Titelbild der ersten Galerie', preg_match('/<img src="\/media\/([^"]+)"[^>]*class="hero-pic"/', $home->body, $hm) === 1 && str_contains($hm[1], (string) $db->value('SELECT token FROM photos WHERE id = ?', [$p2])));
 check('Öffentlich: Galerie zeigt Fotos mit Alt-Text, Seitenverhältnis-Klasse und Bildinfo', str_contains($gal->body, 'alt="Boote im Hafen"') && str_contains($gal->body, 'class="t r150"') && str_contains($gal->body, 'class="t r67"')
     && str_contains($gal->body, 'data-meta="Lissabon · 2019"') && str_contains($gal->body, 'data-photographer="Anna Beispiel"') && str_contains($gal->body, 'Hafen &lt;i&gt;'));
@@ -132,7 +154,7 @@ check('Öffentlich: Entwurfsgalerie und ihr Foto fehlen überall', $anon->get("/
     && !str_contains($list->body . $gal->body . $home->body, (string) $db->value('SELECT token FROM photos WHERE id = ?', [$p3])));
 check('Öffentlich: Nicht freigegebenes fehlt (Original-Dateiname, GPS, Software, EXIF bei show_exif=0)', !str_contains($gal->body, 'geheim-name') && !str_contains($gal->body, '52.5') && !str_contains($gal->body, 'GEHEIMSOFT') && !str_contains($gal->body, 'KameraX') && !str_contains($gal->body, 'gps'));
 check('Öffentlich: Impressum erreichbar, in der Fußzeile verlinkt, Text maskiert', ($imp = $anon->get('/impressum/'))->status === 200 && str_contains($imp->body, '&lt;b&gt;Beispiel') && str_contains($home->body, 'href="/impressum/"'));
-check('Öffentlich: Marke luro in der Fußzeile, Sprunglink, Landmarken, Sprache', str_contains($home->body, 'class="luro" href="https://lurohome.de"') && str_contains($home->body, 'href="#inhalt"') && str_contains($home->body, '<main id="inhalt"') && str_contains($home->body, '<html lang="de">'));
+check('Öffentlich: Marke luro in der Fußzeile, Sprunglink, Landmarken, Sprache', str_contains($home->body, 'class="luro" href="https://lurohome.de"') && str_contains($home->body, 'href="#inhalt"') && str_contains($home->body, '<main id="inhalt"') && str_contains($home->body, '<html lang="de" data-design="warm">'));
 check('Öffentlich: eine h1 je Seite', substr_count($home->body, '<h1') === 1 && substr_count($gal->body, '<h1') === 1 && substr_count($list->body, '<h1') === 1);
 $all = $home->body . $list->body . $gal->body . $imp->body;
 check('Öffentlich: ohne Inline-Style, Inline-Skript, Ereignisattribute', !preg_match('~\sstyle=|<script(?![^>]*\ssrc=)|\son[a-z]+=~i', $all));

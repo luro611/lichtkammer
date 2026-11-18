@@ -9,14 +9,18 @@ use Lichtkammer\Media\Galleries;
 use Lichtkammer\Media\MediaException;
 use Lichtkammer\Media\SvgCheck;
 
-/** Seiteneinstellungen (Seitenname, Hero-Text, Hero-Foto). Vorgabe für den Namen ist LK_SITE_NAME. */
+/** Seiteneinstellungen (Seitenname, Hero-Text, Hero-Foto, Design). Vorgabe für den Namen ist LK_SITE_NAME. */
 final class Settings
 {
+    /** Designs der öffentlichen Seite (Entwurf 25); Vorgabe und heutiges br-foto-Aussehen ist „warm“. */
+    public const DESIGNS = ['warm' => 'Warm', 'klar' => 'Klar', 'studio' => 'Studio', 'blau' => 'Blau'];
+    public const DESIGN_DEFAULT = 'warm';
+
     public function __construct(private readonly Database $db, private readonly Config $config)
     {
     }
 
-    /** @return array{site_name:string,tagline:string,hero_photo_id:int,home_blocks:string,hero_show:bool} */
+    /** @return array{site_name:string,tagline:string,hero_photo_id:int,home_blocks:string,hero_show:bool,design:string} */
     public function all(): array
     {
         $rows = $this->db->all('SELECT k, v FROM site_settings');
@@ -28,7 +32,24 @@ final class Settings
             'hero_photo_id' => (int) ($m['hero_photo_id'] ?? 0),
             'home_blocks' => (string) ($m['home_blocks'] ?? ''),
             'hero_show' => ($m['hero_show'] ?? '1') !== '0',
+            'design' => self::design((string) ($m['public_design'] ?? '')),
         ];
+    }
+
+    /** Nur bekannte Designs; alles andere (leer, alt, unbekannt) ergibt die Vorgabe. */
+    public static function design(string $v): string
+    {
+        return isset(self::DESIGNS[$v]) ? $v : self::DESIGN_DEFAULT;
+    }
+
+    /** Design der öffentlichen Seite speichern. Ein unbekannter Wert wird nicht übernommen (false). */
+    public function saveDesign(string $design): bool
+    {
+        if (!isset(self::DESIGNS[$design])) {
+            return false;
+        }
+        $this->put('public_design', $design);
+        return true;
     }
 
     public function save(string $siteName, string $tagline, int $heroPhotoId, ?bool $heroShow = null): void

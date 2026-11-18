@@ -451,7 +451,7 @@ final class Renderer
         $assets = fn (string $p): string => $this->view->asset($p);
         $og = $page['image'] ?? null;
         return $this->view->fragment('site/layout', [
-            'h' => $this, 'page' => $page, 'nav' => $nav, 'site' => $site, 'config' => $this->config, 'asset' => $assets,
+            'h' => $this, 'page' => $page, 'nav' => $nav, 'site' => $site, 'design' => (string) $d['settings']['design'], 'config' => $this->config, 'asset' => $assets,
             'canonical' => $this->config->baseUrl() !== '' && !$this->preview ? $this->config->baseUrl() . $page['path'] : '',
             'ogImage' => $og !== null && $this->config->baseUrl() !== '' ? $this->config->baseUrl() . '/media/' . ($og['variants']['jpeg'][array_key_last($og['variants']['jpeg'])]['path']) : '',
             'hasGalleries' => $d['galleries'] !== [],

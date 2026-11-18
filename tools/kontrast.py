@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Rechnet WCAG-Kontraste der Admin-Designs (public/assets/css/app.css). Aufruf: python3 tools/kontrast.py"""
+"""Rechnet WCAG-Kontraste der Designs in Admin (app.css) und öffentlicher Seite (site.css). Aufruf: python3 tools/kontrast.py [-v]"""
 import re, sys
-css = open('public/assets/css/app.css').read()
+css = ''.join(f'\n/*@file {n}*/' + open(f'public/assets/css/{n}.css').read() for n in ('app', 'site'))
 def lum(h):
     h = h.lstrip('#'); r, g, b = [int(h[i:i+2], 16)/255 for i in (0, 2, 4)]
     f = lambda c: c/12.92 if c <= .03928 else ((c+.055)/1.055)**2.4
@@ -9,8 +9,13 @@ def lum(h):
 def cr(a, b):
     la, lb = sorted((lum(a), lum(b)), reverse=True); return (la+.05)/(lb+.05)
 bad = 0
-for m in re.finditer(r'/\*@set (\w+) (\w+)\*/[^{]*\{([^}]*)\}', css):
-    d, t, body = m.groups()
+sets = []
+for part in css.split('\n/*@file ')[1:]:
+    datei, _, text = part.partition('*/')
+    for m in re.finditer(r'/\*@set (\w+) (\w+)\*/[^{]*\{([^}]*)\}', text):
+        sets.append((datei, *m.groups()))
+for datei, d, t, body in sets:
+    d = datei + ':' + d
     v = dict(re.findall(r'--([\w-]+):(#[0-9a-fA-F]{6})', body))
     pairs = [('ink','bg'),('ink','surface'),('ink','soft'),('muted','bg'),('muted','surface'),('muted','soft'),('accent-strong','bg'),('accent-strong','surface'),('accent-strong','soft'),('on-accent','accent'),('on-accent','accent-strong'),('btn-fg','btn-bg')]
     for a, b in [('accent','bg'),('accent','surface')]:

@@ -312,7 +312,14 @@ trait SitePages
 
     public function siteSettingsSave(Request $req, array $p, ?array $sess): Response
     {
+        $design = $req->input('design');
+        if ($design !== '' && !isset(\Lichtkammer\Site\Settings::DESIGNS[$design])) {
+            return $this->siteSettings($req, $p, $sess, 'Dieses Design gibt es nicht. Es wurde nichts gespeichert.');
+        }
         $this->s->settings->save($req->input('site_name'), $req->input('tagline'), (int) $req->input('hero_photo_id'), $req->input('hero_form') === '1' ? $req->input('hero_show') === '1' : null);
+        if ($design !== '') {
+            $this->s->settings->saveDesign($design);
+        }
         $this->auditLog('settings_saved', $sess, 'settings=site', $req);
         return $this->done('/admin/einstellungen', 'settings');
     }

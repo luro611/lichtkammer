@@ -15,6 +15,12 @@
 <?php endforeach; ?></select></label>
     <p class="small muted">Zur Auswahl stehen Fotos aus Galerien. Erscheint das Foto in keiner veröffentlichten Galerie, nimmt die Seite das automatische Titelbild.</p>
     <p class="small muted">Diese beiden Angaben gelten für die feste Startseite. Sobald die <a href="/admin/startseite">Startseite</a> im Block-Editor gespeichert ist, bestimmen dort Titelbild-Block und Karussell das Aussehen.</p>
+    <fieldset class="field designwahl"><legend>Design der öffentlichen Seite</legend>
+<?php $beschr = ['warm' => 'Papierfarben, Terrakotta, Serifenüberschriften (so sieht die Seite heute aus).', 'klar' => 'Neutral und rund, Überschriften in Inter, Terrakotta als Akzent.', 'studio' => 'Hell und luftig, tiefes Schwarz im Dunkel, blaue Knöpfe und Links, sehr runde Formen.', 'blau' => 'Marine- und Himmelblau, kleine Radien, Serifenüberschriften.']; ?>
+<?php foreach (\Lichtkammer\Site\Settings::DESIGNS as $key => $name): ?>      <label><input type="radio" name="design" value="<?= $e($key) ?>"<?= $set['design'] === $key ? ' checked' : '' ?>> <strong><?= $e($name) ?></strong> <span class="muted small"><?= $e($beschr[$key]) ?></span></label>
+<?php endforeach; ?>
+      <p class="small muted">Besucher sehen immer dieses eine Design, hell oder dunkel nach ihrer Geräteeinstellung. Nach dem Speichern zeigt die <a href="/admin/vorschau">Vorschau</a> es sofort. Live geht es erst beim nächsten Veröffentlichen, dann werden alle Seiten neu erzeugt.</p>
+    </fieldset>
     <div class="actions"><button class="btn" type="submit">Speichern</button> <a class="btn ghost" href="/admin/vorschau">Vorschau</a></div>
   </form>
 </section>
