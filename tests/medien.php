@@ -408,3 +408,146 @@ $edCsrf = static fn (): string => TestBrowser::csrf($ed->get('/admin/medien'));
 check('Rechte: Redaktion sieht Medien und legt Ordner an', $ed->get('/admin/medien')->status === 200 && $ed->post('/admin/medien/ordner', ['_csrf' => $edCsrf(), 'name' => 'Redaktion', 'ordner' => '0'])->status === 303);
 check('Rechte: Redaktion darf Datei öffentlich schalten (E7) und löschen', $ed->post('/admin/medien/datei/' . $did . '/oeffentlich', ['_csrf' => $edCsrf(), 'an' => '0', 'ordner' => '0'])->status === 303 && $ed->post('/admin/medien/loeschen', ['_csrf' => $edCsrf(), 'datei' => [(string) $did], 'ordner' => '0'])->status === 303);
 check('Rechte: „Bestand übernehmen“ nur für Administratoren (Redaktion → 403)', $ed->post('/admin/medien/bestand', ['_csrf' => $edCsrf()])->status === 403);
+
+// ======================= Block E: Ordner-Upload (Plan, Fortsetzen, Galerien, Abbruch) =======================
+$plan = static function (TestBrowser $br, array $data, string $ct = 'application/json') use ($m): \Lichtkammer\Response {
+    $csrf = TestBrowser::csrf($br->get('/admin/medien'));
+    return $br->request('POST', '/admin/medien/plan', [], ['CONTENT_TYPE' => $ct, 'HTTP_X_CSRF_TOKEN' => $csrf], json_encode($data));
+};
+$pj = static fn (\Lichtkammer\Response $r): array => (array) json_decode($r->body, true);
+$up2 = static function (TestBrowser $br, string $name, string $bytes, array $extra = [], int $chunk = 3000, bool $finish = true) use ($m): array {
+    $csrf = TestBrowser::csrf($br->get('/admin/medien'));
+    $start = json_decode($br->post('/admin/upload/start', ['_csrf' => $csrf, 'name' => $name, 'size' => (string) strlen($bytes)] + $extra)->body, true);
+    if (!isset($start['id'])) {
+        return ['stage' => 'start'] + (array) $start;
+    }
+    for ($off = (int) $start['received']; $off < strlen($bytes); $off += $chunk) {
+        $r = $br->request('POST', '/admin/upload/' . $start['id'] . '/chunk?offset=' . $off, [], ['HTTP_X_CSRF_TOKEN' => $csrf], substr($bytes, $off, $chunk));
+        if ($r->status !== 200) {
+            return ['stage' => 'chunk', 'status' => $r->status];
+        }
+        if (!$finish && $off + $chunk >= (int) ($start['size'] ?? 0) / 2) {
+            return ['stage' => 'half', 'id' => $start['id']];
+        }
+    }
+    $fin = (array) json_decode($br->request('POST', '/admin/upload/' . $start['id'] . '/finish', [], ['HTTP_X_CSRF_TOKEN' => $csrf])->body, true);
+    return $fin + ['id' => $start['id'], 'start' => $start];
+};
+check('Plan: falscher Inhaltstyp → 415, zu großer Körper → 413, Unsinn → 400', $plan($b, ['folders' => [], 'files' => []], 'text/plain')->status === 415
+    && $b->request('POST', '/admin/medien/plan', [], ['CONTENT_TYPE' => 'application/json', 'HTTP_X_CSRF_TOKEN' => TestBrowser::csrf($b->get('/admin/medien'))], str_repeat('x', 2 * 1024 * 1024 + 5))->status === 413
+    && $plan($b, ['x' => 1])->status === 400);
+$r = $plan($b, ['target' => 0, 'folders' => [['path' => ['Island']], ['path' => ['Island', 'Tag 1']], ['path' => ['island', 'TAG 1']]], 'files' => [['f' => 1, 'name' => 'a.jpg', 'size' => 10], ['f' => 1, 'name' => 'b.jpg', 'size' => 12]]]);
+$pr = $pj($r);
+check('Plan: Ordner angelegt, andere Groß-/Kleinschreibung führt zusammen (gleiche Kennung)', $r->status === 200 && $pr['folders'][1]['id'] === $pr['folders'][2]['id'] && count($pr['folders']) === 3 && $pr['summary']['new_folders'] >= 1 && count($pr['files']) === 2 && $pr['files'][0]['folder_id'] === $pr['folders'][1]['id'] && isset($pr['plan']));
+$island = (int) $pr['folders'][0]['id'];
+check('Plan: zweiter Aufruf mit gleichem Ordner legt nichts neu an, meldet Zusammenführen', ($p2 = $pj($plan($b, ['target' => 0, 'folders' => [['path' => ['island']]], 'files' => []])))['summary']['new_folders'] === 0 && $p2['folders'][0]['id'] === $island && $p2['summary']['merged'] === ['island']);
+$pa = $pj($plan($b, ['target' => 0, 'folders' => [['path' => ['..', '..', 'etc']], ['path' => ['/abs/pfad']], ['path' => ['a\\b']], ['path' => ["Ordner\u{202E}"]], ['path' => ['CON']]], 'files' => []]));
+check('Plan: Pfadangriffe werden zu harmlosen Ordnernamen (kein „..“, nie ein Pfad außerhalb)', array_column(array_map(fn ($f) => $f['id'], $pa['folders']) ? array_map(fn ($id) => $db->one('SELECT name, parent_id FROM folders WHERE id = ?', [$id]), array_column($pa['folders'], 'id')) : [], 'name') === ['etc', 'pfad', 'a\\b', 'Ordner', 'CON'] && !is_dir($tmp . '/etc'));
+check('Plan: Tiefe 9 und Pfad über 800 Zeichen werden abgelehnt, nichts angelegt', ($pd = $plan($b, ['folders' => [['path' => array_fill(0, 9, 'z')]], 'files' => []]))->status === 400 && $db->value("SELECT 1 FROM folders WHERE name_key = 'z'") === null && $plan($b, ['folders' => [['path' => array_fill(0, 5, str_repeat('y', 200))]], 'files' => []])->status === 400);
+check('Plan: ungültige Dateieinträge (Index außerhalb, kein Name) → 400 und kein Ordner bleibt zurück', $plan($b, ['folders' => [['path' => ['Rollback']]], 'files' => [['f' => 7, 'name' => 'a', 'size' => 1]]])->status === 400 && $db->value("SELECT 1 FROM folders WHERE name_key = 'rollback'") === null);
+$many = [];
+for ($i = 0; $i < 2000; $i++) {
+    $many[] = ['f' => 0, 'name' => 'IMG_' . $i . '.jpg', 'size' => 100 + $i];
+}
+$t0 = microtime(true);
+$big = $pj($plan($b, ['target' => 0, 'folders' => [['path' => ['Massen', 'Unter', 'Ordner']]], 'files' => $many]));
+check('Plan: 2000 Einträge in einer Anfrage, tiefer Pfad', count($big['files'] ?? []) === 2000 && microtime(true) - $t0 < 20);
+$tooMany = array_fill(0, 5001, ['f' => 0, 'name' => 'x.jpg', 'size' => 1]);
+check('Plan: mehr als 5000 Dateien → abgelehnt', $plan($b, ['folders' => [['path' => ['Viel']]], 'files' => $tooMany])->status === 400);
+$manyF = [];
+for ($i = 0; $i < 5001; $i++) {
+    $manyF[] = ['path' => ['F' . $i]];
+}
+check('Plan: mehr als 5000 Ordner im Plan → abgelehnt', $plan($b, ['folders' => $manyF, 'files' => []])->status === 400);
+$trashedF = $fo->create(0, 'Weggelegt');
+$fo->trash($trashedF);
+check('Plan: Zielordner im Papierkorb wird abgelehnt', $plan($b, ['target' => $trashedF, 'folders' => [['path' => ['x']]], 'files' => []])->status === 400);
+check('Upload: in Ordner im Papierkorb und in nicht vorhandenen Ordner abgelehnt', isset($up2($b, 'a.jpg', lk_jpeg(50, 50), ['folder' => (string) $trashedF])['error']) && isset($up2($b, 'a.jpg', lk_jpeg(50, 50), ['folder' => '999999'])['error']));
+
+// Galerien beim Ordner-Upload
+$gp = $pj($plan($b, ['target' => 0, 'folders' => [['path' => ['Reise'], 'gallery' => true, 'title' => 'Reise'], ['path' => ['Reise', 'Tag 2'], 'gallery' => true], ['path' => ['🌄']], ['path' => ['🌅'], 'gallery' => true, 'title' => '🌅🌅']], 'files' => []]));
+$g1 = (int) $gp['folders'][0]['gallery_id'];
+$g2 = (int) $gp['folders'][1]['gallery_id'];
+$g4 = (int) $gp['folders'][3]['gallery_id'];
+check('Galerie: Titel genau der Ordnername, Entwurf, mit Ordner verknüpft', $db->value('SELECT title FROM galleries WHERE id = ?', [$g1]) === 'Reise' && $db->value('SELECT title FROM galleries WHERE id = ?', [$g2]) === 'Tag 2' && $db->value('SELECT status FROM galleries WHERE id = ?', [$g1]) === 'draft' && (int) $db->value('SELECT gallery_id FROM folders WHERE id = ?', [$gp['folders'][0]['id']]) === $g1 && $gp['folders'][2]['gallery_id'] === null);
+check('Galerie: Adresse aus dem Namen; nur Emojis → „galerie“', $db->value('SELECT slug FROM galleries WHERE id = ?', [$g1]) === 'reise' && $db->value('SELECT slug FROM galleries WHERE id = ?', [$g4]) === 'galerie' && $db->value('SELECT title FROM galleries WHERE id = ?', [$g4]) === '🌅🌅');
+$gp2 = $pj($plan($b, ['target' => $island, 'folders' => [['path' => ['Reise'], 'gallery' => true, 'title' => 'reise']], 'files' => []]));
+$g5 = (int) $gp2['folders'][0]['gallery_id'];
+check('Galerie: gleicher Titel (anderer Ordner) → warnt, legt trotzdem eine neue mit eindeutiger Adresse an (reise-2)', $gp2['folders'][0]['warn'] !== '' && $g5 !== $g1 && $db->value('SELECT slug FROM galleries WHERE id = ?', [$g5]) === 'reise-2');
+check('Galerie: Entwurfsgalerie des Ordners wird bei erneutem Plan weiterbenutzt statt verdoppelt', ($gp3 = $pj($plan($b, ['target' => 0, 'folders' => [['path' => ['Reise'], 'gallery' => true]], 'files' => []])))['folders'][0]['gallery_id'] === $g1);
+// Hochladen mit Ordner und Galerie
+$reiseId = (int) $gp['folders'][0]['id'];
+$up = $up2($b, 'tag-1.jpg', lk_jpeg(321, 100), ['folder' => (string) $reiseId, 'gallery' => (string) $g1, 'intent' => 'photo', 'fp' => hash('sha256', 'x1')]);
+check('Upload: Foto landet im Ordner und in der gewählten Galerie, protokolliert', ($up['photo_id'] ?? 0) > 0 && (int) $db->value('SELECT folder_id FROM photos WHERE id = ?', [$up['photo_id']]) === $reiseId && (int) $db->value('SELECT COUNT(*) FROM gallery_photos WHERE gallery_id = ? AND photo_id = ?', [$g1, $up['photo_id']]) === 1 && $db->value('SELECT fingerprint FROM photos WHERE id = ?', [$up['photo_id']]) === hash('sha256', 'x1'));
+$dupUp = $up2($b, 'tag-1-kopie.jpg', lk_jpeg(321, 100), ['folder' => (string) $island, 'gallery' => (string) $g2]);
+check('Upload: Dublette bleibt am alten Platz („schon vorhanden in Ordner …“), kommt aber in die neue Galerie', $dupUp['duplicate'] === true && $dupUp['folder'] === 'Reise' && (int) $db->value('SELECT COUNT(*) FROM gallery_photos WHERE gallery_id = ? AND photo_id = ?', [$g2, $up['photo_id']]) === 1 && (int) $db->value('SELECT folder_id FROM photos WHERE id = ?', [$up['photo_id']]) === $reiseId);
+$auto = $up2($b, 'auto.jpg', lk_jpeg(322, 100), ['folder' => (string) $reiseId]);
+check('Upload: Ordner mit Entwurfsgalerie → neues Foto kommt automatisch dazu (E3b)', (int) $db->value('SELECT COUNT(*) FROM gallery_photos WHERE gallery_id = ? AND photo_id = ?', [$g1, $auto['photo_id']]) === 1);
+$plain = $up2($b, 'plain.jpg', lk_jpeg(323, 100), ['folder' => (string) $reiseId, 'intent' => 'photo_plain']);
+check('Upload: „photo_plain“ (im Fenster abgeschaltet) bleibt ohne Galerie', (int) $db->value('SELECT COUNT(*) FROM gallery_photos WHERE photo_id = ?', [$plain['photo_id']]) === 0);
+$db->run("UPDATE galleries SET status = 'published' WHERE id = ?", [$g1]);
+$pub = $up2($b, 'veroeffentlicht.jpg', lk_jpeg(324, 100), ['folder' => (string) $reiseId]);
+check('Upload: bei veröffentlichter Galerie kein automatisches Hinzufügen (N4)', (int) $db->value('SELECT COUNT(*) FROM gallery_photos WHERE photo_id = ?', [$pub['photo_id']]) === 0);
+// PDF und Dateien: nie in Galerien
+$pdfU = $up2($b, 'info.pdf', "%PDF-1.4\n" . str_repeat('Q', 4000) . "\n%%EOF\n", ['folder' => (string) $reiseId, 'intent' => 'file', 'gallery' => (string) $g1]);
+check('Upload: PDF (intent file) wird Datei im Ordner, nie in einer Galerie, Audit file_uploaded', ($pdfU['file_id'] ?? 0) > 0 && (int) $db->value('SELECT folder_id FROM files WHERE id = ?', [$pdfU['file_id']]) === $reiseId && $pdfU['kind'] === 'pdf' && $auditCount('file_uploaded') >= 1 && (int) $db->value('SELECT COUNT(*) FROM gallery_photos WHERE gallery_id = ?', [$g1]) === 2);
+$badU = $up2($b, 'bose.pdf', '<html><script>alert(1)</script></html>' . str_repeat(' ', 100), ['folder' => (string) $reiseId, 'intent' => 'file']);
+check('Upload: HTML als .pdf wird beim Abschluss abgelehnt, nichts gespeichert, Teilstück weg', isset($badU['error']) && glob($svc->dataDir . '/uploads/*.part') === []);
+$pngSmall = (static function (): string {
+    $im = imagecreatetruecolor(8, 8);
+    ob_start();
+    imagepng($im);
+    return (string) ob_get_clean();
+})();
+$big5 = $up2($b, 'gross.png', $pngSmall . str_repeat("\0", 5 * 1048576 + 10), ['intent' => 'file'], 1048576);
+check('Upload: Bild als Datei über 5 MB wird beim Abschluss abgelehnt, nichts gespeichert', isset($big5['error']) && str_contains($big5['error'], 'zu groß') && (int) $db->value("SELECT COUNT(*) FROM files WHERE name = 'gross.png'") === 0);
+// Fortsetzen (H2)
+$bytesR = lk_jpeg(400, 300);
+$fpR = hash('sha256', 'fortsetzen');
+$half = $up2($b, 'fortsetzen.jpg', $bytesR, ['folder' => (string) $reiseId, 'fp' => $fpR], 1000, false);
+$again = json_decode($b->post('/admin/upload/start', ['_csrf' => TestBrowser::csrf($b->get('/admin/medien')), 'name' => 'fortsetzen.jpg', 'size' => (string) strlen($bytesR), 'folder' => (string) $reiseId, 'fp' => $fpR])->body, true);
+check('Fortsetzen: gleiche Datei (Ordner, Name, Größe, Fingerabdruck) → vorhandene Upload-Kennung ab dem Stand', $half['stage'] === 'half' && $again['id'] === $half['id'] && $again['received'] > 0 && $again['received'] < strlen($bytesR));
+$other = json_decode($b->post('/admin/upload/start', ['_csrf' => TestBrowser::csrf($b->get('/admin/medien')), 'name' => 'fortsetzen.jpg', 'size' => (string) strlen($bytesR), 'folder' => (string) $reiseId, 'fp' => hash('sha256', 'andere Fassung')])->body, true);
+check('Fortsetzen: gleiche Größe, anderer Fingerabdruck → neue Datei, keine Mischung', $other['id'] !== $half['id'] && $other['received'] === 0);
+$noFp = json_decode($b->post('/admin/upload/start', ['_csrf' => TestBrowser::csrf($b->get('/admin/medien')), 'name' => 'fortsetzen.jpg', 'size' => (string) strlen($bytesR), 'folder' => (string) $reiseId])->body, true);
+check('Fortsetzen: ohne Fingerabdruck nie fortsetzen', $noFp['id'] !== $half['id'] && $noFp['received'] === 0);
+$resume = $up2($b, 'fortsetzen.jpg', $bytesR, ['folder' => (string) $reiseId, 'fp' => $fpR], 1000);
+check('Fortsetzen: Rest wird gesendet, Foto vollständig und lesbar', ($resume['photo_id'] ?? 0) > 0 && $db->value('SELECT bytes FROM photos WHERE id = ?', [$resume['photo_id']]) == strlen($bytesR));
+// „schon vorhanden“ im Plan nur mit Fingerabdruck
+$sk = $pj($plan($b, ['target' => 0, 'folders' => [['path' => ['Reise']]], 'files' => [
+    ['f' => 0, 'name' => 'fortsetzen.jpg', 'size' => strlen($bytesR), 'fp' => $fpR],
+    ['f' => 0, 'name' => 'fortsetzen.jpg', 'size' => strlen($bytesR), 'fp' => hash('sha256', 'neu exportiert')],
+    ['f' => 0, 'name' => 'fortsetzen.jpg', 'size' => strlen($bytesR)],
+]]));
+check('Plan: „schon vorhanden“ nur bei Ordner, Name, Größe UND Fingerabdruck (neu exportierte Datei gleicher Größe wird nicht übersprungen)', $sk['files'][0]['skip'] === true && $sk['files'][1]['skip'] === false && $sk['files'][2]['skip'] === false);
+// Abbruch räumt auf
+$ab = $pj($plan($b, ['target' => 0, 'folders' => [['path' => ['Abbruch', 'Leer'], 'gallery' => true], ['path' => ['Abbruch', 'Belegt']]], 'files' => []]));
+$abBelegt = (int) $ab['folders'][1]['id'];
+$phAb = $mk(333, $abBelegt, 'bleibt.jpg');
+$can = $pj($b->request('POST', '/admin/medien/plan/abbrechen', ['plan' => $ab['plan']], ['HTTP_X_CSRF_TOKEN' => TestBrowser::csrf($b->get('/admin/medien'))]));
+check('Abbruch: leere Ordner und Galerien des Laufs entfernt, belegte bleiben', $can['ok'] === true && $db->value("SELECT 1 FROM folders WHERE name_key = 'leer'") === null && $db->value("SELECT 1 FROM galleries WHERE title = 'Leer'") === null && $db->value('SELECT 1 FROM folders WHERE id = ?', [$abBelegt]) !== null && $db->value("SELECT 1 FROM folders WHERE name_key = 'abbruch'") !== null);
+check('Abbruch: fremde oder ungültige Plan-Kennung tut nichts', $pj($b->request('POST', '/admin/medien/plan/abbrechen', ['plan' => '../..'], ['HTTP_X_CSRF_TOKEN' => TestBrowser::csrf($b->get('/admin/medien'))]))['ok'] === true);
+// Plan-Reste nach 24 Stunden
+$ghost = $pj($plan($b, ['target' => 0, 'folders' => [['path' => ['Geist'], 'gallery' => true]], 'files' => []]));
+$m['clock']->advance(86400 + 120);
+$b = lk_login($m, 'lutz', TEST_PASSWORD, $s['secret']);
+$plan($b, ['target' => 0, 'folders' => [], 'files' => []]);
+check('Plan: liegengelassener Plan (Tab geschlossen) wird nach 24 Stunden aufgeräumt, wenn leer', $db->value("SELECT 1 FROM folders WHERE name_key = 'geist'") === null && $db->value("SELECT 1 FROM galleries WHERE title = 'Geist'") === null);
+// Audit: eine Sammelzeile je Lauf
+check('Protokoll: Ordner-Upload schreibt eine Sammelzeile je Lauf ohne Namen (folders=,files=,galleries=)', preg_match('/^folders=\d+,files=\d+,galleries=\d+$/', (string) $db->value("SELECT detail FROM audit_log WHERE event = 'media_upload_run' ORDER BY id DESC LIMIT 1")) === 1 && $svc->audit->verify()['ok']);
+// Begrenzung der Pläne je Stunde
+$last = 0;
+for ($i = 0; $i < 22; $i++) {
+    $last = $plan($b, ['target' => 0, 'folders' => [['path' => ['Lauf' . $i]]], 'files' => []])->status;
+}
+check('Plan: höchstens 20 Läufe je Stunde (danach 429)', $last === 429);
+check('Protokoll nach allen Läufen weiter gültig', $svc->audit->verify()['ok']);
+
+// ======================= Skript (Block D/E): feste Regeln =======================
+$mj = (string) file_get_contents(dirname(__DIR__) . '/public/assets/js/medien.js');
+check('Skript: Ausgabe nur per textContent (kein innerHTML, outerHTML, insertAdjacentHTML, document.write, eval)', !preg_match('/innerHTML|outerHTML|insertAdjacentHTML|document\.write|\beval\(|new Function/', $mj));
+check('Skript: Ordner werden bis „leer“ gelesen (readEntries in der Schleife), webkitGetAsEntry synchron, Fallback webkitdirectory', str_contains($mj, 'readEntries') && str_contains($mj, 'if (!batch.length)') && str_contains($mj, 'webkitGetAsEntry') && str_contains($mj, 'webkitRelativePath'));
+check('Skript: Versteck- und Systemdateien, natürliche Sortierung, Fingerabdruck, Höchstzahl 5000, Abbruch mit Aufräumen', str_contains($mj, 'thumbs.db') && str_contains($mj, 'numeric: true') && str_contains($mj, 'crypto.subtle') && str_contains($mj, 'MAX_FILES = 5000') && str_contains($mj, '/admin/medien/plan/abbrechen'));
+check('Skript: CSRF-Kopf bei jedem ändernden Aufruf, keine fremden Adressen', substr_count($mj, 'X-CSRF-Token') >= 3 && !preg_match('~https?://~', $mj));
+$mp = $b->get('/admin/medien')->body;
+check('Skript: Seite lädt es erst am Ende (defer), Oberfläche ohne Skript bleibt vollständig (Formulare, Hinweis)', str_contains($mp, 'medien.js') && str_contains($mp, 'Zum Hochladen wird JavaScript gebraucht') && str_contains($mp, 'action="/admin/medien/verschieben"') && str_contains($mp, 'formaction="/admin/medien/loeschen"'));

@@ -275,4 +275,11 @@ body.app{padding-inline:0}
 .mreport{border:1px solid var(--line);border-radius:var(--r-card);padding:14px 18px;margin:0 0 16px;background:var(--surface)}.mreport ul{margin:6px 0 0;padding-left:20px}
 .mqtotal{display:flex;gap:12px;align-items:center;margin:0 0 8px;font-size:13px}.mqtotal progress{flex:1;height:8px;accent-color:var(--accent)}
 .empty{padding:40px 0;text-align:center}
-@media (max-width:860px){.medien{grid-template-columns:1fr}.mtree{position:static;max-height:240px}.viewtoggle{margin-left:0}}
+@media (max-width:860px){.medien{grid-template-columns:minmax(0,1fr)}.mtree{position:static;max-height:240px}.viewtoggle{margin-left:0}.mtools input[type=text],.mtools input[type=search]{min-width:0;width:100%}.mtools form.inline{flex:1 1 100%}.mmain .bulkbar select{max-width:100%}}
+.mmain,.mtree{min-width:0}
+.mmain form.inline input[type=text],.mmain form.inline input[type=search],.mmain form.inline select{width:auto;min-width:0;max-width:100%;padding:8px 12px}
+.mmain .bulkbar select{max-width:260px}
+.hero.compact .intro{margin:12px 0 16px}
+.hero.compact h1{margin-bottom:0}
+.mmain .bulkbar input[type=checkbox]{width:auto;margin-right:6px}
+.mmain .bulkbar label.small{display:inline-flex;align-items:center}
