@@ -258,6 +258,8 @@ Reihenfolge: A und B zuerst (Sicherheitskern), dann Opus-Prüfung; danach C und 
 
 ## 10. Offene Fragen an Lutz (mit Empfehlung)
 
+**Entschieden von Lutz am 18.11.2026 wie empfohlen: E1, E3 (mit E3b), E4, E5, E7.** Noch offen: E2, E6, E8 bis E12 (jeweils mit Empfehlung; gelten als angenommen, wenn Lutz nichts anderes sagt).
+
 | Nr. | Frage | Empfehlung |
 |---|---|---|
 | **E1** | Ordner nur in der Datenbank (Dateien weiter unter Zufallsnamen), oder echte Ordner auf der Festplatte? | **Nur Datenbank.** Sicher gegen Pfadangriffe, Umbenennen und Verschieben sind sofort und ohne Dateiarbeit, funktioniert gleich auf all-inkl und Docker. Nachteil: Man kann die Ordner nicht per FTP durchsehen (die Dateien tragen Zufallsnamen); dafür gibt es später bei Bedarf einen Export. |
