@@ -35,6 +35,12 @@ final class App
     public function handle(Request $request): Response
     {
         $path = $request->path();
+        // Andere Adressen der Seite (www/ohne www, alte Testadresse) in einem Schritt auf die Hauptadresse (Entwurf 20, E4/M1).
+        // Nur eingetragene Hosts (LK_REDIRECT_HOSTS); Zwischenspeicher kurz, damit ein Rückfall möglich bleibt.
+        $host = $request->host();
+        if ($host !== '' && $host !== $this->config->baseHost() && $this->config->baseHost() !== '' && in_array($host, $this->config->redirectHosts(), true)) {
+            return Response::redirect($this->config->baseUrl() . $request->requestUri(), 301)->withHeaders(['Cache-Control' => 'public, max-age=3600']);
+        }
         if ($path === '/admin' || str_starts_with($path, '/admin/')) {
             try {
                 $this->admin ??= new AdminController($this->services(), $this->view, $this->config);

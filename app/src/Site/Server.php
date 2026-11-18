@@ -33,7 +33,9 @@ final class Server
         }
         $to = $this->redirectFor($root, $path);
         if ($to !== null) {
-            return Response::redirect($to, 301);
+            // Umzugs-Weiterleitung: in der Übergangszeit nur kurz im Browser merken (Rückfall auf die alte Seite, Entwurf 20, M2).
+            $r = Response::redirect($to, 301);
+            return $this->config->redirectsPermanent() ? $r : $r->withHeaders(['Cache-Control' => 'public, max-age=3600']);
         }
         if (in_array($path, ['/robots.txt', '/sitemap.xml'], true)) {
             $file = $root . $path;

@@ -155,6 +155,39 @@ final class Config
         return $this->bool('LK_NOINDEX');
     }
 
+    /**
+     * Adressen, die auf die Hauptadresse (LK_BASE_URL) weitergeleitet werden, z. B. br-foto.com und lichtkammer.br-foto.com,
+     * wenn www.br-foto.com die Hauptadresse ist. Nur eingetragene Hosts werden umgeleitet (Entwurf 20, E4/M1).
+     *
+     * @return list<string>
+     */
+    public function redirectHosts(): array
+    {
+        $out = [];
+        foreach (preg_split('/[\s,]+/', strtolower($this->get('LK_REDIRECT_HOSTS'))) ?: [] as $h) {
+            if (preg_match('/^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/', $h) === 1) {
+                $out[] = $h;
+            }
+        }
+        return $out;
+    }
+
+    /** Host der Hauptadresse (ohne Port), leer ohne LK_BASE_URL. */
+    public function baseHost(): string
+    {
+        return strtolower((string) (parse_url($this->baseUrl(), PHP_URL_HOST) ?? ''));
+    }
+
+    /**
+     * Umzugs-Weiterleitungen (alte Adresse -> neue Adresse) als dauerhaftes 301 für Browser. Standard: nein, sie gelten nur
+     * eine Stunde im Browser-Zwischenspeicher, damit ein Rückfall auf die alte Seite nicht an gemerkten Weiterleitungen hängt
+     * (Entwurf 20, M2). Nach der Übergangszeit (14 Tage) auf 1 stellen.
+     */
+    public function redirectsPermanent(): bool
+    {
+        return $this->bool('LK_REDIRECTS_PERMANENT');
+    }
+
     public function int(string $key, int $default): int
     {
         $v = $this->get($key, '');

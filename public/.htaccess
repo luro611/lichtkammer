@@ -5,10 +5,21 @@ DirectoryIndex index.html index.php
 
 <IfModule mod_rewrite.c>
 RewriteEngine On
+# Authorization-Kopf an PHP durchreichen (Apache mit PHP-FPM verwirft ihn sonst; für den Sicherungsabruf, Prüfung 21 M4).
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+# HTTP -> HTTPS (all-inkl: Variable HTTPS; Docker hinter Proxy: X-Forwarded-Proto). Ausgenommen: Anfragen von localhost
+# (Healthcheck, Entwicklung), /health und die Prüfung des Zertifikats (.well-known). Prüfung 21 M3.
+RewriteCond %{ENV:REDIRECT_STATUS} ^$
+RewriteCond %{HTTPS} !=on
+RewriteCond %{HTTP:X-Forwarded-Proto} !^https$ [NC]
+RewriteCond %{REMOTE_ADDR} !^(127\.0\.0\.1|::1)$
+RewriteCond %{REQUEST_URI} !^/health$
+RewriteCond %{REQUEST_URI} !^/\.well-known/
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
 # Nichtöffentliches nie ausliefern, auch wenn es im Webroot liegt (all-inkl).
 RewriteRule ^(app|data|originals|tests|docker|deploy|import|restore)(/|$) - [F,L]
 RewriteRule (^|/)\.(?!well-known/) - [F,L]
-RewriteRule \.(env|sqlite|sqlite3|db|log)$ - [F,L]
+RewriteRule \.(env|sqlite|sqlite3|db|log|bak|sql|zip|md)$ - [F,L]
 # Existierende Dateien (auch fertige Seiten) direkt, alles andere an den Router.
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
@@ -21,6 +32,8 @@ RewriteRule ^ index.php [L]
 AddOutputFilterByType DEFLATE text/html text/css application/javascript text/javascript application/xml text/plain image/svg+xml
 </IfModule>
 <IfModule mod_headers.c>
+# Auch für Dateien, die Apache selbst ausliefert (/assets, /media): kein Inhaltsraten (Prüfung 21 N1).
+Header always set X-Content-Type-Options "nosniff"
 <FilesMatch "\.(css|js)$">
 Header set Cache-Control "public, max-age=31536000, immutable"
 </FilesMatch>

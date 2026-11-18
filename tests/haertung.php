@@ -225,3 +225,38 @@ $mv2 = $rF->moveOriginals();
 check('Originale: vorhandene Datei am Ziel wird nie überschrieben', $mv2['moved'] === 0 && file_get_contents($F['config']->originalsDir() . '/' . $photoRel) === 'schon-da-anderer-inhalt');
 $ht = (string) file_get_contents(__DIR__ . '/../public/.htaccess');
 check('.htaccess sperrt den Bereitstellungsordner restore/', str_contains($ht, '|restore)'));
+
+// ======================= M1/M2/M4: Hauptadresse, Weiterleitungen, Authorization =======================
+$G = lk_make($h . '/qG', ['LK_BASE_URL' => 'https://www.lk.test', 'LK_REDIRECT_HOSTS' => 'lk.test, alt.lk.test']);
+$go = static fn (string $host, string $uri, array $extra = []): \Lichtkammer\Response => $G['app']->handle(new Request(['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => $uri, 'HTTP_HOST' => $host, 'HTTPS' => 'on'] + $extra, $G['config']));
+$r1 = $go('lk.test', '/galerien/island/?x=1');
+check('Host-Umleitung: Neben-Adresse → Hauptadresse in einem Schritt, Pfad und Query bleiben', $r1->status === 301 && $r1->headers['Location'] === 'https://www.lk.test/galerien/island/?x=1');
+check('Host-Umleitung: kurzer Zwischenspeicher (Rückfall bleibt möglich)', ($r1->headers['Cache-Control'] ?? '') === 'public, max-age=3600');
+check('Host-Umleitung: zweite eingetragene Adresse und Port im Host', $go('alt.lk.test:443', '/x')->status === 301 && $go('LK.TEST', '/x')->status === 301);
+check('Host-Umleitung: die Hauptadresse selbst wird nicht umgeleitet', $go('www.lk.test', '/robots.txt')->status !== 301);
+check('Host-Umleitung: nicht eingetragene Hosts (localhost, IP, Fremdes) werden nicht umgeleitet', $go('localhost', '/health')->status === 200 && $go('203.0.113.5', '/x')->status !== 301 && $go('evil.test', '/x')->status !== 301);
+$r2 = $go('lk.test', "/\\evil.example/x\r\nSet-Cookie: a=b");
+check('Host-Umleitung: Backslash und Steuerzeichen in der Adresse können das Ziel nicht verändern', $r2->status === 301 && str_starts_with($r2->headers['Location'], 'https://www.lk.test/') && !str_contains($r2->headers['Location'], "\r") && !str_contains($r2->headers['Location'], "\n") && !str_contains($r2->headers['Location'], '\\'));
+check('Host-Umleitung: ohne LK_REDIRECT_HOSTS tut sich nichts', (new \Lichtkammer\App($allInkl($h . '/qG2', ['LK_ORIGINALS_DIR' => $h . '/qG2-o', 'LK_BASE_URL' => 'https://www.lk.test']), null, TEST_ARGON))->handle(new Request(['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => '/x', 'HTTP_HOST' => 'lk.test'], $allInkl($h . '/qG2', [])))->status !== 301);
+
+// Umzugs-Weiterleitung aus einer Fassung: kurzer Zwischenspeicher, mit LK_REDIRECTS_PERMANENT=1 dauerhaft
+foreach ([0, 1] as $perm) {
+    $Gm = lk_make($h . '/qH' . $perm, ['LK_REDIRECTS_PERMANENT' => (string) $perm]);
+    $rel = $Gm['config']->dataDir() . '/site/releases/20261118-120000-abcd';
+    mkdir($rel, 0777, true);
+    file_put_contents($rel . '/_redirects.json', json_encode(['/alt/seite' => '/neu/seite/']));
+    file_put_contents($Gm['config']->dataDir() . '/site/current', '20261118-120000-abcd');
+    $rr = $Gm['app']->handle(new Request(['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => '/alt/seite', 'HTTPS' => 'on'], $Gm['config']));
+    check($perm === 0 ? 'Umzugs-Weiterleitung: 301 mit kurzem Zwischenspeicher (Standard in der Übergangszeit)' : 'Umzugs-Weiterleitung: mit LK_REDIRECTS_PERMANENT=1 dauerhaft ohne Ablaufzeit',
+        $rr->status === 301 && $rr->headers['Location'] === '/neu/seite/' && (($rr->headers['Cache-Control'] ?? '') === 'public, max-age=3600') === ($perm === 0));
+}
+
+// Authorization-Kopf: direkt und über Apaches REDIRECT_-Variante
+check('Authorization: direkter Kopf wird gelesen', (new Request(['HTTP_AUTHORIZATION' => 'Bearer abc'], $G['config']))->header('Authorization') === 'Bearer abc');
+check('Authorization: REDIRECT_HTTP_AUTHORIZATION (Apache/FPM) wird gelesen', (new Request(['REDIRECT_HTTP_AUTHORIZATION' => 'Bearer xyz'], $G['config']))->header('Authorization') === 'Bearer xyz');
+check('Eigener Kopf als Ausweichweg', (new Request(['HTTP_X_LICHTKAMMER_TOKEN' => 'tok'], $G['config']))->header('X-Lichtkammer-Token') === 'tok');
+
+// .htaccess: Regeln vorhanden (die Wirkung wurde gegen echten Apache im Docker-Image geprüft, siehe Bericht)
+$ht = (string) file_get_contents(__DIR__ . '/../public/.htaccess');
+check('.htaccess: HTTP→HTTPS mit Ausnahmen (localhost, /health, .well-known) und nur für die erste Anfrage', str_contains($ht, 'RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]') && str_contains($ht, '!^/health$') && str_contains($ht, 'well-known') && str_contains($ht, '%{ENV:REDIRECT_STATUS} ^$') && str_contains($ht, '127\.0\.0\.1'));
+check('.htaccess: Authorization wird durchgereicht, nosniff für Apache-Dateien, bak/sql/zip gesperrt', str_contains($ht, 'E=HTTP_AUTHORIZATION') && str_contains($ht, 'X-Content-Type-Options "nosniff"') && str_contains($ht, '|bak|sql|zip|md)'));

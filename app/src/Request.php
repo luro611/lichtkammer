@@ -65,7 +65,11 @@ final class Request
     /** Kopfzeile, z. B. header('X-CSRF-Token'). */
     public function header(string $name): string
     {
-        $v = $this->server['HTTP_' . strtoupper(str_replace('-', '_', $name))] ?? '';
+        $key = 'HTTP_' . strtoupper(str_replace('-', '_', $name));
+        $v = $this->server[$key] ?? '';
+        if ($v === '' && $key === 'HTTP_AUTHORIZATION') { // Apache mit PHP-FPM: kommt über RewriteRule [E=…] als REDIRECT_…
+            $v = $this->server['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
+        }
         return is_string($v) ? $v : '';
     }
 
@@ -92,6 +96,22 @@ final class Request
     }
 
     /** Maßgeblich ist nur REMOTE_ADDR (in Docker setzt mod_remoteip sie für vertraute Proxys). */
+    /** Angefragter Host, klein geschrieben, ohne Port; leer, wenn ungültig. */
+    public function host(): string
+    {
+        $h = strtolower(trim((string) ($this->server['HTTP_HOST'] ?? '')));
+        $h = preg_replace('/:\d+$/', '', $h) ?? '';
+        return preg_match('/^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/', $h) === 1 ? $h : '';
+    }
+
+    /** Pfad und Query der Anfrage, immer mit führendem Schrägstrich, ohne Steuerzeichen. */
+    public function requestUri(): string
+    {
+        $uri = (string) ($this->server['REQUEST_URI'] ?? '/');
+        $uri = preg_replace('/[\x00-\x20\x7f\\\\]/', '', $uri) ?? '/';
+        return '/' . ltrim($uri, '/');
+    }
+
     public function remoteAddr(): string
     {
         return (string) ($this->server['REMOTE_ADDR'] ?? '');
