@@ -143,6 +143,13 @@ foreach ($designs as $dd) {
 $planBlau = $svc->builder->plan();
 check('Design öffentlich: nach dem Wechsel zeigt der Probelauf Seiten als geändert (alle erzeugten Seiten, nicht nur eine)', $planWarm['changes'] === [] && count(array_filter($planBlau['changes'], static fn ($c) => $c['kind'] === 'geändert')) >= 3);
 $b->post('/admin/einstellungen', ['_csrf' => $csrf, 'site_name' => 'br.foto', 'tagline' => 'Licht & <Schatten>', 'hero_photo_id' => (string) $p3, 'design' => 'warm']);
+// Genau die Felder des echten Formulars (Radio design, hero_form, angekreuztes hero_show): Wahl bleibt nach dem Neuladen gewählt, Vorschau folgt sofort, Besucherseite bleibt Warm
+$b->post('/admin/einstellungen', ['_csrf' => $csrf, 'site_name' => 'br.foto', 'tagline' => 'Licht & <Schatten>', 'hero_form' => '1', 'hero_show' => '1', 'hero_photo_id' => (string) $p3, 'design' => 'studio']);
+$afterForm = $b->get('/admin/einstellungen');
+check('Design öffentlich: echtes Formular (mit hero_form/hero_show) speichert, Wahl bleibt nach dem Neuladen markiert', str_contains($afterForm->body, 'name="design" value="studio" checked') && !str_contains($afterForm->body, 'name="design" value="warm" checked') && $svc->settings->all()['design'] === 'studio' && $svc->settings->all()['hero_show'] === true);
+$pvForm = $b->get('/admin/vorschau');
+check('Design öffentlich: Vorschau direkt danach mit neuem Design, nicht zwischenspeicherbar, Stylesheet eingebunden', str_contains($pvForm->body, '<html lang="de" data-design="studio">') && ($pvForm->headers['Cache-Control'] ?? '') === 'no-store' && str_contains($pvForm->body, '/assets/css/site.css') && str_contains($anon->get('/')->body, 'data-design="warm"'));
+$b->post('/admin/einstellungen', ['_csrf' => $csrf, 'site_name' => 'br.foto', 'tagline' => 'Licht & <Schatten>', 'hero_form' => '1', 'hero_show' => '1', 'hero_photo_id' => (string) $p3, 'design' => 'warm']);
 check('Design öffentlich: zurück auf Warm ergibt dieselben Dateien wie vorher (keine Änderung gegenüber der Fassung)', $svc->builder->plan()['changes'] === $planWarm['changes']);
 check('Design öffentlich: Protokoll ohne Designwert, nur Ereignis', (int) $db->value("SELECT COUNT(*) FROM audit_log WHERE event='settings_saved'") >= 1);
 check('Öffentlich: Hero-Foto aus Entwurfsgalerie wird nicht genommen, stattdessen Titelbild der ersten Galerie', preg_match('/<img src="\/media\/([^"]+)"[^>]*class="hero-pic"/', $home->body, $hm) === 1 && str_contains($hm[1], (string) $db->value('SELECT token FROM photos WHERE id = ?', [$p2])));
