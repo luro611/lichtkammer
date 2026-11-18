@@ -126,9 +126,12 @@ final class Folders
     /** Neuer Ordner. Gibt es den Namen schon, ist das ein Fehler (anders als ensure). @throws MediaException */
     public function create(int $parent, string $name): int
     {
+        if (str_contains($name, '/')) { // wie beim Umbenennen: ein Name enthält nie einen Schrägstrich
+            throw new MediaException('Ein Name darf keinen Schrägstrich enthalten.');
+        }
         $c = Names::clean($name);
-        $this->mustBeUsable($parent);
         return $this->db->tx(function () use ($parent, $c): int {
+            $this->mustBeUsable($parent); // innerhalb der Transaktion: kein Anlegen unter einem Ordner, der gerade in den Papierkorb kam
             if ($this->db->value('SELECT 1 FROM folders WHERE parent_id = ? AND name_key = ? AND deleted_at IS NULL', [$parent, $c['key']]) !== null) {
                 throw new MediaException('Diesen Namen gibt es hier schon.');
             }
@@ -147,8 +150,8 @@ final class Folders
      */
     public function ensurePath(int $parent, array $segments): array
     {
-        $this->mustBeUsable($parent);
         return $this->db->tx(function () use ($parent, $segments): array {
+            $this->mustBeUsable($parent);
             $created = [];
             $cur = $parent;
             foreach ($segments as $seg) {
@@ -373,8 +376,23 @@ final class Folders
     }
 
     /**
-     * Löscht Ordnerzeilen endgültig, wenn kein lebender Inhalt mehr daran hängt. Fotos und Dateien müssen vorher
-     * endgültig entfernt sein. Einzeln gelöschte Fotos, die noch auf den Ordner zeigen, kommen in die Wurzel.
+     * Wie finishTrash, aber wiederholt in Stapeln, bis nichts mehr offen ist oder die Zeit um ist. Gelöschte Fotos sollen nicht
+     * länger als nötig über ihre Bildadressen abrufbar sein (nur ein Stapel je Aufruf ließ bei großen Zweigen den Rest stehen).
+     *
+     * @return int noch offene Fotos
+     */
+    public function finishTrashWithin(string $mediaDir, float $seconds): int
+    {
+        $deadline = microtime(true) + $seconds;
+        do {
+            $left = $this->finishTrash($mediaDir);
+        } while ($left > 0 && microtime(true) < $deadline);
+        return $left;
+    }
+
+    /**
+     * Löscht Ordnerzeilen endgültig. Fotos und Dateien müssen vorher endgültig entfernt sein. Alles, was noch auf den Ordner
+     * zeigt (einzeln gelöschte oder durch ein Rennen lebende Fotos, Dateien, Unterordner), kommt in die Wurzel.
      *
      * @param list<int> $ids Kennungen von Zeilen im Papierkorb
      */
@@ -387,9 +405,17 @@ final class Folders
                 if ($f === null) {
                     continue;
                 }
-                $live = $this->db->value('SELECT 1 FROM photos WHERE folder_id = ? AND deleted_at IS NULL UNION ALL SELECT 1 FROM files WHERE folder_id = ? AND deleted_at IS NULL UNION ALL SELECT 1 FROM folders WHERE parent_id = ? AND deleted_at IS NULL LIMIT 1', [$id, $id, $id]);
-                if ($live !== null) {
-                    throw new MediaException('Der Ordner ist nicht leer und wird nicht endgültig gelöscht.');
+                // Lebender Inhalt unter einem Ordner im Papierkorb entsteht nur durch ein Rennen (Upload oder Anlegen läuft, während
+                // der Ordner gelöscht wird). Er wird nie mitgelöscht und blockiert auch nichts: er kommt in die Wurzel.
+                foreach ($this->db->all('SELECT id, name, name_key FROM folders WHERE parent_id = ? AND deleted_at IS NULL', [$id]) as $kid) {
+                    $name = (string) $kid['name'];
+                    $key = (string) $kid['name_key'];
+                    for ($i = 2; $this->db->value('SELECT 1 FROM folders WHERE parent_id = 0 AND name_key = ? AND deleted_at IS NULL', [$key]) !== null; $i++) {
+                        $n2 = Names::clean($kid['name'] . ' (gerettet ' . $i . ')');
+                        $name = $n2['name'];
+                        $key = $n2['key'];
+                    }
+                    $this->db->run('UPDATE folders SET parent_id = 0, name = ?, name_key = ?, updated_at = ? WHERE id = ?', [$name, $key, $this->clock->now(), $kid['id']]);
                 }
                 $this->db->run('UPDATE photos SET folder_id = NULL WHERE folder_id = ?', [$id]);
                 $this->db->run('UPDATE files SET folder_id = 0 WHERE folder_id = ?', [$id]);

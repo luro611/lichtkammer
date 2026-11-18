@@ -396,6 +396,22 @@ HT;
         return $n;
     }
 
+    /**
+     * Öffentliche Kopien von Dateien im Papierkorb entfernen (auch Dateien, die mit ihrem Ordner gelöscht wurden: Folders::trash
+     * ändert nur Datenbankzeilen). Wiederholbar, in Stapeln; übernommene Altdateien (legacy) bleiben bewusst erreichbar.
+     *
+     * @return int Anzahl bereinigter Dateien
+     */
+    public function unpublishTrashed(int $limit = 200): int
+    {
+        $n = 0;
+        foreach ($this->db->all("SELECT * FROM files WHERE deleted_at IS NOT NULL AND public = 1 AND legacy_public_path = '' LIMIT " . $limit) as $f) {
+            $this->removeCopy($f);
+            $n += $this->db->run("UPDATE files SET public = 0, public_name = '' WHERE id = ?", [$f['id']])->rowCount();
+        }
+        return $n;
+    }
+
     /** Einzeln gelöschte Dateien zurückholen (Zweige nur über den Ordner). @param list<int> $ids */
     public function restore(array $ids): int
     {

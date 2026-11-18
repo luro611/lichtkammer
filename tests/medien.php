@@ -521,6 +521,41 @@ $sk = $pj($plan($b, ['target' => 0, 'folders' => [['path' => ['Reise']]], 'files
 ]]));
 check('Plan: „schon vorhanden“ nur bei Ordner, Name, Größe UND Fingerabdruck (neu exportierte Datei gleicher Größe wird nicht übersprungen)', $sk['files'][0]['skip'] === true && $sk['files'][1]['skip'] === false && $sk['files'][2]['skip'] === false);
 // Abbruch räumt auf
+// ======================= Prüfung 18 (Code): Nachbesserungen =======================
+$pf = $fo->ensurePath(0, ['Pruefung18']);
+$pr = $fi->ingest(1, $wp("%PDF-1.4\npruefung18\n%%EOF\n"), 'p18.pdf', $pf['id']);
+$fi->setPublic($pr['file_id'], true);
+$p18 = (string) $db->value('SELECT public_name FROM files WHERE id = ?', [$pr['file_id']]);
+$r = $b->post('/admin/medien/loeschen', ['_csrf' => $cs(), 'ordner_id' => [(string) $pf['id']], 'ordner' => '0']);
+check('Prüfung 18: Ordner mit öffentlicher Datei gelöscht → öffentliche Kopie sofort weg, Datei privat (nicht erst nach 30 Tagen)', $r->status === 303 && $p18 !== '' && !is_file($mediaDir . '/dateien/' . $p18) && (int) $db->value('SELECT public FROM files WHERE id = ?', [$pr['file_id']]) === 0 && (int) $db->value('SELECT deleted_at IS NOT NULL FROM files WHERE id = ?', [$pr['file_id']]) === 1);
+$fo->restore($pf['id']);
+check('Prüfung 18: Wiederherstellen des Ordners macht die Datei nicht wieder öffentlich', (int) $db->value('SELECT public FROM files WHERE id = ?', [$pr['file_id']]) === 0 && !is_file($mediaDir . '/dateien/' . $p18));
+// Rennen: lebender Inhalt unter einem Ordner im Papierkorb darf das endgültige Löschen nicht blockieren und nie mitgelöscht werden
+$rc = $fo->ensurePath(0, ['Rennen']);
+$rcKid = $fo->ensurePath($rc['id'], ['Kind']);
+$fo->trash($rc['id']);
+$db->run('UPDATE folders SET deleted_at = NULL WHERE id = ?', [$rcKid['id']]); // simuliert: Unterordner entstand gerade noch
+$phRace = $mk(334, $rc['id'], 'rennen.jpg');
+$fo->ensurePath(0, ['Kind']); // Namensgleichheit in der Wurzel
+$rcOk = true;
+try {
+    $fo->purgeRows([$rc['id']]);
+} catch (\Throwable) {
+    $rcOk = false;
+}
+check('Prüfung 18: endgültiges Löschen mit lebendem Rest wirft nicht; Foto und Unterordner landen in der Wurzel (Name mit Zusatz bei Gleichheit)', $rcOk && $db->value('SELECT 1 FROM folders WHERE id = ?', [$rc['id']]) === null && $db->value('SELECT folder_id FROM photos WHERE id = ?', [$phRace]) === null && (int) $db->value('SELECT parent_id FROM folders WHERE id = ?', [$rcKid['id']]) === 0 && str_contains((string) $db->value('SELECT name FROM folders WHERE id = ?', [$rcKid['id']]), 'gerettet'));
+check('Prüfung 18: Ordner anlegen unter einem Ordner im Papierkorb wird abgelehnt; Name mit Schrägstrich ebenso', $thrown(fn () => $fo->create($rc['id'], 'x')) && $thrown(fn () => $fo->create(0, 'a/b')) && $thrown(fn () => $fo->ensurePath($rc['id'], ['x'])));
+check('Prüfung 18: weitere unsichtbare Zeichen (U+061C, U+180E, U+3164) fliegen aus Namen, ein Name nur daraus bekommt den Ersatznamen', Names::clean("a\u{061C}b\u{180E}c\u{3164}d")['name'] === 'abcd' && Names::clean("\u{3164}\u{3164}")['name'] === Names::FOLDER_FALLBACK);
+// gelöschte Fotos: Varianten verschwinden in Stapeln bis zum Ende, nicht nur ein Stapel
+$bigRoot = $fo->ensurePath(0, ['Viele']);
+for ($i = 0; $i < Folders::BATCH + 20; $i++) {
+    $mk(400 + $i, $bigRoot['id'], 'v' . $i . '.jpg');
+}
+$fo->trash($bigRoot['id']);
+$leftBefore = (int) $db->value('SELECT COUNT(DISTINCT photo_id) FROM photo_variants WHERE photo_id IN (SELECT id FROM photos WHERE trash_root_id = ?)', [$bigRoot['id']]);
+$fo->finishTrashWithin($mediaDir, 10.0);
+check('Prüfung 18: Varianten gelöschter Zweige werden bis zum Ende entfernt (mehr als ein Stapel)', $leftBefore > 0 && (int) $db->value('SELECT COUNT(*) FROM photo_variants WHERE photo_id IN (SELECT id FROM photos WHERE trash_root_id = ?)', [$bigRoot['id']]) === 0);
+
 $ab = $pj($plan($b, ['target' => 0, 'folders' => [['path' => ['Abbruch', 'Leer'], 'gallery' => true], ['path' => ['Abbruch', 'Belegt']]], 'files' => []]));
 $abBelegt = (int) $ab['folders'][1]['id'];
 $phAb = $mk(333, $abBelegt, 'bleibt.jpg');

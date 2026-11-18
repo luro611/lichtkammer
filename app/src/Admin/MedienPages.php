@@ -126,7 +126,8 @@ trait MedienPages
         if ($n > 0) {
             $this->auditLog('media_purged', $sess, 'count=' . $n, $req);
         }
-        $this->s->folders->finishTrash($this->config->mediaDir());
+        $this->s->folders->finishTrashWithin($this->config->mediaDir(), 3.0);
+        $this->s->files->unpublishTrashed();
     }
 
     // --- Ordner und Einträge ---
@@ -222,7 +223,8 @@ trait MedienPages
         if ($single > 0) {
             $this->auditLog('media_trashed', $sess, 'count=' . $single, $req);
         }
-        $this->s->folders->finishTrash($this->config->mediaDir());
+        $this->s->files->unpublishTrashed(); // Dateien, die mit einem Ordner gelöscht wurden, sind sofort nicht mehr öffentlich
+        $this->s->folders->finishTrashWithin($this->config->mediaDir(), 15.0);
         return $this->medienBack($from, 'papierkorb', $n + $single);
     }
 

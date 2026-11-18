@@ -16,8 +16,8 @@ final class Names
     public const FOLDER_FALLBACK = 'Unbenannter Ordner';
     public const FILE_FALLBACK = 'Datei';
 
-    /** Steuerzeichen (auch C1), Bidi-Steuerzeichen, Zeichen ohne Breite, Zeilen-/Absatztrenner, Tag-Zeichen, weicher Trennstrich. */
-    private const INVISIBLE = '/[\x{0000}-\x{001F}\x{007F}-\x{009F}\x{00AD}\x{200B}-\x{200F}\x{2028}-\x{202E}\x{2060}-\x{2064}\x{2066}-\x{2069}\x{FEFF}\x{FFF9}-\x{FFFB}\x{E0000}-\x{E007F}]/u';
+    /** Steuerzeichen (auch C1), Bidi-Steuerzeichen (auch U+061C), Zeichen ohne Breite, unsichtbare Füllzeichen (Hangul, Mongolisch), Zeilen-/Absatztrenner, Tag-Zeichen, weicher Trennstrich. */
+    private const INVISIBLE = '/[\x{0000}-\x{001F}\x{007F}-\x{009F}\x{00AD}\x{034F}\x{061C}\x{115F}\x{1160}\x{180E}\x{200B}-\x{200F}\x{2028}-\x{202E}\x{2060}-\x{2069}\x{3164}\x{FEFF}\x{FFA0}\x{FFF9}-\x{FFFB}\x{E0000}-\x{E007F}]/u';
 
     /**
      * @return array{name:string,key:string,changed:bool} changed = Unsichtbares entfernt, gekürzt oder ersetzt (Umbau zu NFC zählt nicht)

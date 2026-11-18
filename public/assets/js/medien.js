@@ -441,6 +441,7 @@
         tokens.push(plan.plan);
         started = true;
         (plan.folders || []).forEach(function (f, i) { if (f.gallery_id && report.galleries.every(function (g) { return g.id !== f.gallery_id; })) { report.galleries.push({ id: f.gallery_id, title: planFolders[i].title }); } });
+        (plan.folders || []).forEach(function (f, i) { if (f.warn) { report.skipped.push([planFolders[i].title || 'Ordner', f.warn]); } });
         if (plan.summary && plan.summary.names_changed) { report.skipped.push([plan.summary.names_changed + ' Ordnername(n)', 'enthielten unsichtbare Zeichen, entfernt']); }
         var idx = 0;
         function nextFile() {
