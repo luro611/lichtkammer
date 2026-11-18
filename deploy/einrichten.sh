@@ -24,7 +24,7 @@ done
 (( PROBE )) && [[ "$MODUS" == token ]] && fehler "--probe gibt es nur zusammen mit --einrichten."
 
 cd "$(dirname "$0")/.."
-DOMAIN="" FTP_HOST="" FTP_USER="" LK_SITE_NAME="" LK_DATA_DIR=""
+DOMAIN="" FTP_HOST="" FTP_USER="" LK_SITE_NAME="" LK_DATA_DIR="" LK_ORIGINALS_DIR=""
 ENVDATEI="${DEPLOY_ENV_DATEI:-deploy/.env}"
 [[ -f "$ENVDATEI" ]] && source "${ENVDATEI:A}"
 [[ -n "$DOMAIN" && -n "$FTP_HOST" && -n "$FTP_USER" ]] || fehler "In deploy/.env fehlen DOMAIN, FTP_HOST oder FTP_USER. Vorlage: deploy/env.beispiel"
@@ -32,8 +32,11 @@ command -v lftp >/dev/null || fehler "lftp fehlt (brew install lftp)."
 
 BASE_URL="https://$DOMAIN"
 SITE_NAME="${LK_SITE_NAME:-Lichtkammer}"
-DATA_DIR="${LK_DATA_DIR:-/www/htdocs/v119013/lichtkammer-data}"
-for w in "$SITE_NAME" "$DATA_DIR" "$DOMAIN"; do
+# Keine Vorgabe mehr im Code (Prüfung 21, N3): beide Ordner kommen aus deploy/.env, beide liegen über dem Webroot.
+[[ -n "$LK_DATA_DIR" && -n "$LK_ORIGINALS_DIR" ]] || fehler "In deploy/.env fehlen LK_DATA_DIR und LK_ORIGINALS_DIR (beide oberhalb des Webroots, z. B. /www/htdocs/vXXXXXX/lichtkammer-data und .../lichtkammer-originals). Vorlage: deploy/env.beispiel"
+DATA_DIR="$LK_DATA_DIR"
+ORIGINALS_DIR="$LK_ORIGINALS_DIR"
+for w in "$SITE_NAME" "$DATA_DIR" "$ORIGINALS_DIR" "$DOMAIN"; do
   [[ "$w" != *[$'\n\r"\'\\']* ]] || fehler "Werte in deploy/.env dürfen keine Zeilenumbrüche, Anführungszeichen oder Backslashes enthalten."
 done
 
@@ -99,6 +102,7 @@ if [[ "$MODUS" == einrichten ]]; then
        LK_APP_KEY=<wird erzeugt, wird nie angezeigt>
        LK_SETUP_TOKEN=<wird erzeugt, wird einmal angezeigt>
        LK_DATA_DIR=$DATA_DIR
+       LK_ORIGINALS_DIR=$ORIGINALS_DIR
 TXT
     echo "  4. Per FTPS nach $FTP_HOST:/app/.env übertragen (Rechte 600), lokale Datei sofort löschen."
     echo "  5. Prüfen, dass $BASE_URL/app/.env 403 oder 404 liefert."
@@ -131,6 +135,7 @@ TXT
     print -r -- "LK_APP_KEY=$KEY"
     print -r -- "LK_SETUP_TOKEN=$TOKEN"
     print -r -- "LK_DATA_DIR=$DATA_DIR"
+    print -r -- "LK_ORIGINALS_DIR=$ORIGINALS_DIR"
   } > "$TMP/.env"
   chmod 600 "$TMP/.env"
   unset KEY

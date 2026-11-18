@@ -52,11 +52,13 @@ LK_NOINDEX=1
 LK_APP_KEY=<hier den Wert aus Schritt 1>
 LK_SETUP_TOKEN=<hier den Wert aus Schritt 1>
 LK_DATA_DIR=/www/htdocs/v119013/lichtkammer-data
+LK_ORIGINALS_DIR=/www/htdocs/v119013/lichtkammer-originals
 ```
 
 - `LK_BASE_URL` ohne Schrägstrich am Ende, mit `https://` (sonst arbeiten die Cookies nicht, `__Host-`-Präfix).
 - `LK_NOINDEX=1` sperrt Suchmaschinen für den Testserver.
 - `LK_DATA_DIR` zeigt **oberhalb** des Webroots (Webroot ist `/www/htdocs/v119013/lichtkammer.br-foto.com/`). Der Ordner `lichtkammer-data` liegt neben den Domain-Ordnern; Lichtkammer legt ihn beim ersten Start selbst an (PHP darf dort schreiben, FTPS nicht). Der Pfad stammt aus `04 Bestandsaufnahme.md`; wenn die Fehlerseite etwas anderes meldet, passt Claude ihn mit dir an.
+- `LK_ORIGINALS_DIR` (Pflicht seit Schritt 8a) liegt ebenfalls **oberhalb** des Webroots, aus demselben Grund: Originale enthalten alle Metadaten, auch GPS. Liegt der Ordner im Webroot, startet der Admin nicht. Ein Testserver, der vor Schritt 8a eingerichtet wurde, wird nach `docs/betrieb/Originale-verschieben.md` umgestellt.
 - Die Datei darf keine Anführungszeichen-Überraschungen enthalten: `NAME=wert`, eine Zeile je Wert, keine Leerzeichen um das `=`.
 
 ## 3. Datei auf den Server legen

@@ -13,6 +13,7 @@ use Lichtkammer\Media\Files;
 use Lichtkammer\Media\Folders;
 use Lichtkammer\Media\Galleries;
 use Lichtkammer\Media\Library;
+use Lichtkammer\Media\OriginalsMover;
 use Lichtkammer\Media\Uploads;
 use Lichtkammer\Site\Builder;
 use Lichtkammer\Site\Pages;
@@ -61,6 +62,7 @@ final class Services
     {
         $clock ??= new Clock();
         $dataDir = Preflight::check($config);
+        OriginalsMover::run($config); // Originale aus dem alten Ordner (Webroot) an den eingestellten Ort, ohne Datenverlust
         $keys = new Keys($config->appKey(), $config->appKeyPrevious());
         $db = Database::open($dataDir . '/lichtkammer.sqlite', $config->sqliteWal());
         $passwords = new Passwords($config->appDir . '/resources/common-passwords.txt', $argonOptions);
