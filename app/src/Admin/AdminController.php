@@ -27,6 +27,7 @@ final class AdminController
     use MedienPages;
     use SitePages;
     use ImportPages;
+    use RestorePages;
 
     private readonly Router $router;
 
@@ -52,6 +53,8 @@ final class AdminController
         $r('POST', '/admin/login/totp', 'totpPost', true);
         $r('GET', '/admin/setup', 'setupForm', true);
         $r('POST', '/admin/setup', 'setupPost', true);
+        $r('GET', '/admin/setup/wiederherstellen', 'restoreSetupForm', true);
+        $r('POST', '/admin/setup/wiederherstellen', 'restoreSetupPost', true);
         $r('GET', '/admin/enroll', 'enrollForm', true);
         $r('POST', '/admin/enroll', 'enrollPost', true);
         $r('GET', '/admin/invite/{token}', 'inviteForm', true);
@@ -136,6 +139,8 @@ final class AdminController
         $r('POST', '/admin/import/schritt', 'importStep', false, 'admin');
         $r('POST', '/admin/import/abschluss', 'importFinish', false, 'admin');
         $r('POST', '/admin/import/loeschen', 'importPurge', false, 'admin');
+        $r('GET', '/admin/wiederherstellung', 'restorePage', false, 'admin');
+        $r('POST', '/admin/wiederherstellung/weiter', 'restoreStep', false, 'admin');
         $r('GET', '/admin/users', 'users', false, 'admin');
         $r('POST', '/admin/users/invite', 'usersInvite', false, 'admin');
         $r('POST', '/admin/users/{id}/{action}', 'usersAction', false, 'admin');
@@ -235,6 +240,10 @@ final class AdminController
         $b = Preflight::warnings($this->config, $this->s->dataDir);
         $b = array_merge($b, $this->s->enrollment->tokenWarnings());
         if ($sess['role'] === 'admin') {
+            $pend = (new \Lichtkammer\Backup\Restore($this->config))->pendingOriginals();
+            if ($pend > 0) {
+                $b[] = $pend . ' Original(e) aus der eingespielten Sicherung warten noch im Bereitstellungsordner: Verwaltung → Sicherung (/admin/wiederherstellung).';
+            }
             $recent = $this->s->db->value("SELECT 1 FROM audit_log WHERE event = 'emergency_reset' AND at > ?", [$this->s->clock->now() - 7 * 86400]);
             if ($recent !== null) {
                 $b[] = 'Ein Konto wurde in den letzten 7 Tagen über das Notfall-Token zurückgesetzt. Bitte im Protokoll prüfen, ob du das warst.';

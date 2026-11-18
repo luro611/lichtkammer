@@ -14,4 +14,5 @@
       <input name="password" type="password" autocomplete="new-password" minlength="12" required></label>
     <button class="btn" type="submit">Weiter</button>
   </form>
+  <p class="small"><a href="/admin/setup/wiederherstellen">Stattdessen eine Sicherung einspielen</a> (neuer Server, Umzug)</p>
 </section>

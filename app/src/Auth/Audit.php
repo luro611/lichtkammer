@@ -17,7 +17,7 @@ final class Audit
         'gallery_saved', 'gallery_deleted', 'gallery_published', 'photos_saved', 'photos_trashed', 'photos_restored', 'photos_purged',
         'page_saved', 'page_deleted', 'settings_saved', 'site_published', 'site_rolled_back', 'import_run', 'import_finished', 'import_purged',
         'device_trusted', 'device_trust_used', 'device_trust_rejected',
-        'folder_created', 'folder_renamed', 'media_moved', 'media_trashed', 'media_restored', 'media_purged', 'file_uploaded', 'file_renamed', 'file_public_changed', 'folder_gallery_created', 'media_upload_run',
+        'folder_created', 'folder_renamed', 'media_moved', 'media_trashed', 'media_restored', 'media_purged', 'file_uploaded', 'file_renamed', 'file_public_changed', 'folder_gallery_created', 'media_upload_run', 'backup_restored', 'originals_restored',
     ];
 
     public function __construct(private readonly Database $db, private readonly Keys $keys, private readonly Clock $clock)

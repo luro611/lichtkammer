@@ -112,6 +112,16 @@ final class Config
         return $this->path('LK_IMPORT_DIR', $this->dataDir() . '/import');
     }
 
+    /**
+     * Bereitstellungsordner für eine Sicherung, die eingespielt werden soll (Entwurf 20, H2). Auf all-inkl legt man die Sicherung
+     * per FTPS in einen Ordner im Webroot (LK_RESTORE_DIR, z. B. <Webroot>/restore); die App sperrt ihn per .htaccess.
+     * Standard: <Datenordner>/restore.
+     */
+    public function restoreDir(): string
+    {
+        return $this->path('LK_RESTORE_DIR', $this->dataDir() . '/restore');
+    }
+
     /** Erzeugte öffentliche Bildvarianten. Standard: <public>/media. */
     public function mediaDir(): string
     {

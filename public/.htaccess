@@ -6,7 +6,7 @@ DirectoryIndex index.html index.php
 <IfModule mod_rewrite.c>
 RewriteEngine On
 # Nichtöffentliches nie ausliefern, auch wenn es im Webroot liegt (all-inkl).
-RewriteRule ^(app|data|originals|tests|docker|deploy|import)(/|$) - [F,L]
+RewriteRule ^(app|data|originals|tests|docker|deploy|import|restore)(/|$) - [F,L]
 RewriteRule (^|/)\.(?!well-known/) - [F,L]
 RewriteRule \.(env|sqlite|sqlite3|db|log)$ - [F,L]
 # Existierende Dateien (auch fertige Seiten) direkt, alles andere an den Router.
