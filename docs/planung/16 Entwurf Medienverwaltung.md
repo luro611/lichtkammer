@@ -30,7 +30,7 @@ Bestehende Tabellen und Spalten bleiben unverändert. Fotos, Galerien, `gallery_
 
 Eindeutig: `(COALESCE(parent_id,0), name_key)` als Ausdrucksindex (SQLite kennt das seit 3.9; der Test prüft es auf dem Ziel). Zwei Ordner gleichen Namens in einem Ordner gibt es also nicht, auch nicht bei „Island“ und „island“ oder mit Mac-Zerlegung (NFD) und Windows-Zusammensetzung (NFC) von „ü“.
 
-Grenzen: Tiefe höchstens 8, höchstens 5 000 Ordner insgesamt, Namenslänge höchstens 100 Zeichen.
+Grenzen: Tiefe höchstens 8, höchstens 5 000 Ordner insgesamt, Namenslänge höchstens 255 Zeichen (wie macOS).
 
 ### 2.2 Zuordnung Foto → Ordner
 
@@ -94,6 +94,16 @@ Regeln:
 - **Dubletten** (gleicher Inhalt, SHA-256, vorhandene Prüfung): kein zweites Foto. Es bleibt an seinem alten Platz, wird aber in die neue Galerie aufgenommen. Die Abschlussmeldung nennt „schon vorhanden in Ordner …“ (Name des Ordners, nur Anzeige). Dublette im Papierkorb: Hinweis mit Weg zur Wiederherstellung, wie bisher.
 - Ordner mit dem gleichen Namen auf der Zielebene werden **zusammengeführt** (Inhalt dazu), nicht doppelt angelegt; die Zusammenfassung sagt das („Ordner ‚Island‘ gibt es schon: Inhalt wird ergänzt“).
 
+### 3.5 Name des Ordners = Name im Medienbereich (Entscheidung von Lutz, 18.11.2026)
+
+- **Übernahme:** Der Name des hochgeladenen Ordners wird unverändert der Name im Medienbereich. Keine Nachfrage, kein Umbenennen. Auch bei Unterordnern gilt je Segment der Originalname.
+- **Unicode:** Auf dem Mac (APFEL-Dateisystem, Finder) ist „ü“ oft zerlegt (NFD), unter Windows und Linux zusammengesetzt (NFC). Der Server speichert **NFC**; das sieht identisch aus, ändert also nichts Sichtbares, und gleiche Namen aus verschiedenen Systemen werden als gleich erkannt.
+- **Zeichen:** Nur Unsichtbares und Täuschendes wird entfernt (5.1). Alles andere bleibt, auch Zeichen, die Windows nicht mag. Geändertes steht in der Zusammenfassung vor dem Start („Name enthielt unsichtbare Zeichen, entfernt“) und im Abschlussbericht.
+- **Groß-/Kleinschreibung:** „Island“ und „island“ gelten als derselbe Ordner (wie im Finder und unter Windows); beim Vergleich wird nicht unterschieden, **angezeigt wird die Schreibweise, mit der der Ordner zuerst angelegt wurde**.
+- **Gleicher Name wie ein vorhandener Ordner** auf der Zielebene: der Inhalt wird **zusammengeführt** (Dateien kommen dazu, Unterordner gleichen Namens ebenso), der vorhandene Ordner behält seinen Namen. Die Zusammenfassung sagt es vorher („Ordner ‚Island‘ gibt es schon, Inhalt wird ergänzt“). Dateien gleichen Inhalts entfallen als Dublette (3.2), gleichnamige Dateien verschiedenen Inhalts bleiben nebeneinander bestehen (Dateinamen müssen nicht eindeutig sein, wie bei Fotos; im Anzeigenamen kein Zusatz).
+- **Galeriename:** Der **Titel der Galerie ist genau der Ordnername** (NFC, wie angezeigt), in der Zusammenfassung vorausgefüllt und dort änderbar, aber ohne Änderung wird er so übernommen. Die **Adresse (`slug`)** wird wie bisher daraus gebildet (Umlaute zu `ae`, `oe`, `ue`, `ss`, Kleinbuchstaben, Sonderzeichen zu Bindestrich) und bei Kollision mit einer vorhandenen Galerie durch Zähler eindeutig (`island-2`). Ein Name aus lauter Zeichen ohne Umsetzung (z. B. nur Emojis) bekommt die Adresse `galerie`/`galerie-2`. Gibt es schon eine Galerie mit **gleichem Titel**, wird trotzdem eine neue angelegt (Titel dürfen doppelt sein, die Adresse ist eindeutig), die Zusammenfassung warnt davor und bietet „zu vorhandener Galerie hinzufügen“ an (Empfehlung: Warnung, kein stilles Zusammenführen, da Galerien öffentlich werden).
+- **Nachträgliches Umbenennen** des Ordners ändert den Titel der verknüpften Galerie **nicht** (und umgekehrt), die Verknüpfung ist nur eine Merkhilfe (3.4).
+
 ### 3.3 Nachträglich
 
 Im Ordner: Knopf **„Aus diesem Ordner Galerie machen“** (mit der Wahl: nur direkte Fotos oder auch Unterordner) und umgekehrt in der Galerie ein Link zum Ordner. Auch später wirkt dieselbe Logik wie beim Upload.
@@ -125,12 +135,14 @@ Grundsatz aus Abschnitt 1: Ordnernamen und Dateinamen sind **Daten**, nie Pfade.
 
 Der Browser schickt keine Pfade mit Dateien. Er schickt **einen Ordnerplan** (Liste der Ordnerpfade als Segmentlisten, z. B. `["Island","Tag 1"]`); der Server prüft jedes Segment und legt die Ordner an. Jede Datei hängt danach nur an einer `folder_id`. `webkitRelativePath` und die Einträge aus `webkitGetAsEntry()` werden im Browser in Segmente zerlegt und **auf dem Server noch einmal vollständig geprüft** (der Browser ist nie die Sicherheitsgrenze).
 
-Prüfung je Segment (Ordner- und Dateiname), Ablehnung mit klarer Meldung oder Bereinigung wo unschädlich:
+**Entscheidung von Lutz (18.11.2026): Der Ordnername vom Mac, Windows oder Linux ist direkt der Name im Medienbereich, ohne Nachfrage und ohne Umbenennen** (Abschnitt 3.5). Deshalb werden Namen so wenig wie möglich verändert; nur was unsichtbar oder gefährlich ist, wird still entfernt, und die Zusammenfassung vor dem Start nennt jede Änderung. Weil Namen nie Pfade sind, brauchen sie die strengen Dateisystem-Regeln nicht.
+
+Prüfung je Segment (Ordner- und Dateiname):
 
 - Unicode **NFC** (Finder liefert NFD); Vergleichsschlüssel NFC und kleingeschrieben. Braucht die PHP-Erweiterung `intl`. Fehlt sie auf einem Webspace, wird `name_key` nur kleingeschrieben und die Medienseite zeigt einen Hinweis (kein Sicherheitsproblem, da Namen nie Pfade sind; nur doppelte Namen in zwei Unicode-Formen wären möglich). Die Voraussetzungsprüfung (`Capabilities`) bekommt den Punkt.
-- Verboten: leer, nur Punkte (`.`, `..`), Steuerzeichen (`U+0000` bis `U+001F`, `U+007F`), Zeichen `/ \ : * ? " < > |`, führende oder abschließende Leerzeichen und abschließende Punkte, Bidi-Steuerzeichen (`U+202A` bis `U+202E`, `U+2066` bis `U+2069`) und Zeichen ohne Breite (`U+200B` bis `U+200F`, `U+FEFF`, Tag-Zeichen), ungültiges UTF-8.
-- **Windows-reservierte Namen** (`CON`, `PRN`, `AUX`, `NUL`, `COM1`–`COM9`, `LPT1`–`LPT9`, auch mit Endung wie `NUL.txt`): werden nicht abgelehnt, sondern mit Unterstrich versehen (`_CON`), weil sie bei Ordnern von einem Windows-Rechner kommen können und nur in Windows Probleme machen. Da Namen nie Dateinamen sind, ist das reine Kosmetik und wird getestet.
-- Länge je Segment höchstens 100 Zeichen (für Dateinamen 150 vor der Endung), Gesamtpfad höchstens 400, Tiefe höchstens 8.
+- **Still entfernt** (unsichtbar oder täuschend, im Namen nie nötig): Steuerzeichen (`U+0000` bis `U+001F`, `U+007F`), Bidi-Steuerzeichen (`U+202A` bis `U+202E`, `U+2066` bis `U+2069`), Zeichen ohne Breite (`U+200B` bis `U+200F`, `U+FEFF`, Tag-Zeichen), Leerzeichen und Punkte am Anfang und Ende. Ungültiges UTF-8 wird mit `U+FFFD` ersetzt oder die Datei abgelehnt.
+- **Unverändert erlaubt:** alle übrigen Zeichen, auch `: * ? " < > | \`, Umlaute, Emojis, Leerzeichen innen, und **Windows-reservierte Namen** (`CON`, `NUL`, `COM1` …), weil der Name nur angezeigt und nie als Dateiname benutzt wird. Ausgabe immer maskiert. Ein Name, der danach leer wäre, oder `.`/`..` (gibt es als Ordnername nicht) heißt „Unbenannter Ordner“.
+- Länge je Segment höchstens 255 Zeichen (längere werden gekürzt und gemeldet), Gesamtpfad höchstens 800, Tiefe höchstens 8.
 - Versteckte und Systemdateien werden beim Ordner-Upload **still übersprungen und gezählt**: `.DS_Store`, `._*`, `__MACOSX/`, `Thumbs.db`, `desktop.ini`, Dateien und Ordner mit führendem Punkt.
 - Verschieben: Verbot, einen Ordner in sich selbst oder einen Nachkomme zu legen (Zyklus), Tiefenprüfung nach dem Verschieben, alles in einer Transaktion; Namenskonflikt am Ziel ergibt eine Meldung, kein stilles Überschreiben.
 
@@ -233,7 +245,7 @@ Reihenfolge: A und B zuerst (Sicherheitskern), dann Opus-Prüfung; danach C und 
 
 ## 9. Testplan (nur in Docker, `docker run … php tests/run.php`; neue Datei `tests/medien.php`)
 
-1. **Namen:** Tabelle mit `..`, `.`, `a/b`, `a\b`, absolute Pfade, `NUL` im Namen, `CON.txt`, NFD gegen NFC (Duplikat-Erkennung), Großschreibung, Bidi-Zeichen (`U+202E`), Zeichen ohne Breite, 101 Zeichen, Tiefe 9, Endpunkt und Endleerzeichen; erwartet: abgelehnt oder bereinigt, nie ein Dateipfad.
+1. **Namen:** Tabelle mit `..`, `.`, `a/b` (als Segmentgrenze), `a\b`, absolute Pfade, `NUL` im Namen, `CON.txt` und `a:b*c` (bleiben unverändert), NFD gegen NFC (gleicher Ordner, Anzeige NFC), `Island` gegen `island` (zusammengeführt, erste Schreibweise bleibt), Bidi-Zeichen (`U+202E`) und Zeichen ohne Breite (entfernt, gemeldet), 256 Zeichen (gekürzt), Tiefe 9, Endpunkt und Endleerzeichen; Galerietitel = Ordnername, Slug und Kollision (`island-2`), Name nur aus Emojis; erwartet: nie ein Dateipfad, Anzeige immer maskiert.
 2. **Ordnerlogik:** Anlegen, Eindeutigkeit (auch parallel), Umbenennen, Verschieben, **Zyklus verboten**, Tiefenüberschreitung beim Verschieben, Papierkorb eines Zweigs und Wiederherstellen, Zähler, Zusammenführen gleicher Namen.
 3. **Migration:** Bestandsdatenbank mit Fotos, Galerien und Importzuordnung wird migriert; danach alle bisherigen Tests (616) unverändert grün; Rückwärtsverträglichkeit von `Library::ingest` ohne `folderId`.
 4. **Typprüfung:** HTML als `.pdf`, GIF-Kopf als `.png`, PHP als `.svg`, Polyglot (PDF und HTML), leere Datei, zu große Datei, abgeschnittenes PDF; Endung der Ablage folgt dem erkannten Typ.
