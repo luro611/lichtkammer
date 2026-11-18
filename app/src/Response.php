@@ -14,6 +14,8 @@ final class Response
         public readonly int $status = 200,
         public readonly array $headers = [],
         public readonly array $cookies = [],
+        /** Datei, die beim Senden gestreamt wird (statt body): [Pfad, Beginn, Länge] */
+        public readonly ?array $stream = null,
     ) {
     }
 
@@ -38,21 +40,31 @@ final class Response
         return new self('', $status, ['Location' => $location]);
     }
 
+    /**
+     * Datei streamen (große PDFs), optional nur ein Bereich. Der Inhalt wird beim Senden in Blöcken gelesen, nicht in den Speicher geladen.
+     *
+     * @param array<string,string> $headers
+     */
+    public static function file(string $path, int $from, int $length, int $status, array $headers): self
+    {
+        return new self('', $status, $headers + ['Content-Length' => (string) $length], [], [$path, $from, $length]);
+    }
+
     /** @param array<string,string> $headers */
     public function withHeaders(array $headers): self
     {
-        return new self($this->body, $this->status, $headers + $this->headers, $this->cookies);
+        return new self($this->body, $this->status, $headers + $this->headers, $this->cookies, $this->stream);
     }
 
     /** Standard-Kopfzeilen ergänzen; bereits gesetzte Kopfzeilen der Antwort bleiben. @param array<string,string> $defaults */
     public function withDefaults(array $defaults): self
     {
-        return new self($this->body, $this->status, $this->headers + $defaults, $this->cookies);
+        return new self($this->body, $this->status, $this->headers + $defaults, $this->cookies, $this->stream);
     }
 
     public function withCookie(string $setCookie): self
     {
-        return new self($this->body, $this->status, $this->headers, [...$this->cookies, $setCookie]);
+        return new self($this->body, $this->status, $this->headers, [...$this->cookies, $setCookie], $this->stream);
     }
 
     public function send(bool $headOnly = false): void
@@ -64,8 +76,32 @@ final class Response
         foreach ($this->cookies as $cookie) {
             header('Set-Cookie: ' . $cookie, false);
         }
-        if (!$headOnly) {
-            echo $this->body;
+        if ($headOnly) {
+            return;
         }
+        if ($this->stream === null) {
+            echo $this->body;
+            return;
+        }
+        [$path, $from, $len] = $this->stream;
+        @set_time_limit(0);
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        $fh = @fopen($path, 'rb');
+        if ($fh === false) {
+            return;
+        }
+        fseek($fh, $from);
+        while ($len > 0 && !feof($fh)) {
+            $chunk = (string) fread($fh, min(65536, $len));
+            if ($chunk === '') {
+                break;
+            }
+            echo $chunk;
+            $len -= strlen($chunk);
+            flush();
+        }
+        fclose($fh);
     }
 }

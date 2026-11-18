@@ -54,10 +54,11 @@ trait MediaPages
     private function flashFrom(Request $req): ?string
     {
         $m = $req->query('m');
-        if (!isset(self::FLASH[$m])) {
+        $all = self::FLASH + self::MEDIEN_FLASH;
+        if (!isset($all[$m])) {
             return null;
         }
-        return str_replace('{n}', (string) min(99999, max(0, (int) $req->query('n'))), self::FLASH[$m]);
+        return str_replace('{n}', (string) min(99999, max(0, (int) $req->query('n'))), $all[$m]);
     }
 
     private function done(string $path, string $code, int $n = 0): Response
@@ -288,7 +289,7 @@ trait MediaPages
             'engine' => $engine === null ? null : $engine->name(),
             'formats' => $engine === null ? [] : $engine->formats(),
             'maxMb' => max(1, $this->config->int('LK_MAX_UPLOAD_MB', 100)),
-            'trashCount' => (int) $this->s->db->value('SELECT COUNT(*) FROM photos WHERE deleted_at IS NOT NULL'),
+            'trashCount' => (int) $this->s->db->value('SELECT COUNT(*) FROM photos WHERE deleted_at IS NOT NULL AND trash_root_id IS NULL'),
         ], 200, $sess);
     }
 

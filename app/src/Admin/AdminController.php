@@ -24,6 +24,7 @@ use Lichtkammer\View;
 final class AdminController
 {
     use MediaPages;
+    use MedienPages;
     use SitePages;
     use ImportPages;
 
@@ -69,6 +70,20 @@ final class AdminController
         $r('GET', '/admin/fotos/auswahl', 'photoPick');
         $r('GET', '/admin/fotos/{id}', 'photo');
         $r('POST', '/admin/fotos/{id}/speichern', 'photoSave');
+        $r('GET', '/admin/medien', 'medien');
+        $r('POST', '/admin/medien/ordner', 'medienFolderCreate');
+        $r('POST', '/admin/medien/umbenennen', 'medienRename');
+        $r('POST', '/admin/medien/verschieben', 'medienMove');
+        $r('POST', '/admin/medien/loeschen', 'medienTrash');
+        $r('GET', '/admin/medien/papierkorb', 'medienTrashPage');
+        $r('POST', '/admin/medien/papierkorb', 'medienTrashAction');
+        $r('GET', '/admin/medien/datei/{id}', 'mediaFile');
+        $r('POST', '/admin/medien/datei/{id}/oeffentlich', 'mediaFilePublic');
+        $r('POST', '/admin/medien/aufbereiten', 'mediaProcess');
+        $r('POST', '/admin/medien/plan', 'mediaPlan');
+        $r('POST', '/admin/medien/plan/abbrechen', 'mediaPlanCancel');
+        $r('POST', '/admin/medien/galerie', 'mediaFolderGallery');
+        $r('POST', '/admin/medien/bestand', 'mediaAdopt', false, 'admin');
         $r('GET', '/admin/galerien/zuordnung', 'assignPage');
         $r('POST', '/admin/galerien/zuordnung', 'assignPost');
         $r('GET', '/admin/galerien', 'galleries');
@@ -148,7 +163,7 @@ final class AdminController
             $this->flash = $this->flashFrom($req);
             $this->navPath = $req->path();
             $res = $this->{$handler}($req, $params, $sess);
-            if ($req->method() === 'POST' && $res->status < 400 && preg_match('~^/admin/(fotos|galerien|seiten|startseite|logos|einstellungen|fotografen|papierkorb|import)(/|$)~', $req->path()) === 1) {
+            if ($req->method() === 'POST' && $res->status < 400 && preg_match('~^/admin/(fotos|galerien|seiten|startseite|logos|einstellungen|fotografen|papierkorb|import|medien)(/|$)~', $req->path()) === 1) {
                 $this->setSiteDirty(true); // Inhalt kann sich geändert haben; genau wird es beim Öffnen von „Veröffentlichen“ geprüft
             }
             return $res;
@@ -363,8 +378,9 @@ final class AdminController
     {
         try {
             $gallery = ctype_digit($req->input('gallery')) ? (int) $req->input('gallery') : null;
-            $id = $this->s->uploads->start((int) $sess['user_id'], $req->input('name'), (int) $req->input('size'), $gallery);
-            return Response::json(['id' => $id, 'chunk' => 2 * 1024 * 1024]);
+            $folder = ctype_digit($req->input('folder')) ? (int) $req->input('folder') : null;
+            $r = $this->s->uploads->start((int) $sess['user_id'], $req->input('name'), (int) $req->input('size'), $gallery, $folder, $req->input('intent') ?: 'photo', $req->input('fp'));
+            return Response::json(['id' => $r['id'], 'received' => $r['received'], 'chunk' => 4 * 1024 * 1024]);
         } catch (MediaException $e) {
             return Response::json(['error' => $e->getMessage()], 400);
         }
@@ -392,7 +408,11 @@ final class AdminController
             return Response::json(['error' => $e->getMessage()], $e->getCode() === 404 ? 404 : 400);
         }
         if (!$r['duplicate']) {
-            $this->s->audit->log('photo_uploaded', (int) $sess['user_id'], 'photo=' . $r['photo_id'], $this->ipPrefix($req));
+            if ($r['intent'] === 'file') {
+                $this->s->audit->log('file_uploaded', (int) $sess['user_id'], 'file=' . $r['file_id'], $this->ipPrefix($req));
+            } else {
+                $this->s->audit->log('photo_uploaded', (int) $sess['user_id'], 'photo=' . $r['photo_id'], $this->ipPrefix($req));
+            }
         }
         return Response::json($r);
     }

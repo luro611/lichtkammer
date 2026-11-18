@@ -52,7 +52,7 @@ final class Library
      * @return array{duplicate:bool,photo_id:int,in_trash:bool}
      * @throws MediaException
      */
-    public function ingest(int $userId, string $file, string $originalName, ?int $galleryId): array
+    public function ingest(int $userId, string $file, string $originalName, ?int $galleryId, ?int $folderId = null, string $fingerprint = ''): array
     {
         $size = is_file($file) ? (int) filesize($file) : 0;
         if ($size <= 0) {
@@ -101,11 +101,11 @@ final class Library
         $now = $this->clock->now();
         try {
             // Foto und Galerie-Verknüpfung zusammen: schlägt das zweite fehl, bleibt keine Zeile ohne Original zurück.
-            $photoId = $this->db->tx(function () use ($token, $originalName, $rel, $sha, $size, $mime, $userId, $now, $galleryId): int {
+            $photoId = $this->db->tx(function () use ($token, $originalName, $rel, $sha, $size, $mime, $userId, $now, $galleryId, $folderId, $fingerprint): int {
                 $this->db->run(
-                    'INSERT INTO photos(token, original_name, original_path, sha256, bytes, mime, status, uploaded_by, created_at, updated_at)
-                     VALUES(?,?,?,?,?,?,\'pending\',?,?,?)',
-                    [$token, self::cleanName($originalName), $rel, $sha, $size, $mime, $userId, $now, $now],
+                    'INSERT INTO photos(token, original_name, original_path, sha256, bytes, mime, status, uploaded_by, created_at, updated_at, folder_id, fingerprint)
+                     VALUES(?,?,?,?,?,?,\'pending\',?,?,?,?,?)',
+                    [$token, self::cleanName($originalName), $rel, $sha, $size, $mime, $userId, $now, $now, $folderId !== null && $folderId > 0 ? $folderId : null, $fingerprint],
                 );
                 $id = $this->db->lastId();
                 if ($galleryId !== null) { // seit Schema 3: Verknüpfung mit eigener Position, ans Ende
@@ -130,14 +130,17 @@ final class Library
 
     public static function cleanName(string $name): string
     {
-        $name = basename(str_replace('\\', '/', $name));
-        $name = preg_replace('/[\x00-\x1f\x7f]+/u', '', $name) ?? '';
-        return mb_substr(trim($name), 0, 200);
+        return Names::fileName($name); // eine Stelle für alle Namen (Entwurf 16, H4): NFC, Unsichtbares raus, 255 Zeichen
     }
 
     private function prepareOriginalsDir(string $dir): void
     {
-        $root = $this->originalsDir;
+        self::prepareDenyDir($this->originalsDir, $dir);
+    }
+
+    /** Legt einen nicht öffentlichen Ablageordner an (0700) und sperrt ihn per .htaccess, falls er im Webroot läge. */
+    public static function prepareDenyDir(string $root, string $dir): void
+    {
         $old = umask(0077);
         try {
             if (!is_dir($root)) {

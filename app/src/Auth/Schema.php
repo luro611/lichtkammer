@@ -254,6 +254,62 @@ CREATE TABLE trusted_devices (
 );
 CREATE INDEX trusted_devices_user ON trusted_devices(user_id);
 SQL,
+            // 10: Medienverwaltung (Entwurf 16): Ordner nur als Datenbankzeilen, Dateien (PDF, SVG, Bild) unter Zufallsnamen. Nur additiv.
+            <<<'SQL'
+CREATE TABLE folders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    parent_id INTEGER NOT NULL DEFAULT 0,
+    name TEXT NOT NULL,
+    name_key TEXT NOT NULL,
+    gallery_id INTEGER REFERENCES galleries(id) ON DELETE SET NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    deleted_at INTEGER,
+    trash_root_id INTEGER
+);
+CREATE UNIQUE INDEX folders_name ON folders(parent_id, name_key) WHERE deleted_at IS NULL;
+CREATE INDEX folders_parent ON folders(parent_id, deleted_at);
+CREATE INDEX folders_trash ON folders(trash_root_id) WHERE trash_root_id IS NOT NULL;
+CREATE TABLE files (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    token TEXT NOT NULL UNIQUE,
+    folder_id INTEGER NOT NULL DEFAULT 0,
+    name TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK (kind IN ('pdf','svg','image')),
+    mime TEXT NOT NULL,
+    bytes INTEGER NOT NULL,
+    sha256 TEXT NOT NULL UNIQUE,
+    path TEXT NOT NULL UNIQUE,
+    public INTEGER NOT NULL DEFAULT 0,
+    public_name TEXT NOT NULL DEFAULT '',
+    legacy_public_path TEXT NOT NULL DEFAULT '',
+    fingerprint TEXT NOT NULL DEFAULT '',
+    uploaded_by INTEGER REFERENCES users(id),
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    deleted_at INTEGER,
+    trash_root_id INTEGER
+);
+CREATE INDEX files_folder ON files(folder_id, deleted_at);
+CREATE INDEX files_trash ON files(trash_root_id) WHERE trash_root_id IS NOT NULL;
+ALTER TABLE photos ADD COLUMN folder_id INTEGER;
+ALTER TABLE photos ADD COLUMN trash_root_id INTEGER;
+ALTER TABLE photos ADD COLUMN fingerprint TEXT NOT NULL DEFAULT '';
+CREATE INDEX photos_folder ON photos(folder_id, deleted_at);
+CREATE INDEX photos_trash_root ON photos(trash_root_id) WHERE trash_root_id IS NOT NULL;
+ALTER TABLE uploads ADD COLUMN folder_id INTEGER;
+ALTER TABLE uploads ADD COLUMN intent TEXT NOT NULL DEFAULT 'photo';
+ALTER TABLE uploads ADD COLUMN fingerprint TEXT NOT NULL DEFAULT '';
+CREATE TABLE plan_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    plan TEXT NOT NULL,
+    user_id INTEGER NOT NULL,
+    kind TEXT NOT NULL CHECK (kind IN ('folder','gallery')),
+    ref_id INTEGER NOT NULL,
+    created_at INTEGER NOT NULL
+);
+CREATE INDEX plan_items_plan ON plan_items(plan);
+SQL,
         ];
     }
 

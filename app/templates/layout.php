@@ -30,7 +30,7 @@ $csrf = $csrf ?? '';
     $on = static fn (string ...$prefixes): bool => array_reduce($prefixes, static fn (bool $c, string $p): bool => $c || $path === $p || str_starts_with($path, $p . '/'), false);
     $cur = static fn (bool $active): string => $active ? ' aria-current="page"' : '';
     $groups = [
-        'Inhalte' => [['/admin/fotos', 'Fotos'], ['/admin/galerien', 'Galerien'], ['/admin/fotografen', 'Fotografen'], ['/admin/papierkorb', 'Papierkorb']],
+        'Inhalte' => [['/admin/medien', 'Medien'], ['/admin/fotos', 'Fotos'], ['/admin/galerien', 'Galerien'], ['/admin/fotografen', 'Fotografen'], ['/admin/papierkorb', 'Papierkorb']],
         'Seite' => [['/admin/startseite', 'Startseite'], ['/admin/seiten', 'Seiten'], ['/admin/logos', 'Logos'], ['/admin/einstellungen', 'Einstellungen']],
         'Verwaltung' => array_merge(($user['role'] ?? '') === 'admin' ? [['/admin/users', 'Konten'], ['/admin/import', 'Import']] : [], [['/admin/log', 'Protokoll'], ['/admin/account', 'Mein Konto']]),
     ];

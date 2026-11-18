@@ -254,9 +254,14 @@ final class Catalog
         $ok = 0;
         $bad = 0;
         foreach ($ids as $id) {
-            $done = $this->db->run('UPDATE photos SET deleted_at = NULL, updated_at = ? WHERE id = ? AND deleted_at IS NOT NULL', [$this->clock->now(), $id])->rowCount();
+            // Zweige aus der Medienverwaltung kommen nur als Ganzes zurück (Medien → Papierkorb)
+            $done = $this->db->run('UPDATE photos SET deleted_at = NULL, updated_at = ? WHERE id = ? AND deleted_at IS NOT NULL AND trash_root_id IS NULL', [$this->clock->now(), $id])->rowCount();
             if ($done === 0) {
                 continue;
+            }
+            $fid = $this->db->value('SELECT folder_id FROM photos WHERE id = ?', [$id]);
+            if ($fid !== null && $this->db->value('SELECT 1 FROM folders WHERE id = ? AND deleted_at IS NULL', [$fid]) === null) {
+                $this->db->run('UPDATE photos SET folder_id = NULL WHERE id = ?', [$id]); // Ordner liegt im Papierkorb oder ist weg: in die Wurzel
             }
             $r = $this->library->process($id);
             if ($r['status'] === 'failed') {
@@ -270,7 +275,7 @@ final class Catalog
     /** @return list<array<string,mixed>> */
     public function trashed(): array
     {
-        $rows = $this->db->all('SELECT id, original_name, title, bytes, deleted_at FROM photos WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC, id DESC');
+        $rows = $this->db->all('SELECT id, original_name, title, bytes, deleted_at FROM photos WHERE deleted_at IS NOT NULL AND trash_root_id IS NULL ORDER BY deleted_at DESC, id DESC');
         $now = $this->clock->now();
         foreach ($rows as &$r) {
             $r['days_left'] = max(0, (int) ceil(((int) $r['deleted_at'] + self::TRASH_DAYS * 86400 - $now) / 86400));
@@ -308,7 +313,8 @@ final class Catalog
     public function purgeExpired(): int
     {
         $limit = $this->clock->now() - self::TRASH_DAYS * 86400;
-        $ids = array_map('intval', array_column($this->db->all('SELECT id FROM photos WHERE deleted_at IS NOT NULL AND deleted_at <= ?', [$limit]), 'id'));
+        // in Stapeln (kein Zeitlimit-Problem nach langer Pause); der Rest folgt beim nächsten Aufruf
+        $ids = array_map('intval', array_column($this->db->all('SELECT id FROM photos WHERE deleted_at IS NOT NULL AND deleted_at <= ? LIMIT 200', [$limit]), 'id'));
         return $this->purge($ids);
     }
 

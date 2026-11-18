@@ -78,6 +78,13 @@ final class Request
         return (string) file_get_contents('php://input', false, null, 0, $max + 1);
     }
 
+    /** Inhaltstyp ohne Zusätze (z. B. „application/json“), kleingeschrieben. */
+    public function contentType(): string
+    {
+        $v = $this->server['CONTENT_TYPE'] ?? $this->server['HTTP_CONTENT_TYPE'] ?? '';
+        return is_string($v) ? strtolower(trim(explode(';', $v)[0])) : '';
+    }
+
     public function cookie(string $name): string
     {
         $v = $this->cookies[$name] ?? '';

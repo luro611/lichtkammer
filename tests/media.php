@@ -122,7 +122,7 @@ $s = lk_setup($m);
 $b = $s['b'];
 $svc = $m['app']->services();
 $db = $svc->db;
-check('Schema: Version 9', Schema::version($db) === 9 && count(Schema::migrations()) === 9);
+check('Schema: Version 10', Schema::version($db) === 10 && count(Schema::migrations()) === 10);
 foreach (['galleries', 'photos', 'photo_variants', 'uploads'] as $t) {
     check("Schema: Tabelle $t", $db->value("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", [$t]) !== null);
 }
@@ -269,7 +269,7 @@ $ghost = $b->request('POST', '/admin/upload/' . str_repeat('0', 32) . '/chunk?of
 check('Stücke: unbekannte Kennung → 404', $ghost->status === 404);
 $trav = $b->request('POST', '/admin/upload/..%2F..%2Fx/chunk?offset=0', [], $hdr, 'abc');
 check('Stücke: Kennung mit Pfadanteilen → nicht gefunden', in_array($trav->status, [404], true));
-$st2 = $svc->uploads->start(1, 'y.jpg', 50, null);
+$st2 = $svc->uploads->start(1, 'y.jpg', 50, null)['id'];
 $foreign = false;
 try {
     $svc->uploads->chunk(999, $st2, 0, 'abc');

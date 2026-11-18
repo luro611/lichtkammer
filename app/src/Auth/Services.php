@@ -5,8 +5,12 @@ namespace Lichtkammer\Auth;
 
 use Lichtkammer\Config;
 use Lichtkammer\Import\Importer;
+use Lichtkammer\Media\Branch;
+use Lichtkammer\Media\Browser;
 use Lichtkammer\Media\Capabilities;
 use Lichtkammer\Media\Catalog;
+use Lichtkammer\Media\Files;
+use Lichtkammer\Media\Folders;
 use Lichtkammer\Media\Galleries;
 use Lichtkammer\Media\Library;
 use Lichtkammer\Media\Uploads;
@@ -42,6 +46,10 @@ final class Services
         public readonly Settings $settings,
         public readonly Builder $builder,
         public readonly Importer $importer,
+        public readonly Folders $folders,
+        public readonly Files $files,
+        public readonly Branch $branch,
+        public readonly Browser $browser,
     ) {
     }
 
@@ -67,13 +75,18 @@ final class Services
         $accounts = new Accounts($db, $keys, $sessions, $audit, $clock);
         $maxBytes = max(1, $config->int('LK_MAX_UPLOAD_MB', 100)) * 1048576;
         $library = new Library($db, $clock, $config->originalsDir(), $config->mediaDir(), Capabilities::engine(), $maxBytes);
-        $uploads = new Uploads($db, $clock, $library, $dataDir, $maxBytes);
+        $maxPdf = max(1, $config->int('LK_MAX_FILE_MB', 50)) * 1048576;
+        $folders = new Folders($db, $clock);
+        $files = new Files($db, $clock, $dataDir, $config->mediaDir(), $maxPdf, $config->get('LK_BASE_URL'));
+        $uploads = new Uploads($db, $clock, $library, $dataDir, $maxBytes, $files, $folders);
         $galleries = new Galleries($db, $clock);
         $catalog = new Catalog($db, $clock, $library, $config->originalsDir(), $config->mediaDir());
         $pages = new Pages($db, $clock);
         $settings = new Settings($db, $config);
         $builder = new Builder($db, $config, $clock, new View($config->appDir . '/templates', $config), $settings, $dataDir);
         $importer = new Importer($db, $clock, $library, $galleries, $catalog, $pages, $settings, $config->importDir(), $config->mediaDir());
-        return new self($config, $clock, $db, $keys, $passwords, $limiter, $sessions, $audit, $recovery, $cookies, $preCsrf, $auth, $enrollment, $accounts, $dataDir, $library, $uploads, $galleries, $catalog, $pages, $settings, $builder, $importer);
+        $branch = new Branch($db, $clock, $folders, $catalog, $files);
+        $browser = new Browser($db);
+        return new self($config, $clock, $db, $keys, $passwords, $limiter, $sessions, $audit, $recovery, $cookies, $preCsrf, $auth, $enrollment, $accounts, $dataDir, $library, $uploads, $galleries, $catalog, $pages, $settings, $builder, $importer, $folders, $files, $branch, $browser);
     }
 }

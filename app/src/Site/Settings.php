@@ -7,6 +7,7 @@ use Lichtkammer\Auth\Database;
 use Lichtkammer\Config;
 use Lichtkammer\Media\Galleries;
 use Lichtkammer\Media\MediaException;
+use Lichtkammer\Media\SvgCheck;
 
 /** Seiteneinstellungen (Seitenname, Hero-Text, Hero-Foto). Vorgabe für den Namen ist LK_SITE_NAME. */
 final class Settings
@@ -109,7 +110,7 @@ final class Settings
         }
         $mime = $m[1];
         if ($mime === 'image/svg+xml') {
-            self::checkSvg($bytes);
+            $bytes = SvgCheck::sanitize($bytes)['svg']; // gemeinsame Prüfung mit der Medienverwaltung; gespeichert wird die bereinigte Fassung
         } else {
             $info = @getimagesizeFromString($bytes);
             $real = is_array($info) ? (string) ($info['mime'] ?? '') : '';
@@ -133,38 +134,6 @@ final class Settings
         $list[] = ['id' => $id, 'name' => $name !== '' ? $name : 'Logo', 'mime' => $mime];
         $this->put('logos', (string) json_encode($list, JSON_UNESCAPED_UNICODE));
         return $id;
-    }
-
-    /** Ein SVG ist hier nur ein Bild: keine Skripte, keine eingebetteten Seiten oder Bilder, keine Adressen nach außen. @throws MediaException */
-    private static function checkSvg(string $svg): void
-    {
-        $bad = static fn (): MediaException => new MediaException('Diese SVG-Datei enthält Skripte, Verweise nach außen oder eingebettete Inhalte und wird nicht angenommen. Bitte eine einfache SVG-Datei verwenden (nur Formen und Text).');
-        $prev = libxml_use_internal_errors(true);
-        $doc = new \DOMDocument();
-        $ok = $doc->loadXML($svg, LIBXML_NONET);
-        libxml_clear_errors();
-        libxml_use_internal_errors($prev);
-        if (!$ok || $doc->documentElement === null || strtolower($doc->documentElement->localName) !== 'svg') {
-            throw new MediaException('Das ist keine gültige SVG-Datei.');
-        }
-        if (preg_match('/<!(DOCTYPE|ENTITY)/i', $svg) === 1) {
-            throw $bad();
-        }
-        foreach ($doc->getElementsByTagName('*') as $el) {
-            if (in_array(strtolower($el->localName), ['script', 'foreignobject', 'iframe', 'object', 'embed', 'image', 'audio', 'video', 'animate', 'set', 'animatetransform', 'animatemotion'], true)) {
-                throw $bad();
-            }
-            foreach ($el->attributes as $a) {
-                $n = strtolower($a->nodeName);
-                $v = strtolower(trim($a->nodeValue));
-                if (str_starts_with($n, 'on') || (in_array($n, ['href', 'xlink:href', 'src'], true) && !str_starts_with($v, '#')) || preg_match('~(javascript:|data:|https?:|//|@import)~', preg_replace('/\s+/', '', $v) ?? '') === 1 && $n !== 'xmlns' && !str_starts_with($n, 'xmlns:')) {
-                    throw $bad();
-                }
-            }
-        }
-        if (preg_match('~url\(\s*[\'"]?\s*(https?:|//|data:)~i', $svg) === 1) {
-            throw $bad();
-        }
     }
 
     public function deleteLogo(string $id): void
