@@ -1,6 +1,6 @@
 # Entwurf: Schritt 8 „Härtung und Livegang“
 
-Stand: 18.11.2026. **Entwurf, wartet auf Freigabe von Lutz. Noch kein Code, nichts hochgeladen, nichts an der Live-Seite oder am DNS geändert.** Risiko laut Plan `03`: **hoch** (Livegang, Daten, Geheimnisse). Vorgeschlagen: Opus prüft diesen Entwurf, bevor gebaut wird (Abschnitt 11).
+Stand: 18.11.2026. **Entwurf, wartet auf Freigabe von Lutz. Noch kein Code, nichts hochgeladen, nichts an der Live-Seite oder am DNS geändert.** Risiko laut Plan `03`: **hoch** (Livegang, Daten, Geheimnisse). Opus hat den Entwurf am 18.11.2026 geprüft: Befunde und Messungen in `21 Pruefung Entwurf Haertung und Livegang.md`; Kleinigkeiten sind hier direkt korrigiert (mit „Prüfung 21“ markiert).
 
 Grundlage gelesen: Plan `03` (Schritt 8, Abschnitte 4a, 8, 9), `04`, `05`, `07`, `08`, `13`, `15`, `16` bis `19`, `docs/betrieb/Erster-Start-Testserver.md`, Projekt-`CLAUDE.md` und der heutige Code (`SecurityHeaders`, `public/.htaccess`, `Cookies`, `Builder`, `Dockerfile`, `compose.yaml`, `docker/*`, `deploy.sh`, `tools/release-zip.sh`, `.github/workflows/release.yml`).
 
@@ -21,7 +21,7 @@ Jeder Punkt: heutiger Stand → Empfehlung.
 
 - **Heute** (`SecurityHeaders::for`): CSP `default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'`, `nosniff`, `Referrer-Policy strict-origin-when-cross-origin`, `X-Frame-Options DENY`, `Permissions-Policy`, HSTS `max-age=31536000`, bei `LK_NOINDEX` `X-Robots-Tag`.
 - **Empfehlung, klein:**
-  - Gilt die Kopfzeile auch für **fertige HTML-Dateien**, die Apache direkt ausliefert (ohne PHP)? Diese gehen an `index.php` vorbei. **Prüfen und, falls nein, dieselben Köpfe in `public/.htaccess` per `Header always set` setzen** (Pflicht, sonst sind die öffentlichen Seiten ungeschützt). Das ist die wichtigste Einzelprüfung des Teilschritts 8a.
+  - ~~Gilt die Kopfzeile auch für fertige HTML-Dateien?~~ **Geklärt (Prüfung 21, gemessen 18.11.2026):** Die veröffentlichten Seiten liegen in `<Datenordner>/site/releases/` und werden **über PHP** ausgeliefert (`Site/Server.php` über `index.php`), nicht direkt von Apache. CSP, HSTS, `nosniff` usw. kommen auf der Startseite, `robots.txt` und 404 an. **Ohne Köpfe** sind nur die Dateien, die Apache selbst ausliefert: `/assets/…` und `/media/…` (dort fehlen `nosniff` und `X-Frame-Options`) sowie Apaches eigene 403-Seiten. Für diese reicht in `public/.htaccess` ein `Header always set X-Content-Type-Options nosniff` (und für `/media/` `Cross-Origin-Resource-Policy`).
   - HSTS: `max-age=31536000` behalten, **ohne `includeSubDomains` und ohne `preload`** (Subdomains wie `lichtkammer.` oder andere Dienste der Domain sollen nicht mitgezogen werden). Erst nach 30 Tagen stabilem HTTPS auf zwei Jahre erhöhen; Preload nicht (nicht umkehrbar).
   - `Cross-Origin-Opener-Policy: same-origin` und `Cross-Origin-Resource-Policy: same-origin` ergänzen (kostenlos, keine Fremdbindung nötig). **Nicht** für `/media/`, wenn Bilder anderswo eingebunden werden dürfen; Standard: `same-site`.
   - Admin zusätzlich `Cache-Control: no-store` (nur Seiten hinter Anmeldung; `SitePages` setzt es für die Vorschau schon).
@@ -31,7 +31,7 @@ Jeder Punkt: heutiger Stand → Empfehlung.
 ### 1.2 `.htaccess` und Ordner
 
 - **Heute:** `public/.htaccess` sperrt `app|data|originals|tests|docker|deploy|import`, Punktdateien (außer `.well-known`) und `*.env|sqlite|sqlite3|db|log`. `app/.htaccess`: `Require all denied`. `media/.htaccess`: kein PHP. `import/` bekommt eine eigene Sperre.
-- **Ergänzen:** `*.bak` (die Migrationssicherung `….vor-schema-N.bak` liegt im Datenordner, aber für den Notfall `LK_ALLOW_DATA_IN_WEBROOT`), `*.zip`, `*.sql`, `*.json` nur unter `import/` ist schon gesperrt. `composer.*`, `*.md` im Webroot sperren (Zip enthält `README.md`? Prüfen: nur im Zip-Wurzelordner, nicht im Webroot; im Hochladeplan klarstellen).
+- **Ergänzen:** `*.bak` (die Migrationssicherung `….vor-schema-N.bak` liegt im Datenordner, aber für den Notfall `LK_ALLOW_DATA_IN_WEBROOT`), `*.zip`, `*.sql`, (`import/` als Ganzes ist schon gesperrt, also auch `manifest.json`). `composer.*`, `*.md` im Webroot sperren (Zip enthält `README.md`? Prüfen: nur im Zip-Wurzelordner, nicht im Webroot; im Hochladeplan klarstellen).
 - **Prüfung nach jedem Hochladen** (ein Skript `tools/livepruefung.sh`, nur lesende `curl`-Abrufe): 403/404 für `/app/.env`, `/app/bootstrap.php`, `/data/`, `/import/manifest.json`, `/.git/`, `/media/x.php`; 200 für `/health`; Köpfe der Startseite, `/admin/login` und eines Bildes. Das Skript ersetzt die Handarbeit aus `Erster-Start-Testserver.md`.
 - **Warum:** Ein Skript, das jedes Mal dasselbe prüft, findet vergessene Regeln nach Updates.
 
@@ -49,8 +49,8 @@ Jeder Punkt: heutiger Stand → Empfehlung.
 
 ### 1.5 PHP-Einstellungen
 
-- **all-inkl** (gemessen): PHP 8.5, `memory_limit` 512M, `max_execution_time` 60, `open_basedir` leer, `disable_functions` leer. **Per `.user.ini` im Webroot** (all-inkl liest `.user.ini` unter PHP-FPM) setzen: `expose_php=Off` (falls erlaubt), `display_errors=Off`, `log_errors=On`, `session.use_strict_mode` unnötig (eigene Sitzungen). **Zu prüfen im Teilschritt 8a, ob `.user.ini` greift**; sonst im KAS unter PHP-Einstellungen. Die App selbst setzt `display_errors` schon aus dem Code (`public/index.php`).
-- **`allow_url_fopen`** wird vom Code nicht gebraucht (Import liest nur lokale Dateien). Wenn der KAS es abschalten lässt, abschalten.
+- **all-inkl** (gemessen): PHP 8.5, `memory_limit` 512M, `max_execution_time` 60, `open_basedir` leer, `disable_functions` leer. **Per `.user.ini` im Webroot** (ob all-inkl `.user.ini` unter PHP-FPM liest, ist **nicht** belegt, siehe Prüfung 21) setzen: `display_errors=Off`, `log_errors=On`, `session.use_strict_mode` unnötig (eigene Sitzungen). **Zu prüfen im Teilschritt 8a, ob `.user.ini` greift**; sonst im KAS unter PHP-Einstellungen. Die App selbst setzt `display_errors` schon aus dem Code (`public/index.php`).
+- **`expose_php` und `allow_url_fopen`** sind `PHP_INI_SYSTEM` und lassen sich **nicht** per `.user.ini` setzen (Prüfung 21). `expose_php` ist auf all-inkl ohnehin schon aus (gemessen: kein `X-Powered-By`). `allow_url_fopen` wird vom Code nicht gebraucht; nur abschalten, wenn der KAS es anbietet.
 - **Docker:** `docker/php.ini` hat `expose_php=Off`, `display_errors=Off`, `log_errors=On`. Zusätzlich `session.cookie_*` unnötig. `opcache.validate_timestamps` bleibt an (Updates per Image-Tausch).
 - **Warum:** Fehlerdetails im Browser sind ein klassischer Informationsabfluss.
 
@@ -79,7 +79,7 @@ Jeder Punkt: heutiger Stand → Empfehlung.
 
 ### 1.9 Abhängigkeiten, Lizenzen, Notices
 
-- **Keine Composer-Pakete.** Eingebunden sind: die Schriften (OFL-1.1, `LIZENZEN.txt` im Webroot und im Zip, `otf/` nicht im Zip), die Liste häufiger Passwörter (`common-passwords.txt`: **Herkunft und Lizenz klären** und in `NOTICE` nennen), eventuell QR-Code-Erzeugung (eigene Klasse `Qr.php`: eigener Code oder Fremdcode? Ursprung im Kopf der Datei vermerken). Das Exportskript nutzt nur die Standardbibliothek von Python.
+- **Keine Composer-Pakete.** Eingebunden sind: die Schriften (OFL-1.1, `LIZENZEN.txt` im Webroot und im Zip, `otf/` nicht im Zip), die Liste häufiger Passwörter (`app/resources/common-passwords.txt`: **geprüft in 21**, 145 Zeilen, in Schritt 2 selbst zusammengestellt, Kopf „Häufige Passwörter und Grundwörter“, keine fremde Liste, also keine Fremdlizenz) und die QR-Code-Erzeugung (`app/src/Auth/Qr.php`: eigener Code ohne Bibliothek, steht im Kopf der Datei). Das Exportskript nutzt nur die Standardbibliothek von Python.
 - **Empfehlung:** Eine Datei `NOTICE`/`THIRD-PARTY.md` im Repo und im Zip: je Fremdbestandteil Name, Version, Lizenz, Fundort. Im Docker-Image kommen PHP-Image, Imagick/libheif usw. dazu; die Lizenz des Images wird am Image-Label genannt (AGPL-3.0-or-later). **AGPL §13:** Wer Lichtkammer verändert **und** im Netz betreibt, muss den Quelltext anbieten. Empfehlung: ein dezenter Link „Quellcode“ im Admin-Fuß auf das Repo (Admin, nicht öffentliche Seite; die öffentliche Fußzeile behält nur die luro-Wortmarke wie in der CLAUDE.md geregelt).
 - **Sicherheitsaktualisierungen:** PHP und Imagick pflegt all-inkl; im Docker-Betrieb das Basisimage monatlich neu bauen (`docker compose pull` auf ein gebautes Image mit aktuellem PHP-Patch). `tools/` und Tests brauchen kein Update.
 
@@ -88,7 +88,7 @@ Jeder Punkt: heutiger Stand → Empfehlung.
 - **Admin-Protokoll** (`audit`, Hash-Kette, nur Kennungen und Zahlen, nie Namen): wächst unbegrenzt, ist klein. Empfehlung: **24 Monate** aufbewahren, älter archivieren **nur durch Export** (CSV-Download, nach dem Löschen bleibt die Kette ab dem Ankerpunkt prüfbar). Das ist eine Entscheidung (E9); bis dahin nichts löschen.
 - **Apache-/PHP-Protokolle:** auf all-inkl im KAS einsehbar (Zugriffsprotokolle laut KAS-Einstellung); **IP-Adressen** dort gelten als personenbezogen: Aufbewahrungsdauer und Hinweis in der **Datenschutzerklärung** (der Inhalt wird vom Importer übernommen; Lutz prüft, ob die Aussagen noch stimmen: Hosting all-inkl, Protokolle, **keine** Cookies für Besucher, **Admin-Cookies** nur für Angemeldete). Besucher bekommen **keinen** Cookie (Besucherseite ist statisch; Theme-Wahl hell/dunkel in `localStorage`: in der Datenschutzerklärung erwähnen, kein Banner nötig, weil rein technisch notwendig und lokal).
 - **Docker:** Container-Logs über Docker (`json-file` mit `max-size: 10m`, `max-file: 5` in `compose.yaml` ergänzen, sonst wachsen sie ohne Grenze).
-- **Anmeldeadressen im Admin-Protokoll** sind gekürzt oder gehasht? (Prüfen, wie `Audit` Adressen speichert; Datenschutzerklärung entsprechend.)
+- **Anmeldeadressen im Admin-Protokoll:** geprüft (Prüfung 21): `Audit` speichert nur ein **Adress-Präfix** (`ip_prefix`, Netz mit Präfixlänge), nie die volle Adresse. So in die Datenschutzerklärung.
 
 ### 1.11 Schlüssel und Geheimnisse
 
@@ -108,7 +108,7 @@ Siehe Abschnitt 5; hier nur: kein Geheimnis im Repository, `deploy/.env` und `ap
 |---|---|---|---|
 | SQLite-Datenbank (Konten, Fotos, Galerien, Seiten, Protokoll, Einstellungen) | `<Datenordner>/lichtkammer.sqlite` | Volume `lk-data` | **nie die laufende Datei kopieren**, sondern `VACUUM INTO` (macht der Code schon) |
 | Datenbankkopien | `<Datenordner>/backups/` (zehn, vor jedem Veröffentlichen), `….vor-schema-N.bak` | `lk-data` | liegen auf demselben Server: **zählen nicht als Sicherung**, nur als Schnellrückgriff |
-| Originale | `<Originals>` (Standard neben dem Datenordner) | Volume `lk-originals` | der eigentliche Wert; Varianten lassen sich neu erzeugen |
+| Originale | `LK_ORIGINALS_DIR`; **ohne diese Zeile liegt der Ordner auf all-inkl im Webroot** (`<Webroot>/originals`, nur per `.htaccess` gesperrt; so heute auf dem Testserver, Prüfung 21 H1) | Volume `lk-originals` | der eigentliche Wert; Varianten lassen sich neu erzeugen |
 | Private Dateien (PDF, Logos) | `<Datenordner>/files/` | `lk-data` | seit der Medienverwaltung (siehe `CHANGELOG`) |
 | Veröffentlichte Fassungen | `<Datenordner>/site/releases/` (5 Stück) | `lk-data` | aus der Datenbank neu erzeugbar; nicht sichern, spart Platz |
 | Erzeugte Varianten | `public/media/` | Volume `lk-media` | aus den Originalen neu erzeugbar; **nicht** sichern |
@@ -198,6 +198,7 @@ Der Import (Schritt 7) läuft **auf der Testinstallation** (Lutz startet ihn unt
 
 ### 3.4 DNS und TLS
 
+- **Gemessen (Prüfung 21, 18.11.2026, nur lesend):** Nameserver `ns5/ns6.kasserver.com` (DNS bei all-inkl), `br-foto.com`, `www.br-foto.com` und `lichtkammer.br-foto.com` zeigen alle auf dieselbe IPv4-Adresse, kein AAAA, TTL 7 200 s. Zertifikat der Hauptdomain: `br-foto.com` und `www.br-foto.com`, gültig bis 25.12.2026. **WordPress leitet heute `br-foto.com` → `https://www.br-foto.com/` um (www ist die Hauptadresse)**, HSTS sendet WordPress nicht.
 - **DNS ändert sich nicht**, wenn br-foto.com ohnehin bei all-inkl liegt (A/AAAA zeigen auf den Webserver des Kontos); nur der Zielordner im KAS wechselt. **Zu prüfen (nur lesend):** `dig br-foto.com` und `dig www.br-foto.com`, TTL, ob die Domain bei all-inkl verwaltet wird oder nur der Webspace (dann DNS beim Registrar). **Nichts ändern.**
 - **TLS:** Das Let’s-Encrypt-Zertifikat der Hauptdomain besteht schon (WordPress läuft über HTTPS). Nach dem Ordnerwechsel bleibt es gültig; im KAS prüfen, dass „SSL für Domain und `www.`“ aktiv ist. **24 Stunden vorher** die TTL der Einträge ansehen (bei einer reinen Ordnerumstellung ohne DNS-Änderung unkritisch).
 - **HSTS:** WordPress hat evtl. schon HSTS gesetzt; unsere Köpfe ersetzen es. `includeSubDomains` nicht (1.1).
@@ -208,7 +209,7 @@ Der Import (Schritt 7) läuft **auf der Testinstallation** (Lutz startet ihn unt
 **Wochen vorher**
 - Schritt 8a–8e fertig, Fable- und Opus-Prüfung durch, Wiederherstellungsprobe bestanden, Abnahmeliste (Abschnitt 6) mit Lutz **und der zweiten Person** auf der Testinstallation durchgegangen.
 - Weiterleitungsliste geprüft (3.6), Datenschutz und Impressum durchgesehen (keine Dubletten).
-- WordPress **eingefroren**: Updates, Plugins aktuell, **keine neuen Beiträge** ab Stichtag, XML-RPC und REST einschränkt (Plan 03 Abschnitt 8), Sicherung des WordPress (Dateien + Datenbank) **außerhalb aller Repos** abgelegt und der Rückweg einmal angesehen.
+- WordPress **eingefroren**: Updates, Plugins aktuell, **keine neuen Beiträge** ab Stichtag, XML-RPC und REST eingeschränkt (Plan 03 Abschnitt 8), Sicherung des WordPress (Dateien + Datenbank) **außerhalb aller Repos** abgelegt und der Rückweg einmal angesehen.
 
 **Umschaltabend** (ruhiger Tag, nicht freitags, zwei Stunden Zeitfenster, beide erreichbar)
 1. Sicherung ziehen (Knopf), Datenbankkopie prüfen.
@@ -291,7 +292,7 @@ Der Import (Schritt 7) läuft **auf der Testinstallation** (Lutz startet ihn unt
 1. **Geheimnis-Scan der gesamten Historie** (nicht nur HEAD): `gitleaks detect --source . --log-opts="--all"` und `trufflehog git file://. --since-commit …` (beide lokal in Docker, kein Upload); zusätzlich Handsuche nach `br-foto`-Zugangsdaten, die Kundennummer im Webspace-Pfad (**nicht veröffentlichen**; steht in `04` und `Erster-Start-Testserver.md`, in `.env.example` nur als Platzhalter; in `docs/` ersetzen), echten Namen/Adressen/Telefon, `lutz.rothe@…`-Gmail-Adresse (verboten laut globaler Regel), `luro611`-noreply ist erlaubt.
 2. **Historie bereinigen oder neu anfangen?** Ist etwas gefunden, das nie hätte hineingehören dürfen, gibt es zwei Wege: `git filter-repo` (Historie umschreiben, danach neu pushen, alte Klone ungültig) oder **ein frisches öffentliches Repo mit einem einzigen Anfangs-Commit** (Historie bleibt im privaten Archiv-Repo). **Empfehlung E7:** Erst scannen, dann entscheiden; ist die Historie sauber, **mit Historie veröffentlichen**; die `docs/planung/` enthalten teils Bezug auf Lutz und br-foto (Namen der Fotografen?), das **vorher durchsehen** und ggf. in `docs/intern/` auslagern, das **nicht** ins öffentliche Repo kommt (oder `docs/planung` insgesamt privat halten). **Zu entscheiden:** Planungsdokumente öffentlich (Transparenz) oder nicht (E7).
 3. **Beispielinhalte ohne private Fotos:** Die Screenshots in `docs/anleitung/bilder/t_*.png` und das PDF `Lichtkammer-Anleitung.pdf` **einzeln ansehen**: Zeigen sie echte Namen, Foto-Inhalte, Domains, Benutzernamen? Wenn ja: ersetzen durch Aufnahmen mit eigenen Beispielfotos (CC0/selbst erzeugte Verläufe). Für README und Demo: **Beispielbilder erzeugen** (Verläufe/Muster, kein Foto Dritter) in `docs/beispiel/`.
-4. **Lizenzdateien:** `LICENSE` (AGPL-3.0, vollständiger Text, vorhanden), SPDX-Zeile `AGPL-3.0-or-later` im Kopf jeder PHP-/JS-/CSS-Datei (kleines Skript prüft, dass jede Datei sie trägt), `NOTICE`/`THIRD-PARTY.md` (1.9), Schriften-Lizenzen (OFL-1.1, im Webroot und Zip vorhanden), Quelle/Lizenz der Passwortliste.
+4. **Lizenzdateien:** `LICENSE` (AGPL-3.0, vollständiger Text, vorhanden), SPDX-Zeile `AGPL-3.0-or-later` im Kopf jeder PHP-/JS-/CSS-Datei (kleines Skript prüft, dass jede Datei sie trägt), `NOTICE`/`THIRD-PARTY.md` (1.9), Schriften-Lizenzen (OFL-1.1, im Webroot und Zip vorhanden), Passwortliste ist eigener Bestandteil (geprüft in 21).
 5. **README:** mit luro-Logo (Siegel `luro-siegel-kompakt-hell/-dunkel` aus `logos/png|svg`, `<picture>`-Umschaltung hell/dunkel), Kurzbeschreibung, Funktionsliste, Installation (Zip, Docker), Betriebsarten, Sicherheit (Hinweis auf `SECURITY.md`), Lizenz, Link zu `lurohome.de`. Wortmarke `luro` am Ende.
 6. **Weitere Dateien:** `SECURITY.md` (Meldeweg: `info@lurohome.de`, nicht Gmail; Support-Versionen), `CONTRIBUTING.md` (kurz: Fehlerberichte willkommen, Pull-Requests nach Absprache), `CODE_OF_CONDUCT.md` optional, Issue-Vorlagen, `.github/dependabot.yml` für Actions und Docker-Basis-Image.
 7. **GitHub-Einstellungen:** Branch-Schutz auf `main` (Tests als Pflicht-Check), **Secret-Scanning und Push-Protection** an, Dependabot-Warnungen, **kein** Wiki, Discussions aus (Pflegeaufwand), Releases nur durch Tag.
@@ -421,6 +422,8 @@ Kein Passkey (Schritt 6, danach). Kein Kontaktformular, keine Phase-2-Funktionen
 - **E15 Zeitfenster Livegang:** Wochentag und Uhrzeit (Empfehlung: **Dienstag bis Donnerstag, vormittags**, beide Personen erreichbar, nicht vor Reisen/Feiertagen), und wer den Rückfall auslösen darf (Empfehlung: Lutz allein).
 - **E16 Quellcode-Link (AGPL §13)** im Admin-Fuß (Empfehlung: **ja**) und `SECURITY.md` mit `info@lurohome.de`.
 - **E17 Prüfung dieses Entwurfs:** Opus prüft ihn **vor** dem Bauen (Empfehlung, Risiko hoch). Danach gibst du den Block 8a und 8b zum Bauen frei, **einzeln**.
+- **E18 Offenes aus Entwurf `16`** nach dem Livegang als Phase-2-Aufgaben (Abschnitt 12, Empfehlung: ja).
+- **E19 Ordner der Originale** (neu aus Prüfung 21 H1): `LK_ORIGINALS_DIR` oberhalb des Webroots setzen, **bevor** der Import läuft (Empfehlung: ja).
 
 ## 12. Offene Punkte aus früheren Prüfungen, die diesen Schritt berühren
 
