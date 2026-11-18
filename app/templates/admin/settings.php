@@ -3,7 +3,7 @@
   <p class="eyebrow">Öffentliche Seite</p>
   <h1><em>Einstellungen</em></h1>
 <?php include __DIR__ . '/../partials/notices.php'; ?>
-  <p class="notice" role="note"><strong>Titelbild, Karussell, Slider:</strong> Das Bild der Startseite stellst du unter <a href="/admin/startseite">Seite → Startseite</a> ein (mehrere Bilder, volle Breite, Ausschnitt). Die Felder hier gelten nur, solange die Startseite dort nicht gespeichert wurde.</p>
+  <p class="notice" role="note"><strong>Titelbild, Karussell, Slider:</strong> Das Bild der Startseite stellst du unter <a href="/admin/startseite">Seiten → Startseite</a> ein (mehrere Bilder, volle Breite, Ausschnitt). Die Felder hier gelten nur, solange die Startseite dort nicht gespeichert wurde.</p>
   <form class="form card" method="post" action="/admin/einstellungen">
     <input type="hidden" name="_csrf" value="<?= $e($csrf) ?>">
     <label class="field"><span>Seitenname</span><input name="site_name" value="<?= $e((string) $set['site_name']) ?>" maxlength="60" required></label>

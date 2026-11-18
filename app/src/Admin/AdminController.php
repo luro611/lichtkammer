@@ -107,6 +107,8 @@ final class AdminController
         $r('POST', '/admin/galerien/{id}/titelbild', 'galleryCover');
         $r('POST', '/admin/galerien/{id}/startseite', 'galleryHome');
         $r('GET', '/admin/seiten', 'pages');
+        $r('GET', '/admin/seiten/neu', 'pageNew');
+        $r('GET', '/admin/menue', 'menu');
         $r('POST', '/admin/seiten', 'pageCreate');
         $r('GET', '/admin/seiten/{id}', 'pageEdit');
         $r('POST', '/admin/seiten/{id}/speichern', 'pageSave');
@@ -169,7 +171,7 @@ final class AdminController
             $this->flash = $this->flashFrom($req);
             $this->navPath = $req->path();
             $res = $this->{$handler}($req, $params, $sess);
-            if ($req->method() === 'POST' && $res->status < 400 && preg_match('~^/admin/(fotos|galerien|seiten|startseite|logos|einstellungen|fotografen|papierkorb|import|medien)(/|$)~', $req->path()) === 1) {
+            if ($req->method() === 'POST' && $res->status < 400 && preg_match('~^/admin/(fotos|galerien|seiten|menue|startseite|logos|einstellungen|fotografen|papierkorb|import|medien)(/|$)~', $req->path()) === 1) {
                 $this->setSiteDirty(true); // Inhalt kann sich geändert haben; genau wird es beim Öffnen von „Veröffentlichen“ geprüft
             }
             return $res;

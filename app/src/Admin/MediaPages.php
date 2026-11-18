@@ -42,7 +42,7 @@ trait MediaPages
         'logoadded' => 'Logo hochgeladen. Unten kannst du es auswählen.',
         'logochosen' => 'Logo-Auswahl gespeichert. Sichtbar wird es auf der öffentlichen Seite mit dem Veröffentlichen.',
         'logodeleted' => 'Logo gelöscht.',
-        'homeon' => 'Das Foto ist für die Startseite markiert. Es erscheint dort im Block „Startseiten-Fotos“ (Seite → Startseite).',
+        'homeon' => 'Das Foto ist für die Startseite markiert. Es erscheint dort im Block „Startseiten-Fotos“ (Seiten → Startseite).',
         'homeoff' => 'Das Foto ist nicht mehr für die Startseite markiert.',
         'homesaved' => 'Startseite gespeichert. Sichtbar wird sie mit dem Veröffentlichen.',
         'homereset' => 'Die feste Startseite ist wieder aktiv.',

@@ -58,7 +58,7 @@ $bulkBack = '/admin/galerien/' . $gid; ?>
     <button class="btn small ghost" type="submit" formaction="/admin/galerien/<?= $gid ?>/entfernen">Aus der Galerie entfernen</button>
     <button class="btn small ghost" type="submit" name="aktion" value="papierkorb" data-confirm="Die ausgewählten Fotos in den Papierkorb legen? Sie verschwinden damit aus allen Galerien.">In den Papierkorb</button>
   </form>
-  <p class="muted small">Reihenfolge ändern: Foto mit der Maus ziehen oder die Pfeile benutzen. Das Foto mit der Marke „Titelbild“ ist das Titelbild der Galerie; ohne Wahl gilt das erste. Mit „Startseite“ markierte Fotos zeigt der Block „Startseiten-Fotos“ auf der Startseite (Seite → Startseite).</p>
+  <p class="muted small">Reihenfolge ändern: Foto mit der Maus ziehen oder die Pfeile benutzen. Das Foto mit der Marke „Titelbild“ ist das Titelbild der Galerie; ohne Wahl gilt das erste. Mit „Startseite“ markierte Fotos zeigt der Block „Startseiten-Fotos“ auf der Startseite (Seiten → Startseite).</p>
   <span class="visually-hidden" id="sortstatus" role="status" aria-live="polite"></span>
   <ul class="thumbs" data-sortable data-axis="x" data-url="/admin/galerien/<?= $gid ?>/reihenfolge" data-csrf="<?= $e($csrf) ?>">
 <?php foreach ($photos as $i => $ph): $formId = 'bulk'; $isCover = (int) $g['cover_effective'] === (int) $ph['id']; ?>

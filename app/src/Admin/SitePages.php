@@ -21,13 +21,25 @@ trait SitePages
 
     // --- Seiten ---
 
+    /** „Alle Seiten“: flache Übersicht aller Seiten, ohne Filter (Quelle ist Pages::all()). */
     public function pages(Request $req, array $p, ?array $sess, ?string $error = null, int $status = 200): Response
     {
+        $all = $this->s->pages->all();
+        usort($all, static fn (array $x, array $y): int => strcasecmp((string) $x['title'], (string) $y['title']));
+        return $this->page('admin/pages', ['title' => 'Alle Seiten', 'pages' => $all, 'error' => $error], $status, $sess);
+    }
+
+    /** „Neue Seite“: eigener Aufruf mit Titel oder Vorlage. */
+    public function pageNew(Request $req, array $p, ?array $sess, ?string $error = null, int $status = 200): Response
+    {
         $have = array_column($this->s->pages->all(), 'slug');
-        return $this->page('admin/pages', [
-            'title' => 'Seiten', 'pages' => $this->s->pages->all(), 'error' => $error,
-            'templates' => array_diff_key(self::PAGE_TEMPLATES, array_flip($have)),
-        ], $status, $sess);
+        return $this->page('admin/page_new', ['title' => 'Neue Seite', 'error' => $error, 'templates' => array_diff_key(self::PAGE_TEMPLATES, array_flip($have))], $status, $sess);
+    }
+
+    /** „Menü & Fußzeile“: Verlinkung und Reihenfolge (Entwurf 14, S5/S6; ausgelagert aus der Seitenliste). */
+    public function menu(Request $req, array $p, ?array $sess): Response
+    {
+        return $this->page('admin/menu', ['title' => 'Menü & Fußzeile', 'pages' => $this->s->pages->all()], 200, $sess);
     }
 
     public function pageCreate(Request $req, array $p, ?array $sess): Response
@@ -40,7 +52,7 @@ trait SitePages
                 'slug' => $tpl !== null ? $req->input('vorlage') : '',
             ]);
         } catch (MediaException $e) {
-            return $this->pages($req, [], $sess, $e->getMessage(), 400);
+            return $this->pageNew($req, [], $sess, $e->getMessage(), 400);
         }
         $this->auditLog('page_saved', $sess, 'page=' . $id, $req);
         return $this->done('/admin/seiten/' . $id, 'pagecreated');
@@ -140,12 +152,12 @@ trait SitePages
         return $this->done('/admin/startseite', 'homesaved');
     }
 
-    /** Verlinkung einer Seite (Menü, Fußzeile, nirgends) direkt in der Liste. */
+    /** Verlinkung einer Seite (Menü, Fußzeile, nirgends) auf der Seite „Menü & Fußzeile“. */
     public function pageNav(Request $req, array $p, ?array $sess): Response
     {
         $this->s->pages->setNav((int) $p['id'], $req->input('nav'));
         $this->auditLog('page_saved', $sess, 'page=' . (int) $p['id'], $req);
-        return $this->done('/admin/seiten', 'pagenav');
+        return $this->done('/admin/menue', 'pagenav');
     }
 
     // --- Logos ---
@@ -281,7 +293,7 @@ trait SitePages
     public function pageMove(Request $req, array $p, ?array $sess): Response
     {
         $this->s->pages->move((int) $p['id'], $req->input('richtung') === 'hoch' ? 'hoch' : 'runter');
-        return Response::redirect('/admin/seiten');
+        return Response::redirect('/admin/menue');
     }
 
     // --- Einstellungen ---

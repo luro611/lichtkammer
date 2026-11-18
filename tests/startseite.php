@@ -135,8 +135,8 @@ check('Reihenfolge: am Rand passiert nichts', $order('main') === ['A', 'E', 'C']
 $db->run('UPDATE pages SET sort_order = 1'); // Altbestand mit gleichen Werten
 $b->post("/admin/seiten/$pC/bewegen", ['_csrf' => $csrf, 'richtung' => 'hoch']);
 check('Reihenfolge: gleiche sort_order-Werte werden bereinigt, Verschieben funktioniert', count(array_unique(array_column($db->all('SELECT sort_order FROM pages'), 'sort_order'))) === 5 && array_search('C', $order('main')) < array_search('E', $order('main')) + 1);
-$lst = $b->get('/admin/seiten')->body;
-check('Liste: drei Gruppen mit Überschrift, Verlinkung je Zeile änderbar', str_contains($lst, 'Im Menü oben') && str_contains($lst, 'In der Fußzeile') && str_contains($lst, 'action="/admin/seiten/' . $pA . '/verlinken"') && str_contains($lst, 'data-autosubmit'));
+$lst = $b->get('/admin/menue')->body;
+check('Menü-Seite: drei Gruppen mit Überschrift, Verlinkung je Zeile änderbar', str_contains($lst, 'Im Menü oben') && str_contains($lst, 'In der Fußzeile') && str_contains($lst, 'action="/admin/seiten/' . $pA . '/verlinken"') && str_contains($lst, 'data-autosubmit'));
 $b->post("/admin/seiten/$pA/verlinken", ['_csrf' => $csrf, 'nav' => 'footer']);
 check('Verlinken: Seite wechselt in die Fußzeile, ungültiger Wert wird ignoriert', $db->value('SELECT nav FROM pages WHERE id = ?', [$pA]) === 'footer' && $b->post("/admin/seiten/$pA/verlinken", ['_csrf' => $csrf, 'nav' => '<x>'])->status === 303 && $db->value('SELECT nav FROM pages WHERE id = ?', [$pA]) === 'footer');
 $b->post("/admin/seiten/$pA/verlinken", ['_csrf' => $csrf, 'nav' => 'main']);
@@ -153,7 +153,7 @@ check('Fußzeile: Seiten in eigener Reihenfolge nur im Fuß, nicht im Hauptmenü
 
 // Doppelte Seiten werden in der Liste erkannt
 $mkPage('Impressum', 'none');
-$ld = $b->get('/admin/seiten')->body;
+$ld = $b->get('/admin/seiten')->body; // „Alle Seiten“
 check('Liste: gleicher Titel wird als „Doppelt?“ markiert', substr_count($ld, 'Doppelt?') === 2);
 
 // Vorlagen Impressum und Datenschutz: nur Platzhalter

@@ -20,19 +20,16 @@ $csrf = $csrf ?? '';
 <?php if ($user === null): ?>
 <header class="bar"><div class="shell">
   <a class="brand" href="/"><?= $e($siteName ?? 'Lichtkammer') ?></a>
-  <div class="tools">
-    <div class="pill" role="group" aria-label="Design"><button type="button" data-design-set="lurohome" aria-pressed="true">luro</button><button type="button" data-design-set="rothe" aria-pressed="false">rothe.it</button></div>
-    <div class="pill" role="group" aria-label="Farbschema"><button type="button" data-theme-set="light" aria-label="Hell" aria-pressed="true">☀</button><button type="button" data-theme-set="dark" aria-label="Dunkel" aria-pressed="false">☾</button></div>
-  </div>
+  <?php include __DIR__ . '/partials/designtools.php'; ?>
 </div></header>
 <?php else:
     $path = (string) ($navPath ?? '');
     $on = static fn (string ...$prefixes): bool => array_reduce($prefixes, static fn (bool $c, string $p): bool => $c || $path === $p || str_starts_with($path, $p . '/'), false);
     $cur = static fn (bool $active): string => $active ? ' aria-current="page"' : '';
     $groups = [
-        'Inhalte' => [['/admin/medien', 'Medien'], ['/admin/fotos', 'Fotos'], ['/admin/galerien', 'Galerien'], ['/admin/fotografen', 'Fotografen'], ['/admin/papierkorb', 'Papierkorb']],
-        'Seite' => [['/admin/startseite', 'Startseite'], ['/admin/seiten', 'Seiten'], ['/admin/logos', 'Logos'], ['/admin/einstellungen', 'Einstellungen']],
-        'Verwaltung' => array_merge(($user['role'] ?? '') === 'admin' ? [['/admin/users', 'Konten'], ['/admin/import', 'Import']] : [], [['/admin/log', 'Protokoll'], ['/admin/account', 'Mein Konto']]),
+        'Inhalte' => [['/admin/medien', 'Medien'], ['/admin/fotos', 'Fotos'], ['/admin/galerien', 'Galerien'], ['/admin/fotografen', 'Fotografen']],
+        'Seiten' => [['/admin/startseite', 'Startseite'], ['/admin/seiten', 'Alle Seiten', ['/admin/seiten/neu']], ['/admin/seiten/neu', 'Neue Seite'], ['/admin/menue', 'Menü & Fußzeile']],
+        'Verwaltung' => array_merge([['/admin/logos', 'Logos'], ['/admin/einstellungen', 'Einstellungen'], ['/admin/papierkorb', 'Papierkorb']], ($user['role'] ?? '') === 'admin' ? [['/admin/users', 'Konten'], ['/admin/import', 'Import']] : [], [['/admin/log', 'Protokoll'], ['/admin/account', 'Mein Konto']]),
     ];
 ?>
 <div class="frame">
@@ -43,14 +40,11 @@ $csrf = $csrf ?? '';
     <a href="/admin"<?= $cur($path === '/admin') ?>>Übersicht</a>
 <?php foreach ($groups as $gname => $items): ?>
     <p class="sidehead"><?= $e($gname) ?></p>
-<?php foreach ($items as [$href, $label]): ?>    <a href="<?= $e($href) ?>"<?= $cur($on($href)) ?>><?= $e($label) ?></a>
+<?php foreach ($items as $item): [$href, $label] = $item; $not = $item[2] ?? []; ?>    <a class="sub" href="<?= $e($href) ?>"<?= $cur($on($href) && !$on(...$not)) ?>><?= $e($label) ?></a>
 <?php endforeach; endforeach; ?>
   </nav>
   <div class="sidefoot">
-    <div class="tools">
-      <div class="pill" role="group" aria-label="Design"><button type="button" data-design-set="lurohome" aria-pressed="true">luro</button><button type="button" data-design-set="rothe" aria-pressed="false">rothe.it</button></div>
-      <div class="pill" role="group" aria-label="Farbschema"><button type="button" data-theme-set="light" aria-label="Hell" aria-pressed="true">☀</button><button type="button" data-theme-set="dark" aria-label="Dunkel" aria-pressed="false">☾</button></div>
-    </div>
+    <?php include __DIR__ . '/partials/designtools.php'; ?>
     <form class="logout" method="post" action="/admin/logout"><input type="hidden" name="_csrf" value="<?= $e($csrf) ?>"><button class="btn ghost small" type="submit">Abmelden</button></form>
   </div>
 </aside>
