@@ -22,6 +22,7 @@ Versionen: 0.x bis zum öffentlichen Release, danach 1.0.0.
 - Karussell: Wechselzeit als Zahlenfeld von 2 bis 30 Sekunden (Standard 6) statt Auswahl 4/6/8/12 (serverseitig bisher 3 bis 15). Beim schnellen Wischen rastet jede Folie ein (`scroll-snap-stop`), es wird keine mehr übersprungen.
 
 ### Behoben
+- Seiten mit Blöcken: Die Bildleiste (Block „Raster“) erzeugte `href=""/media/…"`, die Links zum großen Bild waren kaputt.
 - Karussell: Höhe stimmte nicht, wenn Fotos unterschiedliche Formate hatten (Hochformat streckte alle Folien, Bild sprang beim Wechseln). Folien haben jetzt feste Höhe nach dem gewählten Format, das Bild füllt sie; ältere Browser ohne `aspect-ratio` fallen auf die Bildhöhe zurück. Auf Handybreite werden sehr flache Formate höher dargestellt (2:1 wie 16:9; 21:9 und 3:1 als 2:1), die Reihenfolge der Formate bleibt dabei erhalten. Die Bildlaufleiste unter dem Karussell entfällt, wenn die Knöpfe da sind.
 - Anmeldung: Der Haken „nicht erneut nach dem Code fragen“ blieb nach einem falsch eingetippten Code nicht gesetzt. Nach einer Passwortänderung wird das eigene (dann ungültige) Gerätecookie gelöscht, und der Hinweis nennt die Geräte.
 

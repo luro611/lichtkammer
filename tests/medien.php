@@ -156,6 +156,9 @@ $fo->trash($lone['id']);
 $svc->branch->purgeRoot($lone['id']);
 check('Endgültig löschen: Foto, das schon einzeln im Papierkorb lag, verliert den toten Ordnerverweis', $db->value('SELECT folder_id FROM photos WHERE id = ?', [$ph6]) === null && (int) $db->value('SELECT COUNT(*) FROM photos WHERE id = ?', [$ph6]) === 1);
 check('Wiederherstellen eines einzelnen Fotos mit totem Ordner: kommt in die Wurzel', $svc->catalog->restore([$ph6])['restored'] === 1 && $db->value('SELECT folder_id FROM photos WHERE id = ?', [$ph6]) === null);
+$v6 = (int) $db->value('SELECT COUNT(*) FROM photo_variants WHERE photo_id = ?', [$ph6]);
+check('Runde 3: Endgültig löschen eines inzwischen zurückgeholten Fotos tut nichts (Zeile, Varianten bleiben)', $svc->catalog->purge([$ph6]) === 0
+    && $db->value('SELECT 1 FROM photos WHERE id = ?', [$ph6]) !== null && (int) $db->value('SELECT COUNT(*) FROM photo_variants WHERE photo_id = ?', [$ph6]) === $v6 && $v6 > 0);
 // Ablauf nach 30 Tagen
 $old = $fo->ensurePath(0, ['Alt']);
 $ph7 = $mk(307, $old['id'], 'alt.jpg');
@@ -382,6 +385,7 @@ $tp = $b->get('/admin/medien/papierkorb');
 check('Medien: Papierkorb nennt den Ordner mit Zahlen', $tp->status === 200 && str_contains($tp->body, 'Ferien 2026') && str_contains($tp->body, '1 Fotos'));
 $r = $b->post('/admin/medien/papierkorb', ['_csrf' => TestBrowser::csrf($tp), 'aktion' => 'wiederherstellen', 'ordner_id' => [(string) $ferien]]);
 check('Medien: Wiederherstellen über die Oberfläche (Audit)', $r->status === 303 && $db->value('SELECT deleted_at FROM folders WHERE id = ?', [$ferien]) === null && $db->value('SELECT deleted_at FROM photos WHERE id = ?', [$phM]) === null && $auditCount('media_restored') === 1);
+check('Runde 3: nach dem Wiederherstellen mit wartenden Fotos geht es zur Medienseite (dort wird aufbereitet)', str_starts_with($r->headers['Location'] ?? '', '/admin/medien?m=zurueck'));
 check('Medien: Hinweis auf zu bearbeitende Fotos (pending) nach dem Wiederherstellen', str_contains($b->get('/admin/medien')->body, 'werden noch aufbereitet'));
 $r = $b->request('POST', '/admin/medien/aufbereiten', ['_csrf' => $cs()], ['HTTP_X_REQUESTED_WITH' => 'fetch']);
 check('Medien: Aufbereiten verarbeitet wartende Fotos', json_decode($r->body, true)['remaining'] === 0 && $db->value('SELECT status FROM photos WHERE id = ?', [$phM]) === 'ready');

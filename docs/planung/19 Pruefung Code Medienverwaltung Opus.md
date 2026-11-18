@@ -71,3 +71,22 @@ Neue Prüfungen in `tests/medien.php` (Abschnitt „Prüfung 19“): SVG `href`/
 ## Weitere Runde?
 
 Nach den Regeln (neue Befunde mit Risiko mittel) **ja, aber kurz:** ein Blick nur auf den Korrektur-Commit dieser Prüfung (`PdfCheck`, `SvgCheck::walk`, `planDone`, `purge`-Reihenfolge, `medien.js`). Vor dem Livegang bleibt der Browser-Test von Lutz (Ziehen vom Finder auf Ordner, Wiederherstellen, großer Ordner-Upload) und die geplante Fable-Prüfung der Dateiannahme und Auslieferung.
+
+## Runde 3 (Opus, 18.11.2026, Diff `945c6c7..ce2ddcb` plus Korrektur `Blocks.php`)
+
+**Urteil: Die Korrekturen tragen. Kein Befund mit Risiko mittel oder höher, keine weitere Runde nötig.** Geprüft vor dem Lesen dieses Berichts, dann abgeglichen.
+
+- **SVG (M1): trägt.** `iterator_to_array(..., false)` prüft `href` und `xlink:href` einzeln; Entfernen läuft über den Knoten (`removeAttributeNode`), nicht über den Namen. Leere oder BOM-Datei ergibt eine Meldung.
+- **PDF (M2): trägt.** Lange Namen wie bisher, `/JS` und `/AA` nur mit Wert (Text, Hex-Text, Verweis, `<<`), Leerraum und Kommentare dazwischen, am Pufferende im Zweifel Ablehnung; `preg_*` mit Fehler lehnt ab. Nachgemessen: 8 MB Zufallsdaten werden angenommen (Millisekunden, kein Zurückverfolgen), 2 MB Nullen mit `/JS`, langer Leerraum, lange Kommentare, `/J#53`, `/A#41`, Verweis über die Blockgrenze werden abgelehnt, `/JSON` nicht. Jede echte JavaScript-Aktion trägt außerdem `/S /JavaScript` (langer Name), der Filter hängt also nicht allein an `/JS`.
+- **Plan „fertig“ (M3): trägt.** CSRF und Anmeldung über die allgemeine Prüfung, Plan nur des eigenen Kontos, Zeilen bleiben für die Stundenbegrenzung, das Aufräumen nach 24 Stunden löscht sie. Schlägt die Meldung „fertig“ fehl, räumt das Aufräumen nur leere Ordner und leere Entwurfsgalerien weg (vertretbar).
+- **Ablegen auf Ordner (M4): trägt.** Der Inhaltsbereich überlässt Ablagen auf `[data-drop-folder]` dem Empfänger am Dokument; dort `preventDefault`, kein doppelter Upload.
+- **Rennen Löschen gegen Wiederherstellen (M5): trägt.** Zeile zuerst mit `deleted_at IS NOT NULL` löschen, Dateien erst danach; SQLite ordnet beide Schreibvorgänge, `Folders::restore` läuft in einer Transaktion. Beide Reihenfolgen durchgespielt: entweder bleibt das Foto samt Original, oder es ist ganz weg, nie eine Zeile ohne Original. Varianten werden vor dem Löschen gelesen (`ON DELETE CASCADE`, `foreign_keys` ist an). Gleiches für `Files::purge`.
+- **Live-Hinweis (M6), Neuaufbereitung nach dem Wiederherstellen (M7), Stapel bis zum Ende, Sortierung, Retten mit langem Namen: tragen.** Die Schleife `unpublishTrashed` endet sicher (jede Zeile wird auf `public = 0` gesetzt, auch wenn das Entfernen der Kopie scheitert).
+
+### Befunde
+
+- **Mittel (außerhalb des Diffs, behoben):** `Site/Blocks.php` Block „Raster“: `href=""/media/…"`. Korrigiert. Tests in `tests/bloecke.php`: Kachel verlinkt auf `/media/…` und allgemein „kein Attribut `=""` mit Text direkt dahinter“ in der Vorschau. Beide Tests schlagen mit dem alten Code fehl. Dieselbe Fehlerart kommt sonst in `app/`, `themes/` und `public/assets` nicht vor (gesucht nach `=""` mit Text oder `'` dahinter).
+- **Niedrig (nicht geändert):** Der Live-Hinweis zählt die angefragten Foto-Kennungen, auch wenn das Löschen eines davon scheitert; schlimmstenfalls ein unnötiger Hinweis.
+- **Tests ergänzt:** endgültiges Löschen eines inzwischen zurückgeholten Fotos tut nichts (Zeile und Varianten bleiben); nach dem Wiederherstellen mit wartenden Fotos geht es zur Medienseite.
+
+**1 120 Prüfungen, 0 Fehler.** Der Stand taugt zum Hochladen auf den Testserver; danach der Browser-Test von Lutz (Ziehen vom Finder auf Ordner, Bildleiste auf einer Blockseite, Wiederherstellen, großer Ordner-Upload).

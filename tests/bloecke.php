@@ -127,6 +127,9 @@ check('Vorschau (Blöcke): Blockklassen, Überschrift maskiert, kein rohes HTML'
     && !str_contains($pv->body, '<script>alert') && str_contains($pv->body, '&lt;script&gt;alert(1)&lt;/script&gt;'));
 check('Vorschau (Blöcke): Bild mit Alt-Text, Bildunterschrift maskiert, Breite', str_contains($pv->body, 'alt="Anna &quot;am&quot; Hafen"') && str_contains($pv->body, '<figcaption>Lissabon &lt;i&gt;2019&lt;/i&gt;</figcaption>') && str_contains($pv->body, 'bimg w-voll'));
 check('Vorschau (Blöcke): Raster mit Lightbox-Daten und Spalten', str_contains($pv->body, 'class="bgrid c2" data-lightbox') && str_contains($pv->body, 'data-alt="Boote"') && str_contains($pv->body, 'data-srcset="'));
+check('Vorschau (Blöcke): Rasterkachel verlinkt sauber auf das große Bild (kein href=""…)', preg_match('~<li class="bti"><a id="foto-' . $q1 . '" href="(/admin/vorschau)?/media/[^"]+" data-id="' . $q1 . '"~', $pv->body) === 1
+    && !str_contains($pv->body, 'href=""'));
+check('Vorschau (Blöcke): kein Attribut mit doppeltem Anführungszeichen (="" direkt gefolgt von Text)', preg_match('~\s[a-z:-]+=""(?!\s|>|/>)~i', $pv->body) === 0);
 check('Vorschau (Blöcke): Zitat, Trennlinie, Knopf mit Vorschau-Präfix, zwei Spalten', str_contains($pv->body, '<blockquote class="bquote"><p>Licht ist alles</p><footer>Jemand</footer>') && str_contains($pv->body, '<hr class="brule">')
     && str_contains($pv->body, 'class="knopf" href="/admin/vorschau/galerien/"') && str_contains($pv->body, 'class="bcols"'));
 check('Vorschau (Blöcke): Pfade der Bilder führen nicht auf Originale', !str_contains($pv->body, 'originals') && !str_contains($pv->body, 'bloecke-900'));

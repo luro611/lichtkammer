@@ -433,7 +433,7 @@ final class Blocks
                     $alt = $e['decor'] ? '' : $e['alt'];
                     $anchor = isset(self::$seen[(int) $p['id']]) ? '' : ' id="foto-' . (int) $p['id'] . '"';
                     self::$seen[(int) $p['id']] = true;
-                    $items .= '<li class="bti"><a' . $anchor . ' href=""' . $h($r->fullUrl($p)) . '" data-id="' . (int) $p['id'] . '" data-srcset="' . $h($r->lightboxSet($p))
+                    $items .= '<li class="bti"><a' . $anchor . ' href="' . $h($r->fullUrl($p)) . '" data-id="' . (int) $p['id'] . '" data-srcset="' . $h($r->lightboxSet($p))
                         . '" data-w="' . (int) $p['width'] . '" data-h="' . (int) $p['height'] . '" data-alt="' . $h($alt) . '" data-title="' . $h((string) $p['title']) . '" data-caption="' . $h((string) $p['caption'])
                         . '" data-meta="" data-photographer="" data-gear="" data-settings="" data-taken="">'
                         . $r->picture($p, ['sizes' => '(min-width:900px) ' . (int) (1000 / (int) $b['cols']) . 'px, 50vw', 'maxw' => 960, 'alt' => $alt]) . "</a></li>\n";
