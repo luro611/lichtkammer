@@ -60,7 +60,7 @@ check('Alle Seiten: im Menü markiert', str_contains($all->body, 'href="/admin/s
 $neu = $sb->get('/admin/seiten/neu');
 check('Neue Seite: eigener Aufruf mit Titel-Feld, Vorlage und Anlegen', $neu->status === 200 && str_contains($neu->body, 'name="title"') && str_contains($neu->body, 'action="/admin/seiten"') && str_contains($neu->body, 'href="/admin/seiten/neu" aria-current="page"') && !str_contains($neu->body, 'href="/admin/seiten" aria-current'));
 $bad = $sb->post('/admin/seiten', ['_csrf' => $csrfN, 'title' => '  ']);
-check('Neue Seite: leerer Titel zeigt das Formular mit Fehler (400)', $bad->status === 400 && str_contains($bad->body, 'name="title"') && str_contains($bad->body, 'class="notice error"'));
+check('Neue Seite: leerer Titel zeigt das Formular mit Fehler (400)', $bad->status === 400 && str_contains($bad->body, 'name="title"') && str_contains($bad->body, 'class="notice error"') && str_contains($bad->body, 'href="/admin/seiten/neu" aria-current="page"') && !str_contains($bad->body, 'href="/admin/seiten" aria-current'));
 $mn = $sb->get('/admin/menue');
 check('Menü & Fußzeile: Gruppen, Verlinkung, Pfeile; Fußzeile enthält Impressum', $mn->status === 200 && str_contains($mn->body, 'Im Menü oben') && str_contains($mn->body, 'In der Fußzeile') && str_contains($mn->body, '/verlinken') && str_contains($mn->body, '/bewegen') && str_contains($mn->body, 'href="/admin/menue" aria-current="page"'));
 $rd = $sb->post('/admin/seiten/1/verlinken', ['_csrf' => $csrfN, 'nav' => 'main']);

@@ -52,6 +52,7 @@ trait SitePages
                 'slug' => $tpl !== null ? $req->input('vorlage') : '',
             ]);
         } catch (MediaException $e) {
+            $this->navPath = '/admin/seiten/neu'; // Fehlerseite ist „Neue Seite“, nicht „Alle Seiten“ (Aktiv-Markierung)
             return $this->pageNew($req, [], $sess, $e->getMessage(), 400);
         }
         $this->auditLog('page_saved', $sess, 'page=' . $id, $req);
