@@ -41,7 +41,9 @@ if (( PRUEFEN )); then
 fi
 
 rm -f "dist/$NAME.zip" "dist/$NAME.zip.sha256"
-(cd "$TMP" && zip -qr "$OLDPWD/dist/$NAME.zip" "$NAME")
+# Reproduzierbar: feste Zeitstempel, sortierte Dateiliste, keine Zusatzfelder (zip -X)
+find "$TMP/$NAME" -exec touch -t 202601010000 {} +
+(cd "$TMP" && find "$NAME" | LC_ALL=C sort | zip -X -q "$OLDPWD/dist/$NAME.zip" -@)
 (cd dist && (shasum -a 256 "$NAME.zip" 2>/dev/null || sha256sum "$NAME.zip") > "$NAME.zip.sha256")
 echo "== Fertig: dist/$NAME.zip ($(du -h "dist/$NAME.zip" | cut -f1))"
 cat "dist/$NAME.zip.sha256"
