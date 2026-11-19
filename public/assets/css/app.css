@@ -230,12 +230,12 @@ button:disabled{opacity:.35;cursor:default}
 .bmove{position:relative}.bmove summary{list-style:none;cursor:pointer;display:inline-flex}.bmove summary::-webkit-details-marker{display:none}
 .bmovelist{position:absolute;right:0;z-index:5;margin-top:4px;min-width:240px;display:flex;flex-direction:column;gap:4px;padding:8px;border:1px solid var(--line);border-radius:var(--r-card);background:var(--surface)}
 .bmovelist .btn{justify-content:flex-start;text-align:left}
-.bcol .blist{min-height:64px}
-.bundo{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:40;display:flex;gap:12px;align-items:center;max-width:calc(100% - 32px);padding:10px 14px;border-radius:var(--r-card);background:var(--ink);color:var(--bg)}
+.bcol{display:flex;flex-direction:column}.bcol>.blist{min-height:64px;flex:1 1 auto}/* ganze Spaltenhöhe ist Ablagefläche (Prüfung 30, B3) */
+.bundo{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:40;display:flex;gap:12px;align-items:center;width:max-content;max-width:calc(100vw - 32px);padding:10px 14px;border-radius:var(--r-card);background:var(--ink);color:var(--bg)}
 .bundo[hidden]{display:none}
-.bundo .btn{color:var(--bg);border-color:var(--bg);background:transparent}
+.bundo .btn{color:var(--bg);border:1px solid var(--bg);background:transparent}
 @media (min-width:1100px){.ewrap{grid-template-columns:200px minmax(0,1fr)}.epal{position:sticky;top:76px;max-height:calc(100vh - 96px);overflow:auto}.epalgrid{grid-template-columns:1fr}}
-@media (max-width:600px){.bcolsedit{grid-template-columns:1fr}.bhead .bsummary{flex-basis:100%;order:5}}
+@media (max-width:600px){.bcolsedit{grid-template-columns:1fr}.bhead .bsummary{flex-basis:100%;order:5}.bmovelist{left:0;right:auto;min-width:0;width:max-content;max-width:calc(100vw - 64px)}}
 
 /* Seitenleiste der Verwaltung */
 body.app{padding-inline:0}

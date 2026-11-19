@@ -163,17 +163,36 @@
     hideBar();
     updateUndoBtn();
   }
+  function byId(list, m) {
+    list.forEach(function (b) {
+      if (b && b._id) { m[b._id] = b; }
+      if (b && b.t === 'columns') { byId(b.left || [], m); byId(b.right || [], m); }
+    });
+    return m;
+  }
+  function keepContent(list, m) {
+    list.forEach(function (b) {
+      var c = b && b._id ? m[b._id] : null;
+      if (c && c.t === b.t) {
+        Object.keys(c).forEach(function (k) { if (k !== 'left' && k !== 'right' && k !== '_c') { b[k] = c[k]; } });
+      }
+      if (b && b.t === 'columns') { keepContent(b.left || [], m); keepContent(b.right || [], m); }
+    });
+  }
   function undo() {
     if (!undoStack.length) { return; }
     var prev;
     try { prev = JSON.parse(undoStack.pop()); } catch (e) { updateUndoBtn(); return; }
-    state = Array.isArray(prev) ? prev : [];
+    prev = Array.isArray(prev) ? prev : [];
+    // Rückgängig stellt nur die Struktur zurück. Was seitdem in noch vorhandene Blöcke getippt wurde, bleibt (Prüfung 30, B2).
+    keepContent(prev, byId(state, {}));
+    state = prev;
     dirty = true;
     hideBar();
     renderAll();
     updateUndoBtn();
     var t = (!undoBtn.disabled ? undoBtn : root.querySelector('.bhead .btitle') || root.querySelector('.epal summary'));
-    if (t && t.focus) { t.focus(); }
+    if (t && t.focus) { try { t.focus({ preventScroll: true }); } catch (e) { t.focus(); } }
     say('Änderung rückgängig gemacht.');
   }
   document.addEventListener('keydown', function (e) {
@@ -213,7 +232,8 @@
       if (!st) { return; }
       e.stopPropagation();
       clearDrop();
-      if (st === 'bad') { mk.classList.add('drop-bad'); hint(badText()); return; }
+      // Verbotene Ablage ausdrücklich ablehnen (dropEffect none), sonst fällt sie zur umgebenden Spalten-Karte durch (Prüfung 30, B1)
+      if (st === 'bad') { e.preventDefault(); if (e.dataTransfer) { e.dataTransfer.dropEffect = 'none'; } mk.classList.add('drop-bad'); hint(badText()); return; }
       e.preventDefault();
       if (e.dataTransfer) { e.dataTransfer.dropEffect = drag.kind === 'new' ? 'copy' : 'move'; }
       hint('');
@@ -221,9 +241,11 @@
       if (mark === 'card') { node.classList.add(idx.after ? 'drop-after' : 'drop-before'); } else { mk.classList.add('drop-on'); }
     });
     node.addEventListener('drop', function (e) {
-      if (dragStatus(e, allowed) !== 'ok') { return; }
+      var st = dragStatus(e, allowed);
+      if (!st) { return; }
       e.preventDefault();
       e.stopPropagation();
+      if (st !== 'ok') { var bad = badText(); endDrag(); hint(bad); return; }
       var idx = getIdx(e), d = drag;
       endDrag();
       var at = typeof idx === 'number' ? idx : idx.at;
