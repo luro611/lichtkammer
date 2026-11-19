@@ -22,7 +22,7 @@
 <h2>Voraussetzungen</h2>
 <table class="tab">
 <tr><th>Du brauchst</th><th>Hinweis</th></tr>
-<tr><td>Webspace <em>oder</em> einen eigenen Server</td><td>Webspace mit PHP 8.3 oder neuer, Apache (<code>.htaccess</code> wird gelesen) und HTTPS, oder ein Server mit Docker.</td></tr>
+<tr><td>Webspace <em>oder</em> einen eigenen Server</td><td>Webspace mit PHP 8.3 oder neuer, Apache (<code>.htaccess</code> wird gelesen) und HTTPS, oder ein Rechner/Server mit Docker (Docker Compose).</td></tr>
 <tr><td>PHP-Erweiterungen</td><td>sodium, pdo_sqlite, intl, gd (oder imagick) und exif. Bei den meisten Anbietern vorhanden. Die Systemprüfung im Admin zeigt es dir.</td></tr>
 <tr><td>Ein FTP-Programm</td><td>FileZilla, Cyberduck oder ähnlich, mit verschlüsselter Verbindung (FTPS oder SFTP). Mehr braucht der Webspace nicht: kein SSH, keine Datenbank, kein Composer.</td></tr>
 <tr><td>Einen Ordner <em>über</em> dem Webroot</td><td>Für Datenbank und Originalfotos. Er muss für PHP beschreibbar sein und darf nicht aus dem Internet erreichbar sein (bei all-inkl der Ordner neben dem Domain-Ordner).</td></tr>
@@ -111,53 +111,37 @@ Windows:         certutil -hashfile lichtkammer-X.Y.Z.zip SHA256</pre>
 <div class="two"><fig b="t_login">Schritt 1 von 2: Benutzername und Passwort.</fig><fig b="t_totp">Schritt 2 von 2: Code aus der App.</fig></div>
 
 <h1 id="k3" class="neu">Installation mit <em>Docker</em></h1>
-<p class="lead">Für einen eigenen Server (zum Beispiel ein LXC-Container oder eine virtuelle Maschine) gibt es ein fertiges Image. Es enthält alles, auch Apache und PHP.</p>
-<p class="warn"><strong>Hinweis zur Testversion:</strong> Das Image <code>ghcr.io/luro611/lichtkammer</code> ist bei dieser Vorabversion noch nicht öffentlich. Frage bei <code>info@lurohome.de</code> nach dem Zugang oder einer Image-Datei, bevor du diesen Weg versuchst.</p>
-<fig s="s_docker">Docker in drei Befehlen.</fig>
+<p class="lead">Für einen eigenen Rechner oder Server mit Docker (zum Beispiel ein Mac, ein Linux-Server oder ein LXC-Container). Du baust das Image selbst aus dem Zip: Dafür liegen <code>Dockerfile</code> und <code>compose.yaml</code> im Software-Zip. Es ist nichts aus dem Internet zu laden außer den Docker-Grundbausteinen beim ersten Bauen.</p>
+<fig s="s_docker">Docker in drei Schritten.</fig>
 
-<h2>Schritt 1: Ordner und Dateien</h2>
-<p>Lege einen Ordner an, zum Beispiel <code>lichtkammer</code>, und darin zwei Dateien.</p>
-<p><strong><code>compose.yaml</code></strong></p>
-<pre>services:
-  lichtkammer:
-    image: ghcr.io/luro611/lichtkammer:latest
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:8080:80"
-    env_file:
-      - .env
-    volumes:
-      - lk-data:/var/lib/lichtkammer/data
-      - lk-originals:/var/lib/lichtkammer/originals
-      - lk-media:/var/www/html/public/media
-volumes:
-  lk-data:
-  lk-originals:
-  lk-media:</pre>
-<p class="hint">Tipp: Statt <code>latest</code> eine feste Version eintragen (zum Beispiel <code>:0.1.0</code>). Dann aktualisierst du bewusst und nicht aus Versehen. Eine Datenbank wie PostgreSQL brauchst du nicht: Lichtkammer speichert in einer SQLite-Datei im Volume <code>lk-data</code>.</p>
-<p><strong><code>.env</code></strong> (neben der <code>compose.yaml</code>)</p>
+<h2>Schritt 1: Zip entpacken und <code>.env</code> anlegen</h2>
+<p>Entpacke <code>lichtkammer-X.Y.Z.zip</code> in einen Ordner, zum Beispiel <code>lichtkammer</code>. Darin liegen unter anderem <code>Dockerfile</code>, <code>compose.yaml</code>, <code>app</code>, <code>public</code> und <code>.env.example</code>. Kopiere <code>.env.example</code> nach <code>.env</code> (im selben Ordner) und lösche darin alles außer diesen Zeilen:</p>
 <pre>LK_BASE_URL=https://fotos.example.org
 LK_SITE_NAME=Beispielfoto
 LK_APP_KEY=&lt;openssl rand -base64 32&gt;
 LK_SETUP_TOKEN=&lt;openssl rand -hex 24&gt;
 LK_TRUST_PROXY=1
 LK_TRUSTED_PROXIES=&lt;Adresse des Reverse-Proxys&gt;</pre>
-<p>Die Pfade für Daten und Originale sind im Image schon gesetzt (<code>/var/lib/lichtkammer/…</code>), sie gehören nicht in die <code>.env</code>. Die Werte für Schlüssel und Token erzeugst du mit den angegebenen Befehlen. Den Schlüssel bewahrst du im Passwort-Manager auf. Zum Testen ohne HTTPS nimmst du <code>LK_BASE_URL=http://localhost:8080</code> und lässt die beiden Proxy-Zeilen weg.</p>
+<p><strong>Zum schnellen Ausprobieren auf dem eigenen Rechner</strong> (ohne HTTPS und ohne Proxy) nimmst du stattdessen <code>LK_BASE_URL=http://localhost:8080</code> und lässt die beiden Proxy-Zeilen weg. Beginnt die Adresse mit <code>http://</code>, leitet Lichtkammer im Docker-Image nicht auf HTTPS um.</p>
+<p>Die Werte für Schlüssel und Token erzeugst du in einem Terminal mit den angegebenen Befehlen (<code>openssl</code> gibt es auf Mac und Linux; unter Windows nutze die WSL oder einen Passwort-Manager mit Zufallsgenerator). Den Schlüssel bewahrst du im Passwort-Manager auf. Die Pfade für Daten und Originale sind im Image schon gesetzt (<code>/var/lib/lichtkammer/…</code>), sie gehören <em>nicht</em> in die <code>.env</code>. Eine Datenbank wie PostgreSQL brauchst du nicht: Lichtkammer speichert in einer SQLite-Datei.</p>
+<p class="hint">Die <code>compose.yaml</code> legt drei Volumes an: <code>lk-data</code> (Datenbank), <code>lk-originals</code> (deine Originalfotos) und <code>lk-media</code> (erzeugte Bilder). Sie bleiben bei Updates erhalten. Der Port steht auf <code>127.0.0.1:8080</code>: Das Programm ist nur von diesem Rechner aus erreichbar.</p>
 
-<h2>Schritt 2: Starten</h2>
-<pre>docker compose up -d</pre>
-<p>Danach lauscht Lichtkammer auf <code>127.0.0.1:8080</code>. Der Container prüft sich selbst (Adresse <code>/health</code>; sie nennt die Version).</p>
+<h2>Schritt 2: Bauen und starten</h2>
+<p>Öffne ein Terminal im entpackten Ordner:</p>
+<pre>docker compose up -d --build</pre>
+<p>Das erste Bauen dauert einige Minuten. Danach lauscht Lichtkammer auf <code>127.0.0.1:8080</code>. Der Container prüft sich selbst: <code>http://localhost:8080/health</code> antwortet mit „ok“ und der Version.</p>
 
-<h2>Schritt 3: Reverse-Proxy mit HTTPS</h2>
-<p>Das Image spricht nur HTTP. Das Zertifikat und HTTPS übernimmt ein Reverse-Proxy davor (zum Beispiel Nginx Proxy Manager, Caddy oder Traefik). Er reicht die Anfragen an <code>127.0.0.1:8080</code> weiter.</p>
+<h2>Schritt 3: Reverse-Proxy mit HTTPS (nur für einen echten Server)</h2>
+<p>Das Image spricht nur HTTP. Das Zertifikat und HTTPS übernimmt ein Reverse-Proxy davor (zum Beispiel Nginx Proxy Manager, Caddy oder Traefik). Er reicht die Anfragen an <code>127.0.0.1:8080</code> weiter. Zum Ausprobieren auf dem eigenen Rechner brauchst du das nicht.</p>
 <fig s="s_proxy">Browser, Reverse-Proxy und Container.</fig>
 <ul>
 <li><code>LK_TRUST_PROXY=1</code> sagt Lichtkammer, dem Header des Proxys zu vertrauen. Das <strong>braucht</strong> <code>LK_TRUSTED_PROXIES</code> mit der Adresse des Proxys; sonst startet der Admin nicht.</li>
-<li>Veröffentliche den Container-Port nie auf allen Netzwerkschnittstellen: Sonst könnte jeder im Netz die Header fälschen. Läuft der Proxy im selben Docker-Netz, lass die Zeile <code>ports</code> ganz weg.</li>
+<li>Veröffentliche den Container-Port nie auf allen Netzwerkschnittstellen: Sonst könnte jeder im Netz die Header fälschen. Läuft der Proxy im selben Docker-Netz, lass die Zeile <code>ports</code> in der <code>compose.yaml</code> ganz weg.</li>
 </ul>
 
 <h2>Schritt 4: Ersteinrichtung</h2>
-<p>Öffne <code>https://deine-domain/admin/setup</code> und gehe vor wie im Kapitel 2, <strong>Schritt 5</strong> (Konto, App koppeln, Wiederherstellungscodes). Entferne anschließend die Zeile <code>LK_SETUP_TOKEN</code> aus der <code>.env</code> und starte den Container neu: <code>docker compose up -d</code>. In der Systemprüfung steht dann nur noch „Zur Kenntnis“ zu <code>.user.ini</code> (bei Docker normal) und, ohne HTTPS, ein Hinweis zur Adresse.</p>
+<p>Öffne <code>/admin/setup</code> (lokal: <code>http://localhost:8080/admin/setup</code>) und gehe vor wie im Kapitel 2, <strong>Schritt 5</strong> (Konto, App koppeln, Wiederherstellungscodes). Entferne anschließend die Zeile <code>LK_SETUP_TOKEN</code> aus der <code>.env</code> und starte neu: <code>docker compose up -d</code>. Danach antwortet <code>/admin/setup</code> mit „nicht gefunden“, und der Hinweis im Admin ist weg. In der Systemprüfung stehen bei lokalem Test noch „Adresse“ (kein HTTPS) und „.user.ini“ (bei Docker normal) als Hinweis.</p>
+<p class="hint">Ich habe diesen Weg aus dem entpackten Software-Zip praktisch ausprobiert (<code>docker compose up -d --build</code>, <code>/health</code>, Einrichtung mit Token, Token entfernen, Neustart): Er funktioniert.</p>
 
 <h1 id="k4" class="neu"><em>Aktualisieren</em> und Sicherung</h1>
 <p class="lead">Neue Versionen ersetzen nur das Programm. Deine Einstellungen, Daten, Originale und erzeugten Bilder bleiben unberührt.</p>
@@ -173,9 +157,13 @@ LK_TRUSTED_PROXIES=&lt;Adresse des Reverse-Proxys&gt;</pre>
 </ol>
 
 <h2>Docker</h2>
-<pre>docker compose pull
-docker compose up -d</pre>
-<p>Bei einer festen Versionsnummer in der <code>compose.yaml</code> trägst du vorher die neue Nummer ein. Danach wie oben: Admin öffnen und einmal veröffentlichen. Was sich pro Version ändert, steht im <code>CHANGELOG.md</code> (im Software-Zip nicht enthalten; frage danach).</p>
+<ol>
+<li>Sicherung ziehen (siehe unten).</li>
+<li>Das neue Zip <strong>über den alten Ordner</strong> entpacken und Dateien überschreiben. Deine <code>.env</code> ist nicht im Zip und bleibt. (Nimm denselben Ordner: Docker benennt die Volumes nach dem Ordnernamen. Ein neuer Ordner mit anderem Namen bekäme leere Volumes.)</li>
+<li>Im Ordner: <pre>docker compose up -d --build</pre> Deine Daten bleiben in den Volumes erhalten.</li>
+<li>Admin öffnen, einmal <strong>Jetzt veröffentlichen</strong>.</li>
+</ol>
+<p> Was sich pro Version ändert, steht im <code>CHANGELOG.md</code> (im Software-Zip nicht enthalten; frage danach).</p>
 
 <h2>Sicherung herunterladen</h2>
 <p>Unter <strong>Verwaltung → Sicherung</strong> (nur Administratoren) lädst du alles herunter, was du zum Wiederherstellen brauchst. Es gibt zwei Teile: das <strong>Paket</strong> (Datenbank mit Konten, Galerien, Seiten, Einstellungen, Protokoll und private Dateien) und die <strong>Originale</strong> der Fotos in Teilen.</p>

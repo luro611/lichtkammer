@@ -55,7 +55,7 @@ def ablauf(o):
     s.text(50, 92, "Webspace (nur FTP)", 17, ACC, SANS, 700); s.text(480, 92, "Docker (eigener Server)", 17, ACC, SANS, 700)
     for i, t in enumerate(["Zip herunterladen und prüfen", "Mit dem FTP-Programm hochladen", "app/.env ausfüllen", "/admin/setup im Browser öffnen"]):
         s.num(58, 128 + i * 42, i + 1); s.text(82, 133 + i * 42, t, 15)
-    for i, t in enumerate(["compose.yaml und .env anlegen", "docker compose up -d", "Reverse-Proxy mit HTTPS davorsetzen", "/admin/setup im Browser öffnen"]):
+    for i, t in enumerate(["Zip entpacken, .env anlegen", "docker compose up -d --build", "Reverse-Proxy mit HTTPS davorsetzen", "/admin/setup im Browser öffnen"]):
         s.num(488, 128 + i * 42, i + 1); s.text(512, 133 + i * 42, t, 15)
     s.save(o / "s_ablauf.svg")
 
@@ -63,7 +63,7 @@ def zip_aufbau(o):
     s = Svg(900, 330)
     s.text(450, 36, "Inhalt des Zip-Archivs", 26, INK, SERIF, 400, "middle")
     rows = [(0, "lichtkammer-0.1.0-rc1/", "", False), (1, "app/", "das Programm (gesperrt), nach /app hochladen", True), (1, "public/", "die Webseite, in den Webroot hochladen", True),
-            (1, ".env.example", "Vorlage, wird zu app/.env", False), (1, "INSTALL.txt", "Kurzanleitung", False), (1, "LICENSE", "Lizenz AGPL-3.0", False), (1, "README.md", "", False), (1, "VERSION", "Versionsnummer", False)]
+            (1, ".env.example", "Vorlage, wird zu app/.env", False), (1, "Docker-Dateien", "Dockerfile, compose.yaml, docker/: nur für Docker (Kapitel 3), nicht hochladen", False), (1, "INSTALL.txt, LICENSE, NOTICE, README.md, VERSION", "", False)]
     tree(s, 40, 90, rows, 16)
     s.rect(40, 290, 820, 1, LINE)
     s.text(40, 318, "Nicht enthalten: deine Einstellungen (app/.env), Datenbank, Originale und erzeugte Bilder. Beim Update bleiben sie unberührt.", 13, MUTED)
@@ -74,7 +74,7 @@ def webroot(o):
     s.text(450, 36, "So sieht der Webroot nach dem Hochladen aus", 26, INK, SERIF, 400, "middle")
     rows = [(0, "Webroot  (z. B. fotos.example.org/)", "", False), (1, "index.php", "", False), (1, "admin/ , assets/ , media/ ...", "aus dem Ordner public", False),
             (1, "app/", "aus dem Ordner app, per .htaccess gesperrt", True), (2, "src/ , templates/ , migrations/", "", False), (2, ".env", "Ihre Einstellungen (neu angelegt)", True),
-            (1, "lichtkammer-data/", "Datenbank (nur wenn LK_DATA_DIR gesetzt ist, besser über dem Webroot)", False), (1, "lichtkammer-originals/", "Originalfotos (wie oben)", False)]
+            (0, "lichtkammer-data/", "Datenbank (Pflicht, neben dem Webroot, nicht darin)", False), (0, "lichtkammer-originals/", "Originalfotos (Pflicht, neben dem Webroot)", False)]
     tree(s, 40, 90, rows, 15.5)
     s.rect(40, 320, 820, 56, SOFT, ACC)
     s.text(60, 345, "Wichtig: Die Datei heißt app/.env (im Ordner app), nicht .env im Webroot.", 14.5, INK, SANS, 600)
@@ -85,22 +85,22 @@ def envdatei(o):
     s = Svg(900, 330)
     s.text(450, 34, "app/.env: das Mindeste", 26, INK, SERIF, 400, "middle")
     s.rect(40, 54, 820, 190, "#242321", "#242321")
-    lines = [("LK_BASE_URL=https://fotos.example.org", "#f6f0e8"), ("LK_SITE_NAME=Beispielfoto", "#f6f0e8"), ("LK_APP_KEY=<44 Zeichen, von der Seite „Admin nicht verfügbar“>", "#e47a55"), ("LK_SETUP_TOKEN=<48 Zeichen, ebenso>", "#e47a55"), ("# LK_DATA_DIR=/www/htdocs/vXXXXXX/lichtkammer-data", "#b8aea4"), ("# LK_ORIGINALS_DIR=/www/htdocs/vXXXXXX/lichtkammer-originals", "#b8aea4")]
+    lines = [("LK_BASE_URL=https://fotos.example.org", "#f6f0e8"), ("LK_SITE_NAME=Beispielfoto", "#f6f0e8"), ("LK_APP_KEY=<44 Zeichen, von der Seite „Admin nicht verfügbar“>", "#e47a55"), ("LK_SETUP_TOKEN=<48 Zeichen, ebenso>", "#e47a55"), ("LK_DATA_DIR=/www/htdocs/vXXXXXX/lichtkammer-data", "#f6f0e8"), ("LK_ORIGINALS_DIR=/www/htdocs/vXXXXXX/lichtkammer-originals", "#f6f0e8")]
     for i, (t, c) in enumerate(lines): s.text(62, 92 + i * 28, t, 14.5, c, MONO)
     for i, t in enumerate(["Adresse ohne Schrägstrich am Ende", "Name der Seite (im Admin und als Titel)", "Geheimer Schlüssel, sicher aufbewahren", "Nur für die Ersteinrichtung, danach Zeile löschen"]):
         s.num(40 + 20 + i * 0, 275, 0) if False else None
     s.text(40, 274, "Orange: Geheimwerte. Den Schlüssel im Passwort-Manager sichern, getrennt von der Datensicherung.", 13.5, MUTED)
-    s.text(40, 298, "LK_DATA_DIR und LK_ORIGINALS_DIR: nur eintragen, wenn der Anbieter Ordner über dem Webroot erlaubt.", 13.5, MUTED)
+    s.text(40, 298, "LK_DATA_DIR und LK_ORIGINALS_DIR sind Pflicht: zwei Ordner über dem Webroot (der Pfad kommt vom Anbieter).", 13.5, MUTED)
     s.save(o / "s_env.svg")
 
 def docker(o):
     s = Svg(900, 360)
-    s.text(450, 34, "Docker in drei Befehlen", 26, INK, SERIF, 400, "middle")
+    s.text(450, 34, "Docker in drei Schritten", 26, INK, SERIF, 400, "middle")
     s.rect(40, 54, 820, 240, "#242321", "#242321")
-    L = [("# 1. Ordner anlegen, compose.yaml und .env hineinlegen", "#b8aea4"), ("mkdir lichtkammer && cd lichtkammer", "#f6f0e8"), ("openssl rand -base64 32   # für LK_APP_KEY", "#f6f0e8"), ("openssl rand -hex 24      # für LK_SETUP_TOKEN", "#f6f0e8"),
-         ("", "#f6f0e8"), ("# 2. Starten", "#b8aea4"), ("docker compose up -d", "#e47a55"), ("", "#f6f0e8"), ("# 3. Im Browser /admin/setup öffnen", "#b8aea4")]
+    L = [("# 1. Zip entpacken, .env aus .env.example anlegen", "#b8aea4"), ("openssl rand -base64 32   # für LK_APP_KEY", "#f6f0e8"), ("openssl rand -hex 24      # für LK_SETUP_TOKEN", "#f6f0e8"),
+         ("", "#f6f0e8"), ("# 2. Bauen und starten (im entpackten Ordner)", "#b8aea4"), ("docker compose up -d --build", "#e47a55"), ("", "#f6f0e8"), ("# 3. Im Browser /admin/setup öffnen", "#b8aea4")]
     for i, (t, c) in enumerate(L): s.text(62, 88 + i * 24, t, 14.5, c, MONO)
-    s.text(40, 330, "Update später: docker compose pull && docker compose up -d", 14.5, INK, MONO)
+    s.text(40, 330, "Update später: neues Zip darüber entpacken, docker compose up -d --build", 14.5, INK, MONO)
     s.save(o / "s_docker.svg")
 
 def proxy(o):
@@ -123,7 +123,7 @@ def update(o):
     s.text(50, 86, "Webspace", 17, ACC, SANS, 700); s.text(480, 86, "Docker", 17, ACC, SANS, 700)
     for i, t in enumerate(["Sicherung: Datenordner und Originale laden", "Neues Zip entpacken", "public und app darüber hochladen", "Admin öffnen, einmal „Veröffentlichen“"]):
         s.num(58, 120 + i * 40, i + 1); s.text(82, 125 + i * 40, t, 14.5)
-    for i, t in enumerate(["Sicherung der Volumes", "docker compose pull", "docker compose up -d", "Admin öffnen, einmal „Veröffentlichen“"]):
+    for i, t in enumerate(["Sicherung der Volumes", "Neues Zip über den Ordner entpacken", "docker compose up -d --build", "Admin öffnen, einmal „Veröffentlichen“"]):
         s.num(488, 120 + i * 40, i + 1); s.text(512, 125 + i * 40, t, 14.5)
     s.save(o / "s_update.svg")
 

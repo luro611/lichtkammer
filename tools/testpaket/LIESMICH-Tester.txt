@@ -6,7 +6,7 @@ Vorabversion @VERSION@. Nicht für den Echtbetrieb. Lizenz: AGPL-3.0-or-later (D
 Was ist das?
 ------------
 Lichtkammer ist ein schlankes Foto-CMS: Du zeigst eigene Fotos als Webseite (Galerien, Textseiten, Startseite)
-und verwaltest alles im Browser. Es läuft auf einem normalen Webspace (PHP, nur FTP nötig) oder mit Docker.
+und verwaltest alles im Browser. Es läuft auf einem normalen Webspace (PHP, nur FTP nötig) oder mit Docker (das Image baust du selbst aus dem Zip).
 Bitte teste nur mit Testfotos und Testdaten.
 
 Was liegt im Paket?
@@ -23,11 +23,12 @@ In 5 Schritten installieren (Webspace)
 3. /admin aufrufen, die zwei Zeilen für LK_APP_KEY und LK_SETUP_TOKEN in die .env kopieren.
 4. /admin/setup: Konto, Passwort, Authenticator-App, Wiederherstellungscodes.
 5. LK_SETUP_TOKEN aus der .env löschen, Verwaltung → Systemprüfung öffnen.
-Alles ausführlich: Lichtkammer-Anleitung.pdf, Kapitel 2.
+Alles ausführlich: Lichtkammer-Anleitung.pdf, Kapitel 2. Mit Docker (Kapitel 3): Zip entpacken, .env anlegen,
+"docker compose up -d --build", dann /admin/setup.
 
 Was soll getestet werden? (Checkliste)
 --------------------------------------
-[ ] Installation: Hat jeder Schritt der Anleitung funktioniert? Wo hat es gehakt?
+[ ] Installation (Webspace und/oder Docker): Hat jeder Schritt der Anleitung funktioniert? Wo hat es gehakt?
 [ ] Systemprüfung (Verwaltung → Systemprüfung): Gibt es Punkte, die rot oder „Bitte ansehen“ sind?
 [ ] Anmelden mit Passwort und Code; „Gerät 24 Stunden vertrauen“; Abmelden; Anmelden mit Wiederherstellungscode
 [ ] Medien: Fotos hochladen (einzeln und ganzer Ordner), Ordner anlegen, verschieben, umbenennen, Papierkorb
@@ -42,7 +43,7 @@ Was soll getestet werden? (Checkliste)
 [ ] Die öffentliche Seite am Handy ansehen
 [ ] Konto einladen (Redaktion); Administrator-Einladung verlangt Passwort und Code
 [ ] Sicherung herunterladen (Verwaltung → Sicherung) und – wenn du magst – auf einem zweiten Testserver wieder einspielen
-[ ] Update: neue Version über die alte hochladen (sobald es eine gibt)
+[ ] Update: neue Version über die alte legen (Webspace: hochladen; Docker: entpacken und neu bauen), sobald es eine gibt
 [ ] Verständlichkeit: Ist die Anleitung klar? Welche Begriffe oder Bilder waren unklar?
 
 Probleme melden

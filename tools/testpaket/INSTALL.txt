@@ -18,7 +18,14 @@ Kurzfassung für einen Webspace (nur FTP nötig)
 
 Docker
 ------
-Siehe Kapitel 3 der Anleitung. Das Image ist bei dieser Vorabversion noch nicht öffentlich: Frage bei
+Siehe Kapitel 3 der Anleitung. Kurz: lichtkammer-<Version>.zip entpacken, im entpackten Ordner .env anlegen
+(Vorlage .env.example: LK_BASE_URL, LK_SITE_NAME, LK_APP_KEY, LK_SETUP_TOKEN), dann
+    docker compose up -d --build
+Das Image wird selbst gebaut; es ist nichts außer Docker nötig. Zum Ausprobieren lokal: LK_BASE_URL=http://localhost:8080,
+danach http://localhost:8080/health und http://localhost:8080/admin/setup. Update: neues Zip über denselben Ordner entpacken
+und noch einmal "docker compose up -d --build".
+
+Vorabversion noch nicht öffentlich: Frage bei
 info@lurohome.de nach dem Zugang.
 
 Vorabversion, nicht für den Echtbetrieb. Lizenz: AGPL-3.0-or-later (Datei LICENSE).

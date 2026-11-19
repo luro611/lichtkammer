@@ -30,8 +30,19 @@ Die .env ausfüllen
 - LK_DATA_DIR (empfohlen): ein Ordner ÜBER dem Webroot für Datenbank und Originale, falls dein Anbieter das erlaubt,
   siehe die Hinweise in .env.example. Der Ordner wird beim ersten Start selbst angelegt.
 
-Aktualisieren
--------------
+Docker (eigener Rechner oder Server)
+-----------------------------------
+Im entpackten Ordner liegen Dockerfile und compose.yaml (nicht auf den Webspace hochladen).
+1. Die Datei .env.example nach .env kopieren (im selben Ordner) und auf diese Zeilen kürzen: LK_BASE_URL, LK_SITE_NAME,
+   LK_APP_KEY, LK_SETUP_TOKEN (Werte: openssl rand -base64 32 bzw. openssl rand -hex 24). Zum Ausprobieren lokal:
+   LK_BASE_URL=http://localhost:8080. Für einen echten Server mit HTTPS kommt ein Reverse-Proxy davor (siehe Anleitung).
+2. docker compose up -d --build   (das erste Bauen dauert einige Minuten)
+3. http://localhost:8080/health zeigt "ok" und die Version; dann /admin/setup im Browser öffnen, danach LK_SETUP_TOKEN
+   aus der .env löschen und "docker compose up -d" ausführen.
+Aktualisieren: neues Zip über denselben Ordner entpacken, "docker compose up -d --build". Die Daten liegen in Volumes.
+
+Aktualisieren (Webspace)
+------------------------
 1. Vorher eine Sicherung ziehen: den Daten-Ordner (LK_DATA_DIR) und die Originale per FTP herunterladen.
 2. Das neue Zip entpacken und "public" sowie "app" über die vorhandenen Ordner hochladen (überschreiben).
    Deine Dateien app/.env, der Daten-Ordner, die Originale und public/media sind NICHT im Zip und bleiben unberührt.
