@@ -97,7 +97,7 @@ $old = $b->get('/admin/vorschau/fotografen')->body;
 check('Alte Seite (Text): Ausgabe wie bisher mit prose, ohne Blockklassen', str_contains($old, '<div class="prose">') && str_contains($old, '<h2>Wer wir sind</h2>') && !str_contains($old, 'class="blocks"'));
 $ed = $b->get("/admin/seiten/$pid");
 check('Editor: Seite öffnet mit Editor, alter Text als Blöcke vorbelegt (noch nicht gespeichert)', $ed->status === 200 && str_contains($ed->body, 'id="page-editor"') && str_contains($ed->body, 'id="editor-data"') && str_contains($ed->body, 'Wer wir sind') && (string) $db->value('SELECT blocks FROM pages WHERE id = ?', [$pid]) === '');
-check('Editor: Skript und Wortlaut der Bedienung eingebunden', str_contains($ed->body, '/assets/js/page-editor.js') && str_contains($ed->body, 'Block hinzufügen'));
+check('Editor: Skript und Wortlaut der Bedienung eingebunden', str_contains($ed->body, '/assets/js/page-editor.js') && str_contains($ed->body, 'hier einfügen') && str_contains($ed->body, 'Rückgängig'));
 check('Editor: Rückweg „Als einfachen Text speichern“ vorhanden', str_contains($ed->body, 'name="modus" value="text"'));
 
 // Blöcke speichern

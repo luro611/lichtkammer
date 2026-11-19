@@ -17,7 +17,7 @@
     <div class="field"><span id="editor-label">Inhalt</span>
       <div id="page-editor" class="editor" role="group" aria-labelledby="editor-label" data-pick-url="/admin/fotos/auswahl"></div>
       <noscript><p class="notice error">Der Seiten-Editor braucht JavaScript. Ohne JavaScript lässt sich der Inhalt nicht bearbeiten. Speichern ändert nur Titel, Adresse, Status und Verlinkung; ein alter Text wird dabei in Blöcke übernommen.</p></noscript>
-      <p class="small muted">Jeder Block ist ein Baustein der Seite. Mit „Block hinzufügen“ kommt Neues dazu, mit den Pfeilen oder durch Ziehen am Griff ändert sich die Reihenfolge. Leere Blöcke werden beim Speichern entfernt.</p>
+      <p class="small muted">Jeder Block ist ein Baustein der Seite. Neue Blöcke kommen aus der Bausteinleiste (ziehen) oder über „+ hier einfügen“ an die gewünschte Stelle. Mit den Pfeilen, „Verschieben nach …“ oder durch Ziehen am Griff ändert sich die Reihenfolge, auch zwischen Seite und Spalten. „Rückgängig“ holt Gelöschtes und Verschobenes zurück, solange du nicht gespeichert hast. Leere Blöcke werden beim Speichern entfernt.</p>
     </div>
     <label class="field"><span>Status</span><select name="status"><option value="draft"<?= $pg['status'] === 'draft' ? ' selected' : '' ?>>Entwurf</option><option value="published"<?= $pg['status'] === 'published' ? ' selected' : '' ?>>veröffentlichen (mit dem nächsten Veröffentlichen)</option></select></label>
     <label class="field"><span>Verlinkt</span><select name="nav"><?php foreach (['main' => 'im Menü oben', 'footer' => 'in der Fußzeile', 'none' => 'nirgends'] as $k => $t): ?><option value="<?= $k ?>"<?= $pg['nav'] === $k ? ' selected' : '' ?>><?= $e($t) ?></option><?php endforeach; ?></select></label>

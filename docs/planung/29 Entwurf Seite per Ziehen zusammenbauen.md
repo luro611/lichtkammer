@@ -140,3 +140,11 @@ Tests: neue Prüfungen in `tests/bloecke.php` (`parse` mit/ohne `file`, alte Sei
 2. **Spalten: ja oder nein, und wie viele?** **Empfehlung:** Die vorhandenen zwei Spalten behalten, Ziehen hinein und heraus (Teil C), Verhältnis wählbar (2/3 : 1/3) später; keine drei Spalten, keine Verschachtelung.
 3. **Vorschau neben dem Editor (Teil F) jetzt oder später?** **Empfehlung:** Später, nach A bis E; ohne sie reicht „Vorschau (gespeicherter Stand)“ nach dem Speichern. Wenn Matthias oft zwischen Editor und Vorschau wechselt, vorziehen.
 4. **Reihenfolge und Umfang:** Soll mit **A, B, C** (ohne neues Datenformat) begonnen werden, und gehört **E** (Dateien in Blöcke, Feld `file`, Fable-Prüfung) in dieselbe Runde wie Entwurf 16, Teil F? **Empfehlung:** Ja zu A, B, C als erster Block; E zusammen mit 16/F als eigener Block danach.
+
+## 7. Stand Umsetzung (19.11.2026): Teile A, B, C gebaut
+
+Gebaut in `page-editor.js`/`app.css`, Datenformat und `Blocks::parse` unverändert. Browserprüfung (eingebauter Browser, Testseite mit dem echten Skript, hell/dunkel, 375 px und 1400 px) – Prüfpunkte:
+
+- **A:** Einfügepunkt öffnet Menü an der Stelle und legt dort an (ok); Baustein antippen, dann Einfügepunkt (ok, Esc wählt ab); Bausteinleiste per Ziehen auf Einfügepunkt (ok, simulierte Zieh-Ereignisse); Leiste einklappbar, auf breitem Fenster offen und mitlaufend, Handy ohne seitliches Scrollen (ok). **Nicht geprüft:** echtes Ziehen mit der Maus in Safari/Firefox, Neuer Bildblock mit echtem Fotodialog (Testseite ohne Fotoliste).
+- **B:** Knopf und Strg/Cmd+Z (nicht in Textfeldern), Leiste nach dem Löschen, Stapel nach Speichern leer (ok). Nach dem Einfügen steht der Fokus im neuen Feld, dort gilt Strg+Z des Browsers; der Knopf „Rückgängig“ geht immer.
+- **C:** Block in leere Spalte ziehen (ok), Trennlinie in Spalte abgelehnt mit Hinweis (ok), Fremd-Ziehen ignoriert (ok), „Verschieben nach …“ (ok, Hauptseite „hinter dem Spalten-Block“, Spalten „ans Ende“).

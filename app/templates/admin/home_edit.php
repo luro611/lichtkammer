@@ -13,7 +13,7 @@
     <div class="field"><span id="editor-label">Inhalt der Startseite</span>
       <div id="page-editor" class="editor" role="group" aria-labelledby="editor-label" data-pick-url="/admin/fotos/auswahl"></div>
       <noscript><p class="notice error">Der Editor braucht JavaScript.</p></noscript>
-      <p class="small muted">Mit „Block hinzufügen“ kommt Neues dazu, mit den Pfeilen oder durch Ziehen am Griff ändert sich die Reihenfolge. Das Titelbild gibt es nur auf der Startseite.</p>
+      <p class="small muted">Neue Blöcke kommen aus der Bausteinleiste (ziehen) oder über „+ hier einfügen“ an die gewünschte Stelle. Mit den Pfeilen, „Verschieben nach …“ oder durch Ziehen am Griff ändert sich die Reihenfolge. „Rückgängig“ gilt nur, solange du nicht gespeichert hast. Das Titelbild gibt es nur auf der Startseite.</p>
     </div>
     <div class="actions">
       <button class="btn" type="submit">Speichern</button>
