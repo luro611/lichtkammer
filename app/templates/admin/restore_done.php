@@ -8,7 +8,7 @@
 <?php if ($pending > 0): ?>
     <li><?= (int) $pending ?> Originale warten noch im Bereitstellungsordner: unter <a href="/admin/wiederherstellung">Verwaltung → Sicherung</a> zurückholen.</li>
 <?php endif; ?>
-    <li>Danach „Medienvarianten neu erzeugen“ (Fotos) und <strong>Veröffentlichen</strong>.</li>
+    <li>Danach unter <a href="/admin/varianten">Verwaltung → Bildvarianten</a> die Bildvarianten für alle Fotos neu erzeugen und dann <strong>Veröffentlichen</strong>.</li>
     <li>Das Einrichtungs-Token aus <span class="mono">app/.env</span> entfernen (<span class="mono">./deploy.sh --token-entfernen</span>).</li>
   </ol>
 </section>

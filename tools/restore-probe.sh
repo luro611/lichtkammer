@@ -11,6 +11,8 @@
 #   (frischer Code aus der App) oder Eingabe im Terminal. Alternativ --zugang-datei mit Zeilen LK_PROBE_USER=…, LK_PROBE_PASSWORD=…,
 #   LK_PROBE_TOTP_SECRET=… (wird nur gelesen, nicht ausgeführt). Ohne Zugangsdaten werden die Schritte mit Anmeldung übersprungen und
 #   genannt; die Originale holt dann ein Ersatzweg direkt im Container zurück (nicht der echte Weg über die Verwaltung).
+# Die Bildvarianten erzeugt die Probe über /admin/varianten/schritt (Runde für Runde wie das Skript der Seite, Verwaltung → Bildvarianten),
+#   mit Prüfung von Warnband, Zahl „N von N“ und Dauer der längsten Runde (Grenze von all-inkl: 60 s).
 # Es entsteht nichts im Repository und nichts auf einem Server: ein Container mit eigenen, leeren Volumes auf 127.0.0.1, am Ende
 # entfernt (außer mit --behalten). Docker-Host: der lokale, oder der aus DOCKER_HOST/DOCKER_CONTEXT, dann läuft das Skript auf diesem Host
 # (siehe Wiederherstellung.md, Variante pve10).
@@ -30,7 +32,7 @@ while (( $# )); do
     --ohne-varianten) novar=1; shift ;; # Diagnose: Bildvarianten nach dem Einspielen NICHT neu erzeugen
     --schluesseldatei) keyfile=${2:-}; shift 2 ;;
     --zugang-datei) accfile=${2:-}; shift 2 ;;
-    -h|--help) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) print -u2 "Unbekannte Option: $1"; exit 2 ;;
     *) src=$1; shift ;;
   esac
@@ -287,18 +289,39 @@ probe_a() {
     skip "SHA-256 der Originale (Sicherung ohne Prüfsummenliste)"
   fi
 
-  # Varianten neu erzeugen, veröffentlichen, ausliefern
+  # Varianten neu erzeugen (der Weg, den Lutz auf all-inkl geht: Verwaltung → Bildvarianten), veröffentlichen, ausliefern
   if (( logged )); then
-    local ids id nready=0 total=0 tok
-    ids=($(phpq "\$p=new PDO('sqlite:/var/lib/lichtkammer/data/lichtkammer.sqlite'); foreach(\$p->query('SELECT id FROM photos WHERE deleted_at IS NULL') as \$r) echo \$r['id'],' ';"))
-    tok=$(csrf_of $base/admin/fotos)
-    (( novar )) && ids=()
-    for id in $ids; do
-      (( total++ ))
-      curl -s --max-time 120 -b $jar -c $jar -X POST -H "X-CSRF-Token: $tok" $base/admin/fotos/$id/verarbeiten | grep -q '"status":"\(ready\|unchanged\)"' && (( nready++ ))
-    done
-    (( novar )) && print "  (Diagnose --ohne-varianten: keine Varianten erzeugt)"
-    (( novar )) || { (( nready == total && total > 0 )) && ok "Bildvarianten für alle $total Fotos neu erzeugt (Einzelaufruf je Foto, siehe Bericht)" || bad "Bildvarianten: nur $nready von $total Fotos verarbeitet"; }
+    local vr=0 vdone=0 jr tokv vt0 vdt vmax=0 vn vm
+    tokv=$(csrf_of $base/admin/varianten)
+    if (( novar )); then
+      print "  (Diagnose --ohne-varianten: keine Varianten erzeugt)"
+    else
+      curl -s --max-time 60 -b $jar -c $jar $base/admin -o $work/resp.html
+      [[ $(plain) == *'haben keine Bildvarianten'* ]] \
+        && ok "Warnband nach dem Einspielen: „… haben keine Bildvarianten“ erscheint von selbst" \
+        || bad "Warnband „haben keine Bildvarianten“ fehlt nach dem Einspielen"
+      vt0=$EPOCHREALTIME
+      while (( vr < 1000 )); do # wie das Skript der Seite: Runde für Runde, die erste mit neu=1
+        local r0=$EPOCHREALTIME q=
+        (( vr == 0 )) && q='?neu=1'
+        jr=$(curl -s --max-time 90 -b $jar -c $jar -X POST -H "X-CSRF-Token: $tokv" "$base/admin/varianten/schritt$q")
+        vdt=$(( EPOCHREALTIME - r0 )); (( vdt > vmax )) && vmax=$vdt
+        (( vr++ ))
+        [[ $jr == *'"done":true'* ]] && { vdone=1; break; }
+        [[ -z $jr || $jr == *'"error"'* ]] && break
+      done
+      curl -s --max-time 60 -b $jar -c $jar $base/admin/varianten -o $work/resp.html
+      vn=$(plain | grep -o '[0-9]* von [0-9]* Fotos haben Bildvarianten' | head -1)
+      vm=(${=vn})
+      if (( vdone )) && [[ -n $vn && ${vm[1]} == ${vm[3]} && ${vm[1]} -gt 0 ]]; then
+        ok "Bildvarianten über /admin/varianten erzeugt: ${vm[1]} von ${vm[3]} Fotos haben Bildvarianten ($vr Runden, $(printf '%.1f' $(( EPOCHREALTIME - vt0 ))) s, längste Runde $(printf '%.1f' $vmax) s)"
+      else
+        bad "Bildvarianten nicht vollständig erzeugt (Runden $vr, fertig $vdone, Seite: ${vn:-ohne Angabe}, letzte Antwort: ${jr:0:120})"
+      fi
+      (( vmax < 60 )) && ok "Jede Runde blieb unter der 60-Sekunden-Grenze von all-inkl (längste $(printf '%.1f' $vmax) s)" || bad "Eine Runde dauerte $(printf '%.0f' $vmax) s, über der Grenze von 60 s"
+      curl -s --max-time 60 -b $jar -c $jar $base/admin -o $work/resp.html
+      [[ $(plain) != *'haben keine Bildvarianten'* ]] && ok "Warnband „keine Bildvarianten“ verschwunden" || bad "Warnband steht trotz fertiger Varianten noch"
+    fi
 
     csrf=$(csrf_of $base/admin/veroeffentlichen)
     t3=$EPOCHREALTIME

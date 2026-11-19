@@ -224,6 +224,7 @@ check('Rückweg: erneut bestätigt', $okc->status === 303 && str_contains($b->ge
 // Das Testkonto „redaktion“ trägt eine kopierte Verschlüsselung (andere Kontonummer): für den Rückweg wieder entfernen.
 $db->run('DELETE FROM sessions WHERE user_id = (SELECT id FROM users WHERE username = \'redaktion\')');
 $db->run("DELETE FROM users WHERE username = 'redaktion'");
+$db->run("INSERT INTO meta(k, v) VALUES('variants_missing', '0:2:1'), ('variants_cursor', '1') ON CONFLICT(k) DO NOTHING"); // Stand der Bildvarianten vom alten Server
 $pkg2 = $collect($b->post('/admin/sicherung/paket', ['_csrf' => $csrf()]));
 $partAll = $collect($b->get('/admin/sicherung/originale'));
 
@@ -246,6 +247,7 @@ check('Rückweg: beide Originale zurückgeholt, Prüfsummen stimmen', $st->statu
 check('Rückweg: Zu allen Fotos gibt es ein Original', str_contains($st->body, 'Zu allen Fotos in der Datenbank gibt es ein Original'));
 check('Rückweg: private Datei ist da', @file_get_contents($s . '/ziel-data/files/ab/datei.pdf') === '%PDF-privat');
 $tdb = $T2['app']->services()->db;
+check('Rückweg: Stand der Bildvarianten vom alten Server ist verworfen (Durchgang und Zwischenspeicher)', $tdb->value("SELECT 1 FROM meta WHERE k = 'variants_cursor'") === null && $tdb->value("SELECT v FROM meta WHERE k = 'variants_missing'") !== '0:2:1'); // (der Zwischenspeicher wird beim Anmelden neu angelegt)
 check('Rückweg: Fotozahl, Konten und Protokoll wie in der Quelle (plus Eintrag)', (int) $tdb->value('SELECT COUNT(*) FROM photos') === 2 && (int) $tdb->value('SELECT COUNT(*) FROM users WHERE username = \'lutz\'') === 1 && (int) $tdb->value("SELECT COUNT(*) FROM audit_log WHERE event = 'backup_restored'") === 1);
 // Falscher Schlüssel: Einspielen scheitert, nichts verändert
 $W = lk_make($s . '/falsch', ['LK_ORIGINALS_DIR' => $s . '/falsch-orig', 'LK_DATA_DIR' => $s . '/falsch-data', 'LK_RESTORE_DIR' => $s . '/falsch/public/restore', 'LK_APP_KEY' => lk_key('anderer-schluessel')]);

@@ -145,6 +145,7 @@ final class Restore
                 $db->run("DELETE FROM $t");
             }
             $db->run('DELETE FROM invites WHERE used_at IS NULL');
+            $db->run("DELETE FROM meta WHERE k LIKE 'variants\\_%' ESCAPE '\\'"); // Stand der Bildvarianten gehört zum alten Server (Dateien fehlen hier)
         });
         $files = $this->copyFiles();
         (new Audit($db, $keys, $clock))->log('backup_restored', null, 'users=' . $stats['users'] . ',photos=' . $stats['photos'] . ',schema=' . $stats['schema'], $ipPrefix);

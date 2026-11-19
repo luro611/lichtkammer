@@ -202,19 +202,8 @@ final class Library
         foreach ($this->db->all('SELECT width, format, path FROM photo_variants WHERE photo_id = ?', [$photoId]) as $v) {
             $existing[$v['width'] . ':' . $v['format']] = $v['path'];
         }
-        if (!$force && $photo['status'] === 'ready' && (int) $photo['pipeline_version'] === self::PIPELINE_VERSION && (int) $photo['width'] > 0) {
-            $complete = true;
-            foreach (self::plan((int) $photo['width']) as $w) {
-                foreach ($formats as $f) {
-                    $p = $existing[$w . ':' . $f] ?? null;
-                    if ($p === null || !is_file($this->mediaDir . '/' . $p)) {
-                        $complete = false;
-                    }
-                }
-            }
-            if ($complete) {
-                return ['status' => 'unchanged', 'created' => 0, 'removed' => 0, 'error' => ''];
-            }
+        if (!$force && $this->variantsComplete($photo)) {
+            return ['status' => 'unchanged', 'created' => 0, 'removed' => 0, 'error' => ''];
         }
         @set_time_limit(120);
         $src = null;
@@ -280,6 +269,38 @@ final class Library
         } finally {
             $src?->close();
         }
+    }
+
+    /**
+     * Hat das Foto alle gültigen Bildvarianten? Gültig: Zeile in photo_variants, Datei vorhanden und nicht leer,
+     * Foto fertig verarbeitet (Pipeline-Version und Breite stimmen). Reine Prüfung, schreibt nichts.
+     *
+     * @param array<string,mixed> $photo Zeile aus photos
+     */
+    public function variantsComplete(array $photo): bool
+    {
+        if ($this->engine === null || $photo['status'] !== 'ready' || (int) $photo['pipeline_version'] !== self::PIPELINE_VERSION || (int) $photo['width'] < 1) {
+            return false;
+        }
+        $existing = [];
+        foreach ($this->db->all('SELECT width, format, path FROM photo_variants WHERE photo_id = ?', [(int) $photo['id']]) as $v) {
+            $existing[$v['width'] . ':' . $v['format']] = $v['path'];
+        }
+        foreach (self::plan((int) $photo['width']) as $w) {
+            foreach ($this->engine->formats() as $f) {
+                $p = $existing[$w . ':' . $f] ?? null;
+                if ($p === null || !is_file($this->mediaDir . '/' . $p) || (int) @filesize($this->mediaDir . '/' . $p) <= 0) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    /** Foto als fehlgeschlagen markieren (z. B. Original fehlt). Fasst nur Status und Fehlertext an. */
+    public function markFailed(int $photoId, string $message): void
+    {
+        $this->fail($photoId, $message);
     }
 
     /** @return array{status:string,created:int,removed:int,error:string} */

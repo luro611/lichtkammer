@@ -30,6 +30,7 @@ final class AdminController
     use RestorePages;
     use BackupPages;
     use SystemPages;
+    use VariantPages;
 
     private readonly Router $router;
 
@@ -151,6 +152,9 @@ final class AdminController
         $r('GET', '/admin/sicherung/originale', 'backupPart', false, 'admin');
         $r('GET', '/admin/sicherung/original/{id}', 'backupOriginal', false, 'admin');
         $r('GET', '/admin/system', 'systemPage', false, 'admin');
+        $r('GET', '/admin/varianten', 'variantsPage', false, 'admin');
+        $r('POST', '/admin/varianten/schritt', 'variantsStep', false, 'admin');
+        $r('POST', '/admin/varianten/weiter', 'variantsNext', false, 'admin');
         $r('GET', '/admin/users', 'users', false, 'admin');
         $r('POST', '/admin/users/invite', 'usersInvite', false, 'admin');
         $r('POST', '/admin/users/{id}/{action}', 'usersAction', false, 'admin');
@@ -265,6 +269,10 @@ final class AdminController
             $pend = (new \Lichtkammer\Backup\Restore($this->config))->pendingOriginals();
             if ($pend > 0) {
                 $b[] = $pend . ' Original(e) aus der eingespielten Sicherung warten noch im Bereitstellungsordner: Verwaltung → Sicherung (/admin/wiederherstellung).';
+            }
+            $vm = (new \Lichtkammer\Media\VariantRebuild($this->s->db, $this->s->clock, $this->s->library, $this->config->originalsDir()))->missingCount();
+            if ($vm['missing'] > 0) {
+                $b[] = $vm['missing'] . ' von ' . $vm['total'] . ' Foto(s) haben keine Bildvarianten. Die Seite zeigt diese Fotos erst, wenn sie erzeugt sind: Verwaltung → Bildvarianten (/admin/varianten).';
             }
             $disk = SystemCheck::diskWarning($this->config, $this->s->db, $this->s->clock);
             if ($disk !== null) {
