@@ -223,3 +223,4 @@ check('Papierkorb: nach dem Wiederherstellen kein Hinweis mehr', !str_contains($
 // Editor-Skript: keine unsichere Ausgabe, keine Fremdadressen
 $js = (string) file_get_contents(dirname(__DIR__) . '/public/assets/js/page-editor.js');
 check('Editor-Skript: kein innerHTML, kein eval, keine fremden Adressen', !preg_match('~innerHTML|outerHTML|insertAdjacentHTML|eval\(|document\.write~i', $js) && !preg_match('~(src|href)\s*=\s*[\'"]https?://~i', $js));
+check('Editor-Skript: Kleinigkeiten N1 bis N6 (Ende-Ablage, Fokus nach Ziehen, 20 je Spalte, Hinweis löschen, Leiste anhalten, dragleave)', str_contains($js, 'Hier am Ende einfügen') && str_contains($js, 'dropFocus') && str_contains($js, 'COL_MAX = 20') && str_contains($js, "hint('');\n    hideBar();") && str_contains($js, 'barHeld') && str_contains($js, "'dragleave'"));

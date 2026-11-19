@@ -15,7 +15,7 @@
   var isHome = !!init.home;
   var homePhotos = Array.isArray(init.homePhotos) ? init.homePhotos : [];
   var pickUrl = root.getAttribute('data-pick-url') || '';
-  var dirty = false, submitting = false, uid = 0, focusId = null, focusSel = '';
+  var dirty = false, submitting = false, uid = 0, focusId = null, focusSel = '', dropFocus = null;
 
   var TYPES = {
     heading: { name: 'Überschrift', desc: 'Zwischentitel für einen Abschnitt' },
@@ -149,17 +149,29 @@
     lastHint = t || '';
   }
   function hideBar() { clearTimeout(barTimer); bar.hidden = true; }
+  // Die Leiste bleibt, solange Maus oder Fokus darauf sind; danach läuft die Frist neu an (Prüfung 30, N5).
+  var barHover = false;
+  function barHeld() { return barHover || bar.contains(document.activeElement); }
+  function startBarTimer() {
+    clearTimeout(barTimer);
+    if (barHeld()) { return; }
+    barTimer = setTimeout(function () { bar.hidden = true; }, 8000);
+  }
   function showBar(t) {
     barText.textContent = t;
     bar.hidden = false;
-    clearTimeout(barTimer);
-    barTimer = setTimeout(function () { bar.hidden = true; }, 8000);
+    startBarTimer();
   }
+  bar.addEventListener('mouseenter', function () { barHover = true; clearTimeout(barTimer); });
+  bar.addEventListener('mouseleave', function () { barHover = false; startBarTimer(); });
+  bar.addEventListener('focusin', function () { clearTimeout(barTimer); });
+  bar.addEventListener('focusout', function () { setTimeout(function () { if (!bar.hidden) { startBarTimer(); } }, 0); });
   function updateUndoBtn() { undoBtn.disabled = undoStack.length === 0; }
   // Vor jeder Strukturänderung (Hinzufügen, Löschen, Verschieben, Duplizieren) aufrufen, nicht beim Tippen.
   function pushUndo() {
     undoStack.push(JSON.stringify(state));
     if (undoStack.length > UNDO_MAX) { undoStack.shift(); }
+    hint('');
     hideBar();
     updateUndoBtn();
   }
@@ -240,6 +252,11 @@
       var idx = getIdx(e);
       if (mark === 'card') { node.classList.add(idx.after ? 'drop-after' : 'drop-before'); } else { mk.classList.add('drop-on'); }
     });
+    node.addEventListener('dragleave', function (e) {
+      if (e.relatedTarget && node.contains(e.relatedTarget)) { return; }
+      node.classList.remove('drop-before', 'drop-after', 'drop-on', 'drop-bad');
+      mk.classList.remove('drop-before', 'drop-after', 'drop-on', 'drop-bad');
+    });
     node.addEventListener('drop', function (e) {
       var st = dragStatus(e, allowed);
       if (!st) { return; }
@@ -253,8 +270,12 @@
     });
   }
 
+  var COL_MAX = 20; // wie im Server (Blocks.php): höchstens 20 Blöcke je Spalte
+  function colFull(list) { return list !== state && list.length >= COL_MAX; }
+  var FULL_TEXT = 'Diese Spalte ist voll: Es passen höchstens 20 Blöcke hinein.';
   function insertAt(list, idx, type, allowed) {
     if (allowed.indexOf(type) < 0) { hint('Das geht nicht in Spalten: „' + TYPES[type].name + '“ kann nur auf der Hauptseite stehen.'); return; }
+    if (colFull(list)) { hint(FULL_TEXT); return; }
     pushUndo();
     var nb = make(type);
     nb._id = ++uid;
@@ -273,6 +294,7 @@
     if (allowed.indexOf(b.t) < 0) { hint('Das geht nicht in Spalten: „' + (TYPES[b.t] ? TYPES[b.t].name : b.t) + '“ kann nur auf der Hauptseite stehen.'); return; }
     var from = src.indexOf(b);
     if (from < 0) { return; }
+    if (src !== dst && colFull(dst)) { hint(FULL_TEXT); return; }
     if (src === dst) {
       if (from < idx) { idx--; }
       if (idx === from) { return; }
@@ -314,6 +336,9 @@
     Array.prototype.forEach.call(root.querySelectorAll('.bins > .binsbtn'), function (b) {
       b.textContent = t ? 'Hier einfügen: ' + TYPES[t].name : '+ hier einfügen';
     });
+    Array.prototype.forEach.call(root.querySelectorAll('.badd > summary'), function (n) {
+      n.textContent = t ? 'Hier am Ende einfügen: ' + TYPES[t].name : '+ Block hinzufügen';
+    });
   }
 
   function choosePhoto(b) {
@@ -344,8 +369,13 @@
     c.setAttribute('data-type', t);
     c.title = TYPES[t].desc;
     c.draggable = true;
-    c.addEventListener('dragstart', function (e) { startDrag(e, { kind: 'new', type: t }, 'copy'); });
-    c.addEventListener('dragend', endDrag);
+    c.addEventListener('dragstart', function (e) { dropFocus = null; startDrag(e, { kind: 'new', type: t }, 'copy'); });
+    // Chromium setzt den Fokus nach dem Ablegen auf die Karte zurück: ins neue Feld nachziehen (Prüfung 30, N2)
+    c.addEventListener('dragend', function () {
+      endDrag();
+      var f = dropFocus; dropFocus = null;
+      if (f) { setTimeout(function () { if (document.body.contains(f)) { try { f.focus({ preventScroll: true }); } catch (x) { f.focus(); } } }, 0); }
+    });
     var act = function () {
       if (armed === t) { setArmed(null); say('Baustein abgewählt.'); return; }
       setArmed(t);
@@ -376,7 +406,7 @@
     if (focusId !== null) {
       var card = root.querySelector('[data-bid="' + focusId + '"]');
       var target = card && (card.querySelector(focusSel || '.bbody input, .bbody textarea, .bbody select, .bbody button') || card.querySelector('.bhead .btitle'));
-      if (target) { target.focus(); }
+      if (target) { target.focus(); dropFocus = target; }
       if (card && card.scrollIntoView) { card.scrollIntoView({ block: 'nearest' }); }
       focusId = null; focusSel = '';
     }
@@ -430,7 +460,14 @@
 
   function addMenu(list, allowed) {
     var d = el('details', 'badd');
-    d.appendChild(el('summary', 'btn ghost', '+ Block hinzufügen'));
+    var sm = el('summary', 'btn ghost', '+ Block hinzufügen');
+    // Ist ein Baustein gewählt, legt dieser Knopf ihn direkt am Ende ab (auch in leere Spalte oder auf leere Seite), Prüfung 30, N1.
+    sm.addEventListener('click', function (e) {
+      if (!armed) { return; }
+      e.preventDefault();
+      insertAt(list, list.length, armed, allowed);
+    });
+    d.appendChild(sm);
     d.appendChild(typeGrid(list, list.length, allowed));
     return d;
   }
