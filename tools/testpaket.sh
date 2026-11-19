@@ -11,7 +11,6 @@ VERSION=$(grep -oE "VERSION = '[^']+'" app/src/Config.php | cut -d"'" -f2)
 PDF=docs/anleitung/Lichtkammer-Anleitung.pdf
 [[ -f "$PDF" ]] || { echo "Abbruch: $PDF fehlt (docs/anleitung/bauen.sh)." >&2; exit 1; }
 git diff --quiet HEAD -- app public .env.example tools/INSTALL.txt 2>/dev/null || { echo "Abbruch: Uncommittete Änderungen in app/, public/ oder .env.example: das Software-Zip käme aus HEAD." >&2; exit 1; }
-grep -q "Version $VERSION" <(strings "$PDF" 2>/dev/null) 2>/dev/null || echo "Hinweis: Die PDF trägt vielleicht eine andere Version; docs/anleitung/bauen.sh neu laufen lassen." >&2
 
 echo "== Software-Zip bauen und prüfen"
 tools/release-zip.sh --pruefen >/dev/null
