@@ -22,7 +22,22 @@ trait RestorePages
         }
         $r = new Restore($this->config);
         $r->prepareDir();
-        return $this->prePage($req, 'admin/restore_setup', ['title' => 'Sicherung einspielen', 'error' => null, 'info' => $r->inspect(), 'dir' => $r->dir()]);
+        return $this->prePage($req, 'admin/restore_setup', ['title' => 'Sicherung einspielen', 'error' => null, 'info' => $r->inspect(), 'dir' => $this->restoreDirLabel($r)]);
+    }
+
+    /**
+     * Ort des Bereitstellungsordners für die Seite VOR der Anmeldung: nie der absolute Pfad des Servers (er verrät auf Webspace
+     * die Kontonummer und den Aufbau), nur die Lage relativ zum Webroot oder der Name der Einstellung (Prüfung 35, F2).
+     */
+    private function restoreDirLabel(Restore $r): string
+    {
+        $dir = rtrim($r->dir(), '/');
+        $web = rtrim((string) (realpath($this->config->publicDir) ?: $this->config->publicDir), '/');
+        $real = rtrim((string) (realpath($dir) ?: $dir), '/');
+        if (str_starts_with($real . '/', $web . '/')) {
+            return '<Webroot>/' . ltrim(substr($real, strlen($web)), '/');
+        }
+        return $this->config->get('LK_RESTORE_DIR') !== '' ? 'der Ordner aus LK_RESTORE_DIR (app/.env)' : '<Datenordner>/restore';
     }
 
     public function restoreSetupPost(Request $req, array $p, ?array $sess): Response
@@ -31,7 +46,7 @@ trait RestorePages
             return Response::notFound();
         }
         $r = new Restore($this->config);
-        $show = fn (string $error, int $status) => $this->prePage($req, 'admin/restore_setup', ['title' => 'Sicherung einspielen', 'error' => $error, 'info' => $r->inspect(), 'dir' => $r->dir()], $status);
+        $show = fn (string $error, int $status) => $this->prePage($req, 'admin/restore_setup', ['title' => 'Sicherung einspielen', 'error' => $error, 'info' => $r->inspect(), 'dir' => $this->restoreDirLabel($r)], $status);
         if (!$this->preOk($req)) {
             return $show(self::PRE_EXPIRED, 400);
         }

@@ -698,6 +698,9 @@ final class AdminController
     public function usersInvite(Request $req, array $p, ?array $sess): Response
     {
         $role = $req->input('role') === 'admin' ? 'admin' : 'editor';
+        if ($role === 'admin' && ($r = $this->confirmAdminGrant($req, $sess, '/admin/users/invite', 'Eine Einladung für ein Administrator-Konto erzeugen', ['role' => 'admin'])) !== null) {
+            return $r;
+        }
         $token = $this->s->accounts->createInvite((int) $sess['user_id'], $role, $this->ipPrefix($req));
         return $this->usersPage($sess, $this->config->baseUrl() . '/admin/invite/' . $token, 'Einladung erzeugt. Der Link gilt 24 Stunden und einmal.');
     }
@@ -707,7 +710,17 @@ final class AdminController
         $admin = (int) $sess['user_id'];
         $target = (int) ($p['id'] ?? 0);
         $ip = $this->ipPrefix($req);
-        switch ($p['action'] ?? '') {
+        $action = (string) ($p['action'] ?? '');
+        // Alles, woraus ein nutzbares Administrator-Konto entstehen kann, braucht Passwort und Code (Prüfung 35, F1).
+        $targetRole = (string) ($this->s->db->value('SELECT role FROM users WHERE id = ?', [$target]) ?? '');
+        $grants = ($action === 'role' && $req->input('role') === 'admin') || (in_array($action, ['reset', 'enable'], true) && $targetRole === 'admin');
+        if ($grants && $target !== $admin) {
+            $what = ['role' => 'Ein Konto zum Administrator machen', 'reset' => 'Ein Administrator-Konto zurücksetzen', 'enable' => 'Ein Administrator-Konto entsperren'][$action];
+            if (($r = $this->confirmAdminGrant($req, $sess, '/admin/users/' . $target . '/' . $action, $what, $action === 'role' ? ['role' => 'admin'] : [])) !== null) {
+                return $r;
+            }
+        }
+        switch ($action) {
             case 'disable':
             case 'enable':
                 $err = $this->s->accounts->setDisabled($admin, $target, $p['action'] === 'disable', $ip);
@@ -730,5 +743,27 @@ final class AdminController
             default:
                 return Response::notFound();
         }
+    }
+
+    /**
+     * Schritte, aus denen ein Administrator-Konto entstehen kann (Einladung, Zurücksetzen, Rolle, Entsperren), verlangen
+     * Passwort und Code aus der App. Sonst könnte jemand mit einer gestohlenen Sitzung (ohne Passwort und Code) sich ein
+     * eigenes Administrator-Konto anlegen und damit auch die Sicherung bestätigen (Prüfung 35, F1).
+     *
+     * @param array<string,string> $fields Felder, die das Bestätigungsformular wieder mitschickt
+     * @return Response|null die Bestätigungsseite oder null (bestätigt, weiter)
+     */
+    private function confirmAdminGrant(Request $req, array $sess, string $action, string $what, array $fields): ?Response
+    {
+        $error = null;
+        $status = 200;
+        if ($req->input('current_password') !== '' || $req->input('code') !== '') {
+            $error = $this->s->auth->confirmSensitive((int) $sess['user_id'], $req->input('current_password'), $req->input('code'));
+            if ($error === null) {
+                return null;
+            }
+            $status = 400;
+        }
+        return $this->page('admin/confirm', ['title' => 'Bestätigen', 'action' => $action, 'what' => $what, 'fields' => $fields, 'error' => $error], $status, $sess);
     }
 }

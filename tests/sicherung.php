@@ -351,3 +351,46 @@ $rz = (string) file_get_contents(__DIR__ . '/../tools/release-zip.sh');
 check('Zip: NOTICE, .user.ini und Fehlerseite gehören zum Paket', str_contains($rz, 'LICENSE NOTICE README.md') && str_contains($rz, 'public/.user.ini') && str_contains($rz, 'public/fehler.html'));
 $lp = (string) file_get_contents(__DIR__ . '/../tools/livepruefung.sh');
 check('Livepruefung: prüft COOP/CORP, Sicherungswege ohne Anmeldung, Fehlerseite', str_contains($lp, 'Cross-Origin-Opener-Policy') && str_contains($lp, '/admin/sicherung/paket') && str_contains($lp, '/fehler.html'));
+
+// ---------------------------------------------------------------- Prüfung 35 (Fable), F1: gestohlene Sitzung darf kein Administrator-Konto erzeugen
+$F = lk_make($s . '/f1', ['LK_ORIGINALS_DIR' => $s . '/f1-orig', 'LK_DATA_DIR' => $s . '/f1-data']);
+$sf = lk_setup($F);
+$svcF = $F['app']->services();
+$lutzF = lk_login($F, 'lutz', TEST_PASSWORD, $sf['secret']);
+$thief = new TestBrowser($F['app'], $F['config'], '198.51.100.9'); // hat nur das Sitzungs-Cookie, weder Passwort noch Code
+$thief->jar[$svcF->cookies->name('lk_sid')] = $lutzF->cookie('lk_sid');
+$tcs = TestBrowser::csrf($thief->get('/admin/users'));
+$ti = $thief->post('/admin/users/invite', ['_csrf' => $tcs, 'role' => 'admin']);
+check('F1: Administrator-Einladung ohne Passwort und Code → Bestätigungsseite, kein Link, keine Einladung', $ti->status === 200 && str_contains($ti->body, 'name="current_password"') && preg_match('#/admin/invite/[0-9a-f]{64}#', $ti->body) !== 1 && (int) $svcF->db->value('SELECT COUNT(*) FROM invites') === 0);
+$ti2 = $thief->post('/admin/users/invite', ['_csrf' => $tcs, 'role' => 'admin', 'current_password' => 'geraten-geraten-geraten', 'code' => '123456']);
+check('F1: Administrator-Einladung mit falschem Passwort → abgelehnt', $ti2->status === 400 && (int) $svcF->db->value('SELECT COUNT(*) FROM invites') === 0);
+$te = $thief->post('/admin/users/invite', ['_csrf' => $tcs, 'role' => 'editor']);
+check('F1: Einladung für die Redaktion geht weiter ohne Bestätigung', $te->status === 200 && preg_match('#/admin/invite/[0-9a-f]{64}#', $te->body) === 1);
+// Redaktionskonto und zweites Administrator-Konto (gesperrt) als Ziele
+$svcF->db->run("INSERT INTO users(username, role, password_hash, totp_confirmed_at, totp_secret_enc, created_at, webauthn_handle) VALUES('redaktion','editor',?,1,'x',1,'h1')", [$svcF->passwords->hash(TEST_PASSWORD)]);
+$svcF->db->run("INSERT INTO users(username, role, password_hash, totp_confirmed_at, totp_secret_enc, created_at, webauthn_handle, disabled_at) VALUES('zweit','admin',?,1,'x',1,'h2',1)", [$svcF->passwords->hash(TEST_PASSWORD)]);
+$edId = (int) $svcF->db->value("SELECT id FROM users WHERE username = 'redaktion'");
+$a2Id = (int) $svcF->db->value("SELECT id FROM users WHERE username = 'zweit'");
+$tr = $thief->post('/admin/users/' . $edId . '/role', ['_csrf' => $tcs, 'role' => 'admin']);
+check('F1: Redaktion zum Administrator machen ohne Bestätigung → nichts geändert', str_contains($tr->body, 'name="current_password"') && (string) $svcF->db->value('SELECT role FROM users WHERE id = ?', [$edId]) === 'editor');
+$ten = $thief->post('/admin/users/' . $a2Id . '/enable', ['_csrf' => $tcs]);
+check('F1: Administrator-Konto entsperren ohne Bestätigung → bleibt gesperrt', str_contains($ten->body, 'name="current_password"') && $svcF->db->value('SELECT disabled_at FROM users WHERE id = ?', [$a2Id]) !== null);
+$trs = $thief->post('/admin/users/' . $a2Id . '/reset', ['_csrf' => $tcs]);
+check('F1: Administrator-Konto zurücksetzen ohne Bestätigung → kein Link, zweiter Faktor bleibt', str_contains($trs->body, 'name="current_password"') && preg_match('#/admin/invite/[0-9a-f]{64}#', $trs->body) !== 1 && $svcF->db->value('SELECT totp_secret_enc FROM users WHERE id = ?', [$a2Id]) === 'x');
+// Der echte Administrator mit Passwort und Code
+$F['clock']->advance(31);
+$okI = $lutzF->post('/admin/users/invite', ['_csrf' => TestBrowser::csrf($lutzF->get('/admin/users')), 'role' => 'admin', 'current_password' => TEST_PASSWORD, 'code' => lk_totp($sf['secret'], $F['clock'])]);
+check('F1: mit Passwort und Code entsteht die Administrator-Einladung', $okI->status === 200 && preg_match('#/admin/invite/[0-9a-f]{64}#', $okI->body) === 1 && (int) $svcF->db->value("SELECT COUNT(*) FROM invites WHERE role = 'admin'") === 1);
+$replay = $lutzF->post('/admin/users/' . $edId . '/role', ['_csrf' => TestBrowser::csrf($lutzF->get('/admin/users')), 'role' => 'admin', 'current_password' => TEST_PASSWORD, 'code' => lk_totp($sf['secret'], $F['clock'])]);
+check('F1: derselbe Code gilt kein zweites Mal', $replay->status === 400 && (string) $svcF->db->value('SELECT role FROM users WHERE id = ?', [$edId]) === 'editor');
+$F['clock']->advance(31);
+$okR = $lutzF->post('/admin/users/' . $edId . '/role', ['_csrf' => TestBrowser::csrf($lutzF->get('/admin/users')), 'role' => 'admin', 'current_password' => TEST_PASSWORD, 'code' => lk_totp($sf['secret'], $F['clock'])]);
+check('F1: Rolle Administrator mit Passwort und neuem Code', $okR->status === 200 && (string) $svcF->db->value('SELECT role FROM users WHERE id = ?', [$edId]) === 'admin');
+
+// Prüfung 35, F2: Die Seite vor der Anmeldung nennt keinen absoluten Pfad des Servers
+$G = lk_make($s . '/f2', ['LK_ORIGINALS_DIR' => $s . '/f2-orig', 'LK_DATA_DIR' => $s . '/f2-data']);
+$gp = (new TestBrowser($G['app'], $G['config']))->get('/admin/setup/wiederherstellen');
+check('F2: Wiederherstellung vor der Anmeldung zeigt keinen absoluten Pfad', $gp->status === 200 && !str_contains($gp->body, $s) && str_contains($gp->body, '&lt;Datenordner&gt;/restore'));
+$G2 = lk_make($s . '/f2b', ['LK_ORIGINALS_DIR' => $s . '/f2b-orig', 'LK_DATA_DIR' => $s . '/f2b-data', 'LK_RESTORE_DIR' => $s . '/f2b/public/restore']);
+$gp2 = (new TestBrowser($G2['app'], $G2['config']))->get('/admin/setup/wiederherstellen');
+check('F2: Bereitstellungsordner im Webroot wird relativ genannt', $gp2->status === 200 && !str_contains($gp2->body, $s) && str_contains($gp2->body, '&lt;Webroot&gt;/restore'));
