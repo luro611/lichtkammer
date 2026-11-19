@@ -1,15 +1,18 @@
 <h1 id="k1">Was ist <em>Lichtkammer</em>?</h1>
 <p class="lead">Lichtkammer ist ein schlankes Programm, mit dem du deine eigenen Fotos als Webseite zeigst: Galerien, Textseiten, eine Startseite. Du verwaltest alles in einer ruhigen Oberfläche im Browser. Besucher bekommen fertige, schnelle Seiten.</p>
 
+<p class="warn"><strong>Vorabversion.</strong> Diese Anleitung gehört zu einer Testversion (Version steht auf der Titelseite). Sie ist nicht für den Echtbetrieb gedacht. Bitte nur mit Testdaten und Testfotos ausprobieren. Probleme meldest du an <code>info@lurohome.de</code> (siehe Kapitel „Probleme melden“).</p>
+
 <h2>Was du bekommst</h2>
 <ul>
-<li><strong>Fotos hochladen</strong>: viele auf einmal; Lichtkammer verkleinert sie in mehrere Größen (AVIF, WebP, JPEG). Dein Original bleibt unverändert gespeichert.</li>
+<li><strong>Medien</strong>: Fotos, PDFs und Logos in Ordnern wie im Finder. Ganze Ordner lassen sich auf einmal hochladen, auf Wunsch wird aus einem Ordner eine Galerie.</li>
+<li><strong>Fotos hochladen</strong>: viele auf einmal; Lichtkammer verkleinert sie in mehrere Größen. Dein Original bleibt unverändert gespeichert.</li>
 <li><strong>Galerien</strong> mit Titelbild, Reihenfolge, Beschreibung und auf Wunsch Kamera-Angaben.</li>
-<li><strong>Seiten aus Blöcken</strong> (Text, Bild, Raster, Zitat, Knopf, Spalten, Karussell), ohne HTML-Kenntnisse.</li>
-<li><strong>Startseite</strong> mit Titelbild, Karussell und Galerien-Kacheln.</li>
+<li><strong>Seiten aus Bausteinen</strong> (Text, Bild, Raster, Zitat, Knopf, Spalten, Karussell), zusammengebaut per Ziehen, ohne HTML-Kenntnisse.</li>
+<li><strong>Sechs Designs</strong> (Warm, Klar, Studio, Blau, Rot, Grün), je hell und dunkel, für die Verwaltung und für die öffentliche Seite.</li>
 <li><strong>Sicher angemeldet</strong>: Passwort plus Authenticator-App, Wiederherstellungscodes, Protokoll aller Änderungen.</li>
-<li><strong>Veröffentlichen mit Netz</strong>: erst Vorschau, dann Veröffentlichen, und frühere Fassungen lassen sich zurückholen.</li>
-<li><strong>Barrierefrei gedacht</strong>: Alt-Texte sind Pflicht, bevor etwas online geht.</li>
+<li><strong>Veröffentlichen mit Netz</strong>: erst Vorschau, dann „Speichern und veröffentlichen“; die letzten 20 Fassungen lassen sich zurückholen.</li>
+<li><strong>Sicherung zum Herunterladen</strong> und Wiederherstellung auf einem neuen Server.</li>
 </ul>
 
 <h2>Wie es arbeitet</h2>
@@ -19,28 +22,30 @@
 <h2>Voraussetzungen</h2>
 <table class="tab">
 <tr><th>Du brauchst</th><th>Hinweis</th></tr>
-<tr><td>Webspace <em>oder</em> einen eigenen Server</td><td>Webspace mit PHP 8.3 oder neuer und HTTPS, oder ein Server mit Docker.</td></tr>
-<tr><td>PHP-Erweiterungen</td><td>sodium, pdo_sqlite, intl, gd (oder imagick) und exif. Bei den meisten Anbietern vorhanden.</td></tr>
+<tr><td>Webspace <em>oder</em> einen eigenen Server</td><td>Webspace mit PHP 8.3 oder neuer, Apache (<code>.htaccess</code> wird gelesen) und HTTPS, oder ein Server mit Docker.</td></tr>
+<tr><td>PHP-Erweiterungen</td><td>sodium, pdo_sqlite, intl, gd (oder imagick) und exif. Bei den meisten Anbietern vorhanden. Die Systemprüfung im Admin zeigt es dir.</td></tr>
 <tr><td>Ein FTP-Programm</td><td>FileZilla, Cyberduck oder ähnlich, mit verschlüsselter Verbindung (FTPS oder SFTP). Mehr braucht der Webspace nicht: kein SSH, keine Datenbank, kein Composer.</td></tr>
+<tr><td>Einen Ordner <em>über</em> dem Webroot</td><td>Für Datenbank und Originalfotos. Er muss für PHP beschreibbar sein und darf nicht aus dem Internet erreichbar sein (bei all-inkl der Ordner neben dem Domain-Ordner).</td></tr>
 <tr><td>Eine Authenticator-App</td><td>zum Beispiel Apple Passwörter, 1Password oder Aegis. Sie erzeugt den 6-stelligen Code bei der Anmeldung.</td></tr>
 <tr><td>Einen Passwort-Manager</td><td>für den geheimen Schlüssel und die Wiederherstellungscodes.</td></tr>
 <tr><td>Fotos als JPEG, PNG, WebP oder HEIC</td><td>bis 100 MB je Datei.</td></tr>
 </table>
-<p class="hint"><strong>Zu den Bildern in dieser Anleitung:</strong> Alle Fotos sind selbst erzeugte Muster, der Seitenname „Beispielfoto“ ist erfunden. Bei dir sehen die Fotos und Namen natürlich anders aus.</p>
+<p class="hint"><strong>Zu den Bildern in dieser Anleitung:</strong> Alle Fotos sind selbst erzeugte Muster, der Seitenname „Beispielfoto“ ist erfunden, Schlüssel und Codes sind unkenntlich gemacht. Bei dir sehen Fotos und Namen anders aus.</p>
 
 <h1 id="k2" class="neu">Installation auf einem <em>Webspace</em> (nur FTP)</h1>
-<p class="lead">Dieser Weg braucht nur ein FTP-Programm. Du lädst ein Zip-Archiv herunter, legst zwei Ordner und eine Einstellungsdatei auf den Server und richtest im Browser das erste Konto ein.</p>
+<p class="lead">Dieser Weg braucht nur ein FTP-Programm. Du entpackst ein Zip-Archiv, legst Programm und Einstellungsdatei auf den Server, legst zwei Ordner über dem Webroot fest und richtest im Browser das erste Konto ein.</p>
 <fig s="s_ablauf">Die beiden Installationswege im Überblick (hier: der linke).</fig>
 
-<h2>Schritt 1: Zip herunterladen und prüfen</h2>
-<p>Lade von der Release-Seite des Projekts die Datei <code>lichtkammer-X.Y.Z.zip</code> und die dazugehörige Datei <code>.sha256</code> herunter. Die Prüfsumme zeigt dir, dass die Datei vollständig und unverändert ist. Vergleiche sie mit dem Wert in der <code>.sha256</code>-Datei:</p>
+<h2>Schritt 1: Zip prüfen und entpacken</h2>
+<p>Im Testpaket liegt die Datei <code>lichtkammer-X.Y.Z.zip</code> und daneben eine Datei <code>.sha256</code>. Die Prüfsumme zeigt, dass die Datei vollständig und unverändert ist:</p>
 <pre>macOS / Linux:   shasum -a 256 lichtkammer-X.Y.Z.zip
 Windows:         certutil -hashfile lichtkammer-X.Y.Z.zip SHA256</pre>
-<p>Stimmen die langen Zeichenfolgen überein, entpacke das Zip auf deinem Rechner.</p>
-
-<h2>Schritt 2: Aufbau des Zips</h2>
-<p>Im entpackten Ordner liegen zwei wichtige Ordner: <code>public</code> (die Webseite) und <code>app</code> (das Programm).</p>
+<p>Stimmt die lange Zeichenfolge mit der in der <code>.sha256</code>-Datei überein, entpacke das Zip auf deinem Rechner.</p>
 <fig s="s_zip">Inhalt des Zip-Archivs.</fig>
+
+<h2>Schritt 2: Zwei Ordner über dem Webroot</h2>
+<p>Lichtkammer braucht zwei Ordner, die <strong>nicht</strong> aus dem Internet erreichbar sind: einen für die Datenbank (<code>LK_DATA_DIR</code>) und einen für die Originalfotos (<code>LK_ORIGINALS_DIR</code>). Originale enthalten alle Aufnahmedaten, auch den Standort. Liegt einer der beiden Ordner im Webroot, <strong>startet der Admin nicht</strong> (das habe ich ausprobiert: Er meldet „Der Datenordner liegt im öffentlichen Webroot“ bzw. „Der Ordner der Originale liegt im öffentlichen Webroot“).</p>
+<p>Die Ordner legt Lichtkammer beim ersten Start selbst an, du musst nur den <strong>vollen Pfad</strong> kennen. Bei all-inkl sieht er so aus: <code>/www/htdocs/vXXXXXX/lichtkammer-data</code> (das „vXXXXXX“ ist deine Kundennummer; der Webroot ist der Ordner deiner Domain darunter). Bei anderen Anbietern steht der Pfad in der Hilfe oder im Kundenmenü des Anbieters.</p>
 
 <h2>Schritt 3: Per FTP hochladen</h2>
 <ol>
@@ -49,36 +54,35 @@ Windows:         certutil -hashfile lichtkammer-X.Y.Z.zip SHA256</pre>
 <li>Lade den Ordner <code>app</code> daneben in denselben Webroot. Er heißt dann <code>/app</code> und ist per <code>.htaccess</code> für Besucher gesperrt.</li>
 </ol>
 <fig s="s_ftp">Schema eines FTP-Programms: links dein Rechner, rechts der Server.</fig>
-<p class="hint">Der Upload dauert, weil sehr viele kleine Dateien übertragen werden. Lass das Programm in Ruhe fertig werden. Bricht es ab, starte den Upload einfach neu; vorhandene Dateien werden überschrieben.</p>
+<p class="hint">Der Upload dauert, weil sehr viele kleine Dateien übertragen werden. Lass das Programm in Ruhe fertig werden. Bricht es ab, starte den Upload einfach neu; vorhandene Dateien werden überschrieben. Die Datei <code>.htaccess</code> im Webroot muss mit hochgeladen werden (sie beginnt mit einem Punkt und ist in manchen Programmen unsichtbar: „Versteckte Dateien anzeigen“ einschalten).</p>
 
 <h2>Schritt 4: Die Datei <code>app/.env</code> anlegen</h2>
-<p>Die Einstellungen stehen in einer Textdatei. Im Zip liegt die Vorlage <code>.env.example</code>. Kopiere sie auf deinem Rechner nach <code>.env</code>, fülle sie aus (siehe unten) und lade sie als <code>app/.env</code> hoch. Sie muss <strong>im Ordner app</strong> liegen, nicht im Webroot.</p>
-<p class="hint">Die Datei beginnt mit einem Punkt. Auf manchen Systemen ist sie dadurch unsichtbar. Im Finder blendest du Dateien mit <span class="key">Cmd</span> + <span class="key">Umschalt</span> + <span class="key">Punkt</span> ein, in vielen FTP-Programmen gibt es die Einstellung „Versteckte Dateien anzeigen“.</p>
-<fig s="s_webroot">So sieht der Webroot nach dem Hochladen aus.</fig>
-
-<h3>Die zwei geheimen Werte: Hilfe der Seite „Admin nicht verfügbar“</h3>
-<p>Du brauchst zwei Zufallswerte: den <code>LK_APP_KEY</code> (Geheimschlüssel) und den <code>LK_SETUP_TOKEN</code> (Einmal-Schlüssel für die Ersteinrichtung). Ohne Konsole geht es am einfachsten so:</p>
-<ol>
-<li>Öffne <code>https://deine-domain/admin</code>, <strong>solange die Datei <code>app/.env</code> noch fehlt</strong>.</li>
-<li>Die Seite „Admin nicht verfügbar“ erzeugt dir zwei fertige Zeilen. Sie werden nur angezeigt und nirgends gespeichert; bei jedem Aufruf sind es neue.</li>
-<li>Kopiere beide Zeilen in deine <code>.env</code>.</li>
-</ol>
-<fig b="t_nicht_verfuegbar">Die Seite „Admin nicht verfügbar“ mit den zwei fertigen Zeilen (hier unkenntlich gemacht).</fig>
-<p>Wer eine Konsole hat, erzeugt die Werte so: <code>openssl rand -base64 32</code> (Schlüssel) und <code>openssl rand -hex 24</code> (Token).</p>
-<p class="warn"><strong>Den Schlüssel sicher aufbewahren.</strong> Lege ihn im Passwort-Manager ab, getrennt von der Datensicherung. Ohne ihn sind gespeicherte Anmeldedaten nicht mehr lesbar.</p>
-
-<h3>Was in die .env gehört</h3>
+<p>Die Einstellungen stehen in einer Textdatei. Im Zip liegt die Vorlage <code>.env.example</code>. Kopiere sie auf deinem Rechner nach <code>.env</code>, fülle sie aus und lade sie als <strong><code>app/.env</code></strong> hoch, also in den Ordner <code>app</code>, nicht in den Webroot. Eine <code>.env</code> im Webroot lehnt der Admin ab.</p>
+<p>Trage zuerst diese Zeilen ein (die Werte für Schlüssel und Token kommen im nächsten Schritt):</p>
 <fig s="s_env">Eine ausgefüllte app/.env (mit Beispielwerten).</fig>
 <table class="tab">
 <tr><th>Eintrag</th><th>Bedeutung</th></tr>
 <tr><td><code>LK_BASE_URL</code></td><td>Deine Adresse mit <code>https://</code>, ohne Schrägstrich am Ende.</td></tr>
 <tr><td><code>LK_SITE_NAME</code></td><td>Name der Seite (später im Admin änderbar).</td></tr>
-<tr><td><code>LK_APP_KEY</code></td><td>Geheimschlüssel (von der Hilfeseite).</td></tr>
+<tr><td><code>LK_DATA_DIR</code></td><td><strong>Pflicht:</strong> voller Pfad des Datenordners über dem Webroot.</td></tr>
+<tr><td><code>LK_ORIGINALS_DIR</code></td><td><strong>Pflicht:</strong> voller Pfad des Originale-Ordners über dem Webroot.</td></tr>
+<tr><td><code>LK_APP_KEY</code></td><td>Geheimschlüssel (siehe unten).</td></tr>
 <tr><td><code>LK_SETUP_TOKEN</code></td><td>Nur für die Ersteinrichtung, danach löschen.</td></tr>
-<tr><td><code>LK_DATA_DIR</code></td><td><em>Empfohlen</em>: ein Ordner <strong>über</strong> dem Webroot für Datenbank und Originale, wenn dein Anbieter das erlaubt. Der Ordner wird beim ersten Start selbst angelegt. Dazu <code>LK_ORIGINALS_DIR</code> für die Originalfotos.</td></tr>
 <tr><td><code>LK_NOINDEX</code></td><td><code>1</code> für eine Testinstallation: Suchmaschinen bleiben draußen.</td></tr>
 </table>
-<p>Weitere Einstellungen (Upload-Größe, Sitzungsdauer, Importordner) stehen kommentiert in der <code>.env.example</code>.</p>
+<p>Weitere Einstellungen (Upload-Größe, Sitzungsdauer, Importordner, Sicherung) stehen kommentiert in der <code>.env.example</code>.</p>
+
+<h3>Die zwei geheimen Werte ohne Konsole erzeugen</h3>
+<p>Du brauchst zwei Zufallswerte. Ohne SSH geht es am einfachsten so:</p>
+<ol>
+<li>Lege <code>app/.env</code> zuerst nur mit <code>LK_BASE_URL</code> und <code>LK_SITE_NAME</code> an und lade sie hoch.</li>
+<li>Öffne <code>https://deine-domain/admin</code>. Es erscheint „Admin nicht verfügbar“ mit dem Hinweis „LK_APP_KEY fehlt“ und darunter <strong>zwei fertige Zeilen</strong> (<code>LK_APP_KEY=…</code> und <code>LK_SETUP_TOKEN=…</code>). Sie werden nur angezeigt und nirgends gespeichert; bei jedem Aufruf sind es neue.</li>
+<li>Kopiere beide Zeilen in deine <code>.env</code>, ergänze <code>LK_DATA_DIR</code> und <code>LK_ORIGINALS_DIR</code> und lade die Datei wieder hoch.</li>
+</ol>
+<fig b="t_nicht_verfuegbar">Die Seite „Admin nicht verfügbar“ mit den zwei fertigen Zeilen (hier unkenntlich gemacht).</fig>
+<p class="hint">Die Zeilen erscheinen nur, wenn <code>LK_BASE_URL</code> schon stimmt und der Schlüssel noch fehlt. Fehlt die <code>.env</code> ganz, steht dort nur „LK_BASE_URL fehlt“.</p>
+<p>Wer eine Konsole hat, erzeugt die Werte so: <code>openssl rand -base64 32</code> (Schlüssel) und <code>openssl rand -hex 24</code> (Token).</p>
+<p class="warn"><strong>Den Schlüssel sicher aufbewahren.</strong> Lege ihn im Passwort-Manager ab, getrennt von jeder Datensicherung. Ohne ihn sind gespeicherte Anmeldedaten nicht mehr lesbar, und eine Sicherung lässt sich nicht wieder einspielen.</p>
 
 <h2>Schritt 5: Ersteinrichtung unter <code>/admin/setup</code></h2>
 <p>Öffne <code>https://deine-domain/admin/setup</code>. Trage ein:</p>
@@ -90,23 +94,25 @@ Windows:         certutil -hashfile lichtkammer-X.Y.Z.zip SHA256</pre>
 <fig b="t_setup_form">Erstes Konto anlegen.</fig>
 
 <h3>Authenticator-App koppeln</h3>
-<p>Auf der nächsten Seite koppelst du die Authenticator-App: Scanne den QR-Code, oder tippe den „Schlüssel zum Abtippen“ ein. Gib danach den 6-stelligen Code aus der App ein und bestätige.</p>
+<p>Auf der nächsten Seite koppelst du die Authenticator-App: Scanne den QR-Code, oder tippe den „Schlüssel zum Abtippen“ ein. Gib danach den 6-stelligen Code aus der App ein und bestätige. Unten steht die Serverzeit: Geht die Uhr deines Telefons stark anders, passt der Code nicht.</p>
 <fig b="t_enroll">App koppeln. QR-Code und Schlüssel sind hier unkenntlich gemacht.</fig>
 
 <h3>Wiederherstellungscodes sichern</h3>
 <p>Lichtkammer zeigt dir <strong>zehn Wiederherstellungscodes</strong>. Mit ihnen kommst du hinein, wenn du dein Gerät verlierst. Jeder Code gilt einmal. Sie werden <strong>nur jetzt</strong> angezeigt: drucke sie aus oder speichere sie im Passwort-Manager.</p>
 <fig b="t_codes">Die zehn Wiederherstellungscodes (hier durch Platzhalter ersetzt).</fig>
 
-<h3>Das Einrichtungs-Token entfernen</h3>
-<p>Letzter Schritt: <strong>Lösche die Zeile <code>LK_SETUP_TOKEN</code> aus <code>app/.env</code></strong> und lade die Datei wieder hoch. Bis dahin zeigt der Admin oben einen Hinweis.</p>
+<h3>Das Einrichtungs-Token entfernen und prüfen</h3>
+<p>Letzter Schritt: <strong>Lösche die Zeile <code>LK_SETUP_TOKEN</code> aus <code>app/.env</code></strong> und lade die Datei wieder hoch. Bis dahin zeigt der Admin oben einen Hinweis. Öffne danach <strong>Verwaltung → Systemprüfung</strong>: Dort steht, ob alles in Ordnung ist (PHP-Version, Erweiterungen, Ordner, Token, Uhr, Speicherplatz).</p>
 <fig b="t_dashboard_token">Der Hinweis, solange das Token noch in der .env steht.</fig>
+<fig b="t_system">Die Systemprüfung (Ausschnitt).</fig>
 
 <h2>Schritt 6: Anmelden</h2>
-<p>Ab jetzt meldest du dich unter <code>/admin</code> an: erst Benutzername und Passwort, dann der Code aus der App. Statt des App-Codes geht notfalls ein Wiederherstellungscode.</p>
+<p>Ab jetzt meldest du dich unter <code>/admin</code> an: erst Benutzername und Passwort, dann der Code aus der App. Statt des App-Codes geht notfalls ein Wiederherstellungscode. Mit dem Häkchen „Auf diesem Gerät 24 Stunden lang nicht erneut nach dem Code fragen“ genügt auf diesem Gerät einen Tag lang das Passwort. Setze es nur auf deinem eigenen Gerät; Abmelden beendet es wieder.</p>
 <div class="two"><fig b="t_login">Schritt 1 von 2: Benutzername und Passwort.</fig><fig b="t_totp">Schritt 2 von 2: Code aus der App.</fig></div>
 
 <h1 id="k3" class="neu">Installation mit <em>Docker</em></h1>
 <p class="lead">Für einen eigenen Server (zum Beispiel ein LXC-Container oder eine virtuelle Maschine) gibt es ein fertiges Image. Es enthält alles, auch Apache und PHP.</p>
+<p class="warn"><strong>Hinweis zur Testversion:</strong> Das Image <code>ghcr.io/luro611/lichtkammer</code> ist bei dieser Vorabversion noch nicht öffentlich. Frage bei <code>info@lurohome.de</code> nach dem Zugang oder einer Image-Datei, bevor du diesen Weg versuchst.</p>
 <fig s="s_docker">Docker in drei Befehlen.</fig>
 
 <h2>Schritt 1: Ordner und Dateien</h2>
@@ -128,7 +134,7 @@ volumes:
   lk-data:
   lk-originals:
   lk-media:</pre>
-<p class="hint">Tipp: Statt <code>latest</code> eine feste Version eintragen (zum Beispiel <code>:0.1.0</code>). Dann aktualisierst du bewusst und nicht aus Versehen.</p>
+<p class="hint">Tipp: Statt <code>latest</code> eine feste Version eintragen (zum Beispiel <code>:0.1.0</code>). Dann aktualisierst du bewusst und nicht aus Versehen. Eine Datenbank wie PostgreSQL brauchst du nicht: Lichtkammer speichert in einer SQLite-Datei im Volume <code>lk-data</code>.</p>
 <p><strong><code>.env</code></strong> (neben der <code>compose.yaml</code>)</p>
 <pre>LK_BASE_URL=https://fotos.example.org
 LK_SITE_NAME=Beispielfoto
@@ -136,11 +142,11 @@ LK_APP_KEY=&lt;openssl rand -base64 32&gt;
 LK_SETUP_TOKEN=&lt;openssl rand -hex 24&gt;
 LK_TRUST_PROXY=1
 LK_TRUSTED_PROXIES=&lt;Adresse des Reverse-Proxys&gt;</pre>
-<p>Die Werte für Schlüssel und Token erzeugst du mit den angegebenen Befehlen. Den Schlüssel bewahrst du im Passwort-Manager auf. Zum Testen ohne HTTPS nimmst du <code>LK_BASE_URL=http://localhost:8080</code> und lässt die beiden Proxy-Zeilen weg.</p>
+<p>Die Pfade für Daten und Originale sind im Image schon gesetzt (<code>/var/lib/lichtkammer/…</code>), sie gehören nicht in die <code>.env</code>. Die Werte für Schlüssel und Token erzeugst du mit den angegebenen Befehlen. Den Schlüssel bewahrst du im Passwort-Manager auf. Zum Testen ohne HTTPS nimmst du <code>LK_BASE_URL=http://localhost:8080</code> und lässt die beiden Proxy-Zeilen weg.</p>
 
 <h2>Schritt 2: Starten</h2>
 <pre>docker compose up -d</pre>
-<p>Danach lauscht Lichtkammer auf <code>127.0.0.1:8080</code>. Der Container prüft sich selbst (Adresse <code>/health</code>).</p>
+<p>Danach lauscht Lichtkammer auf <code>127.0.0.1:8080</code>. Der Container prüft sich selbst (Adresse <code>/health</code>; sie nennt die Version).</p>
 
 <h2>Schritt 3: Reverse-Proxy mit HTTPS</h2>
 <p>Das Image spricht nur HTTP. Das Zertifikat und HTTPS übernimmt ein Reverse-Proxy davor (zum Beispiel Nginx Proxy Manager, Caddy oder Traefik). Er reicht die Anfragen an <code>127.0.0.1:8080</code> weiter.</p>
@@ -151,244 +157,254 @@ LK_TRUSTED_PROXIES=&lt;Adresse des Reverse-Proxys&gt;</pre>
 </ul>
 
 <h2>Schritt 4: Ersteinrichtung</h2>
-<p>Öffne <code>https://deine-domain/admin/setup</code> und gehe vor wie im Kapitel 2, <strong>Schritt 5</strong> (Konto, App koppeln, Wiederherstellungscodes). Entferne anschließend die Zeile <code>LK_SETUP_TOKEN</code> aus der <code>.env</code> und starte den Container neu: <code>docker compose up -d</code>.</p>
+<p>Öffne <code>https://deine-domain/admin/setup</code> und gehe vor wie im Kapitel 2, <strong>Schritt 5</strong> (Konto, App koppeln, Wiederherstellungscodes). Entferne anschließend die Zeile <code>LK_SETUP_TOKEN</code> aus der <code>.env</code> und starte den Container neu: <code>docker compose up -d</code>. In der Systemprüfung steht dann nur noch „Zur Kenntnis“ zu <code>.user.ini</code> (bei Docker normal) und, ohne HTTPS, ein Hinweis zur Adresse.</p>
 
-<h1 id="k4" class="neu"><em>Aktualisieren</em></h1>
+<h1 id="k4" class="neu"><em>Aktualisieren</em> und Sicherung</h1>
 <p class="lead">Neue Versionen ersetzen nur das Programm. Deine Einstellungen, Daten, Originale und erzeugten Bilder bleiben unberührt.</p>
 <fig s="s_update">Update-Schritte für Webspace und Docker.</fig>
 
 <h2>Webspace (Zip)</h2>
 <ol>
-<li><strong>Sicherung ziehen</strong>: den Datenordner (<code>LK_DATA_DIR</code>) und die Originale per FTP auf deinen Rechner laden.</li>
+<li><strong>Sicherung ziehen</strong> (siehe unten, Verwaltung → Sicherung).</li>
 <li>Das neue Zip entpacken.</li>
 <li><code>public</code> und <code>app</code> über die vorhandenen Ordner hochladen und überschreiben. <code>app/.env</code>, die Daten, die Originale und <code>public/media</code> sind <em>nicht</em> im Zip.</li>
-<li>Den Admin öffnen. Die Datenbank aktualisiert sich beim ersten Aufruf selbst; vorher legt Lichtkammer eine Sicherung an.</li>
-<li>Im Admin einmal <strong>Veröffentlichen</strong> drücken, damit die öffentliche Seite neu erzeugt wird.</li>
+<li>Den Admin öffnen. Die Datenbank aktualisiert sich beim ersten Aufruf selbst; vorher legt Lichtkammer eine Sicherungskopie an.</li>
+<li>Im Admin einmal <strong>Jetzt veröffentlichen</strong> drücken, damit die öffentliche Seite neu erzeugt wird.</li>
 </ol>
 
 <h2>Docker</h2>
 <pre>docker compose pull
 docker compose up -d</pre>
-<p>Bei einer festen Versionsnummer in der <code>compose.yaml</code> trägst du vorher die neue Nummer ein. Danach wie oben: Admin öffnen und einmal veröffentlichen. Was sich pro Version ändert, steht im <code>CHANGELOG.md</code>.</p>
+<p>Bei einer festen Versionsnummer in der <code>compose.yaml</code> trägst du vorher die neue Nummer ein. Danach wie oben: Admin öffnen und einmal veröffentlichen. Was sich pro Version ändert, steht im <code>CHANGELOG.md</code> (im Software-Zip nicht enthalten; frage danach).</p>
 
-<h1 id="k5" class="neu">Der <em>Admin</em></h1>
-<p class="lead">Alles, was du für den Alltag brauchst: Fotos hochladen, beschriften, in Galerien ordnen, Seiten bauen und veröffentlichen.</p>
+<h2>Sicherung herunterladen</h2>
+<p>Unter <strong>Verwaltung → Sicherung</strong> (nur Administratoren) lädst du alles herunter, was du zum Wiederherstellen brauchst. Es gibt zwei Teile: das <strong>Paket</strong> (Datenbank mit Konten, Galerien, Seiten, Einstellungen, Protokoll und private Dateien) und die <strong>Originale</strong> der Fotos in Teilen.</p>
+<ol>
+<li>Schritt 1, <strong>Bestätigen</strong>: Passwort und aktueller Code aus der App. Danach sind die Downloads 10 Minuten freigeschaltet.</li>
+<li>Schritt 2, <strong>Paket</strong>: eine <code>.tar</code>-Datei, die sich per Doppelklick entpacken lässt.</li>
+<li>Schritt 3, <strong>Originale</strong>: je Teil eine <code>.tar</code>-Datei. Alle Teile in <em>denselben</em> Ordner entpacken. Bricht ein Download ab (Webserver beenden lange Downloads), lädst du nur diesen Teil noch einmal.</li>
+</ol>
+<fig b="t_sicherung">Die Sicherungsseite.</fig>
+<p class="warn"><strong>Sicherheit:</strong> Die Sicherung ist <em>nicht</em> verschlüsselt und enthält alle Daten, die Originale auch den Aufnahmeort. Lege sie nur auf einen verschlüsselten Datenträger (FileVault, BitLocker, LUKS). Den Schlüssel <code>LK_APP_KEY</code> bewahrst du <strong>getrennt</strong> auf: Wer Sicherung und Schlüssel hat, kommt an die Konten samt Authenticator-Geheimnis. Ohne den Schlüssel lässt sich die Sicherung nicht wieder einspielen.</p>
+
+<h2>Wiederherstellung auf einem neuen Server</h2>
+<ol>
+<li>Dieselbe (oder eine neuere) Version installieren wie in Kapitel 2 oder 3, mit dem <strong>alten</strong> <code>LK_APP_KEY</code> in der <code>.env</code> (nicht neu erzeugen), dazu ein neues <code>LK_SETUP_TOKEN</code>.</li>
+<li>Den Sicherungsordner per FTPS in den Bereitstellungsordner legen: Webspace <code>restore/</code> im Webroot (dann <code>LK_RESTORE_DIR</code> auf diesen Ordner setzen), Docker <code>data/restore</code> im Volume <code>lk-data</code>. Er ist für Besucher gesperrt.</li>
+<li><code>/admin/setup</code> öffnen und den Link <strong>„Stattdessen eine Sicherung einspielen“</strong> nehmen, das Einrichtungs-Token eingeben. Lichtkammer prüft die Datenbank und den Schlüssel, bevor es etwas übernimmt. Alle bisherigen Sitzungen sind danach beendet; du meldest dich mit deinem Konto neu an.</li>
+<li>Unter <code>/admin/wiederherstellung</code> die <strong>Originale zurückholen</strong>: „Weiter“ drücken, bis nichts mehr wartet. Jede Datei wird gegen eine Prüfsumme kontrolliert.</li>
+<li>Unter <strong>Verwaltung → Bildvarianten</strong> auf <strong>„Fehlende Bildvarianten erzeugen“</strong> klicken. Die erzeugten Bilder sind nicht in der Sicherung; ohne sie zeigt die Seite keine Fotos. Das Fenster offen lassen, bis „Fertig“ steht. Bricht es ab, geht „Weiter“ an derselben Stelle weiter.</li>
+<li>Danach <strong>Jetzt veröffentlichen</strong> und <code>LK_SETUP_TOKEN</code> aus der <code>.env</code> löschen.</li>
+</ol>
+<fig b="t_varianten">Bildvarianten neu erzeugen.</fig>
+
+<h1 id="k5" class="neu">Der <em>Admin</em> im Überblick</h1>
+<p class="lead">So findest du dich zurecht: die Seitenleiste, die Designs und die Rollen.</p>
 
 <h2>Übersicht und Seitenleiste</h2>
-<p>Nach der Anmeldung siehst du die Übersicht. Links steht die Seitenleiste mit allem, was du brauchst.</p>
+<p>Nach der Anmeldung siehst du die Übersicht. Links steht die Seitenleiste mit drei Abschnitten.</p>
 <fig b="t_dashboard">Die Übersicht mit der Seitenleiste.</fig>
 <ol class="marks">
-<li><strong>Veröffentlichen</strong>: der Knopf ist orange, solange es unveröffentlichte Änderungen gibt, und zeigt „✓ Veröffentlicht“, wenn die Seite auf dem aktuellen Stand ist.</li>
-<li><strong>Inhalte</strong>: Fotos, Galerien, Fotografen, Papierkorb.</li>
-<li><strong>Seite</strong>: Startseite, Seiten, Logos, Einstellungen.</li>
-<li><strong>Verwaltung</strong>: Konten, Import, Protokoll, Mein Konto. (Konten und Import sehen nur Administratoren.)</li>
-<li><strong>Darstellung</strong>: Umschalter für Design (luro oder rothe.it) und hell/dunkel. Der Browser merkt sich deine Wahl.</li>
+<li><strong>Veröffentlichen</strong>: der Knopf ist orange, solange es Änderungen gibt, die noch nicht online sind, und zeigt „✓ Veröffentlicht“, wenn die Seite auf dem aktuellen Stand ist.</li>
+<li><strong>Inhalte</strong>: Medien, Fotos, Galerien, Fotografen.</li>
+<li><strong>Seiten</strong>: Startseite, Alle Seiten, Neue Seite, Menü &amp; Fußzeile.</li>
+<li><strong>Verwaltung</strong>: Logos, Einstellungen, Papierkorb, dazu nur für Administratoren Konten, Import, Sicherung, Bildvarianten und Systemprüfung; für alle Protokoll und Mein Konto.</li>
+<li><strong>Darstellung</strong>: Umschalter für das Design und hell/dunkel. Der Browser merkt sich deine Wahl.</li>
 </ol>
-<p>Auf der Übersicht erscheinen auch Hinweise, zum Beispiel „Nur noch 3 Wiederherstellungscodes übrig“ oder „2 unveröffentlichte Änderungen“.</p>
-<div class="two"><fig b="t_design_luro_dunkel">Design „luro“, dunkel.</fig><fig b="t_design_rothe_dunkel">Design „rothe.it“, dunkel.</fig></div>
-<p>Es gibt zwei Rollen: <strong>Administrator</strong> (alles, auch Konten und Import) und <strong>Redaktion</strong> (Inhalte: Fotos, Galerien, Seiten).</p>
+<p>Es gibt zwei Rollen: <strong>Administrator</strong> (alles) und <strong>Redaktion</strong> (Inhalte: Medien, Fotos, Galerien, Seiten). Das <strong>Hinweisband</strong> oben auf jeder Seite sagt dir, wenn Änderungen gespeichert, aber noch nicht online sind (zum Beispiel „2 Änderungen sind noch nicht online“), mit den Knöpfen „Jetzt veröffentlichen“ und „Ansehen“.</p>
+<fig b="t_pubband">Das Hinweisband: Änderungen sind gespeichert, aber noch nicht online.</fig>
 
-<h2>Fotos hochladen</h2>
-<p>Unter <strong>Fotos</strong> ziehst du Bilder auf das gestrichelte Feld oder wählst „Dateien auswählen“. Es dürfen viele auf einmal sein. Jedes Foto wird einzeln in Stücken hochgeladen und danach verkleinert. Das Original bleibt unverändert gespeichert.</p>
-<fig b="t_fotos_leer">Die Fotos-Seite vor dem ersten Hochladen.</fig>
-<fig b="t_upload_laeuft">Beim Hochladen: je Foto eine Zeile mit Fortschritt. Fertige Zeilen melden „fertig“.</fig>
-<p>Wird ein Foto doppelt hochgeladen, meldet Lichtkammer „Gibt es schon, übersprungen“. Geht etwas schief, steht der Grund direkt beim Foto, und das Foto bekommt die Markierung „Fehler“.</p>
-<fig b="t_fotos_liste">Die Mediathek mit allen Fotos, Suche und Filtern.</fig>
-<p>Mit der Suche und den Filtern (Zeige, Fotograf, Jahr, Galerie) findest du jedes Foto wieder. Die Marke „Alt-Text fehlt“ zeigt, wo noch etwas zu tun ist.</p>
+<h2>Sechs Designs</h2>
+<p>Unten in der Seitenleiste wählst du das Design der <strong>Verwaltung</strong>: Warm, Klar, Studio, Blau, Rot oder Grün, jeweils hell (☀) oder dunkel (☾). Das gilt nur für dich in diesem Browser. Das Design der <strong>öffentlichen Seite</strong> ist etwas anderes: Das stellst du unter Verwaltung → Einstellungen ein (siehe Kapitel „Einstellungen, Logos und Designs“).</p>
+<fig b="t_designs">Die sechs Designs der Verwaltung (hell).</fig>
 
-<h2>Fotografen</h2>
-<p>Unter <strong>Fotografen</strong> pflegst du die Personen, die du später an Fotos eintragen kannst. Wer entfernt wird, bleibt an den Fotos nicht stehen; die Fotos selbst bleiben unverändert.</p>
-<fig b="t_fotografen">Die Liste der Fotografen (frei erfundene Namen).</fig>
+<h1 id="k6" class="neu">Medien, Fotos und <em>Galerien</em></h1>
+<p class="lead">Fotos, PDFs und Logos liegen unter <strong>Medien</strong> in Ordnern. Unter <strong>Fotos</strong> findest du alle Fotos als Liste mit Suche; Galerien stellen Fotos für die Besucher zusammen.</p>
+
+<h2>Medien: Ordner wie im Finder</h2>
+<p>Unter <strong>Inhalte → Medien</strong> siehst du links den Ordnerbaum, oben die Pfadleiste und in der Mitte die Liste (oder „Symbole“). Ordner sind nur Ablage; eine Galerie entsteht erst, wenn du es willst.</p>
+<ul>
+<li><strong>Neuer Ordner</strong>: Namen eintragen, „Anlegen“.</li>
+<li><strong>Suche</strong> sucht in allen Medien.</li>
+<li><strong>Verschieben</strong>: Einträge ankreuzen, Zielordner wählen, „Verschieben nach …“ (oder mit der Maus auf einen Ordner ziehen).</li>
+<li><strong>Umbenennen</strong>: Link neben dem Namen.</li>
+<li><strong>In den Papierkorb</strong>: Ordner nehmen alles darin mit; 30 Tage lang wiederherstellbar (Link „Papierkorb“ unter dem Ordnerbaum).</li>
+</ul>
+<fig b="t_medien_liste">Medien: Ordnerbaum, Liste und Werkzeugleiste.</fig>
+
+<h3>Fotos und ganze Ordner hochladen</h3>
+<p>Ziehe Dateien oder einen ganzen Ordner vom Rechner auf das gestrichelte Feld, oder nimm „Dateien auswählen“ bzw. „Ordner hochladen“. Bei einem Ordner erscheint vorher eine Zusammenfassung. Dort wählst du:</p>
+<ul>
+<li><strong>Nur ablegen, keine Galerie</strong>,</li>
+<li><strong>Jeder Ordner mit Fotos wird eine Galerie</strong> (nur die Fotos direkt darin), oder</li>
+<li><strong>Nur der oberste Ordner wird eine Galerie</strong> (alle Fotos aus den Unterordnern kommen hinein).</li>
+</ul>
+<p>Die Titel der Galerien kannst du hier ändern. Neue Galerien sind immer Entwürfe: Nichts wird durch das Hochladen öffentlich. Systemdateien wie <code>.DS_Store</code> werden übersprungen, doppelte Fotos erkennt Lichtkammer und meldet „schon vorhanden“.</p>
+<fig b="t_medien_zusammenfassung">Die Zusammenfassung vor dem Hochladen eines Ordners.</fig>
+<fig b="t_medien_upload_fertig">Nach dem Hochladen: Bericht mit den neuen Galerien.</fig>
+<p>Ein Ordner lässt sich auch später zur Galerie machen: Ordner öffnen, Titel prüfen, „Aus diesem Ordner Galerie machen“ (nur die Fotos direkt darin oder auch aus den Unterordnern).</p>
+
+<h3>PDF und Logos, öffentlich oder privat</h3>
+<p>PDF (bis 50 MB), SVG-Grafiken (bis 1 MB) und PNG/JPEG/WebP als Datei (bis 5 MB, unverändert) legst du genauso ab. Sie sind zuerst <strong>privat</strong>: nur im Admin zu öffnen. Mit <strong>„Öffentlich schalten“</strong> bekommt die Datei eine Adresse, die jeder aufrufen kann (zum Beispiel eine Preisliste als PDF); „Wieder privat“ nimmt sie zurück. Für ein Logo oder Titelbild brauchst du das nicht.</p>
+<fig b="t_medien_dateien">Ein PDF in Medien, öffentlich geschaltet.</fig>
 
 <h2>Fotos beschriften</h2>
-<h3>Ein einzelnes Foto</h3>
 <p>Ein Klick auf ein Foto öffnet die Bearbeitung: Titel, Bildunterschrift, <strong>Alt-Text</strong>, Fotograf, Ort und Jahr. Unten siehst du, in welchen Galerien das Foto liegt, und kannst es in weitere aufnehmen oder in den Papierkorb legen.</p>
+<fig b="t_fotos_liste">Alle Fotos mit Suche und Filtern.</fig>
 <fig b="t_foto_detail">Ein Foto bearbeiten.</fig>
-<p class="hint"><strong>Was ist ein Alt-Text?</strong> Eine kurze Beschreibung dessen, was auf dem Bild zu sehen ist. Screenreader lesen sie vor, Suchmaschinen verstehen damit das Bild. Schreibe, was du jemandem am Telefon sagen würdest („Sonne knapp über dunklen Hügelketten“), nicht „Foto 1“. Lichtkammer verlangt für jedes Foto einen Alt-Text, bevor etwas veröffentlicht wird.</p>
+<p class="hint"><strong>Was ist ein Alt-Text?</strong> Eine kurze Beschreibung dessen, was auf dem Bild zu sehen ist. Screenreader lesen sie vor, Suchmaschinen verstehen damit das Bild. Schreibe, was du jemandem am Telefon sagen würdest („Sonne knapp über dunklen Hügelketten“), nicht „Foto 1“. Ohne Alt-Text lässt sich eine Galerie nicht online stellen.</p>
+<p>In der Fotos-Liste findest du mit den Filtern „Zeige → Alt-Text fehlt“ alle Fotos, bei denen noch etwas zu tun ist. Mehrere Fotos auf einmal beschriftest du so: Fotos ankreuzen, „Auswahl bearbeiten“. Nur Felder mit gesetztem Häkchen werden geändert. Für viele Fotos spart <strong>Galerien → „Fotograf und Alt-Text für alle Galerien zuordnen“</strong> Arbeit: erst „Vorschau“ (ändert nichts), dann „Jetzt anwenden“.</p>
 
-<h3>Mehrere Fotos auf einmal</h3>
-<p>Hake in der Mediathek oder in einer Galerie mehrere Fotos an und wähle „Auswahl bearbeiten“. Nur Felder mit gesetztem Häkchen werden geändert, alle anderen bleiben, wie sie sind. So setzt du für eine ganze Serie Fotograf, Ort, Jahr oder einen gemeinsamen Alt-Text.</p>
-<fig b="t_fotos_auswahl">Fotos ankreuzen und einer Galerie hinzufügen.</fig>
-<fig b="t_mehrfach">Mehrere Fotos bearbeiten: nur angehakte Felder gelten.</fig>
-
-<h3>Alt-Texte finden</h3>
-<p>Der Filter „Zeige → Alt-Text fehlt“ (oben in der Mediathek) listet alle Fotos, die noch keinen haben. Bei dir ist die Liste hoffentlich bald leer.</p>
-
-<h3>Zuordnung nach Galerie</h3>
-<p>Bei vielen Fotos spart die <strong>Zuordnung nach Galerie</strong> (Galerien → „Fotograf und Alt-Text für alle Galerien zuordnen“) Arbeit. Du schreibst je Zeile einen Fotografen und Stichwörter aus den Galerietiteln; ein Stichwort passt, wenn es im Titel vorkommt. Die erste passende Zeile gilt, „Rest:“ gilt für alles andere. Mit dem Alt-Text-Häkchen bekommen leere Alt-Texte den Namen der Galerie als Platzhalter („Foto aus der Galerie …“), den du später verfeinern kannst.</p>
-<fig b="t_zuordnung_vorschau">Zuerst „Vorschau“: Sie zeigt, was geschehen würde, und ändert nichts.</fig>
-<fig b="t_zuordnung_fertig">Nach „Jetzt anwenden“ meldet Lichtkammer, was gesetzt wurde.</fig>
+<h2>Fotografen</h2>
+<p>Unter <strong>Fotografen</strong> pflegst du die Personen, die du an Fotos eintragen kannst. Wer entfernt wird, bleibt an den Fotos nicht stehen; die Fotos selbst bleiben unverändert.</p>
 
 <h2>Galerien</h2>
-<p>Eine Galerie ist eine geordnete Auswahl aus der Mediathek. Ein Foto darf in mehreren Galerien liegen. Unter <strong>Galerien</strong> legst du neue an; die Reihenfolge der Kacheln auf der Seite änderst du per Ziehen oder mit den Pfeilen ↑ ↓.</p>
-<div class="two"><fig b="t_galerien_leer">Noch keine Galerien.</fig><fig b="t_galerie_neu">Eine neue Galerie anlegen.</fig></div>
-<p>Fotos kommen auf drei Wegen hinein: aus der Mediathek ankreuzen („Zur Galerie hinzufügen“, siehe oben), über „Fotos aus der Mediathek hinzufügen“ in der Galerie, oder direkt in der Galerie hochladen.</p>
-<fig b="t_upload_galerie">In einer Galerie hochgeladene Fotos landen gleich darin.</fig>
+<p>Eine Galerie ist eine geordnete Auswahl. Ein Foto darf in mehreren Galerien liegen. Unter <strong>Galerien</strong> legst du neue an; die Reihenfolge der Kacheln änderst du per Ziehen oder mit den Pfeilen ↑ ↓. Fotos kommen auf drei Wegen hinein: in Medien ankreuzen und „Zur Galerie hinzufügen“, über „Fotos aus der Mediathek hinzufügen“ in der Galerie, oder direkt in der Galerie hochladen.</p>
 <fig b="t_galerie_edit">Eine Galerie: Titel, Beschreibung, Adresse, Kamera-Angaben, Status.</fig>
 <ul>
-<li><strong>Titel, Beschreibung, Adresse</strong>: Die Adresse (Kurzname) wird Teil der Web-Adresse.</li>
-<li><strong>Kamera, Objektiv und Belichtung öffentlich zeigen</strong>: Das Häkchen blendet die Aufnahmedaten ein. GPS-Angaben werden nie gespeichert und nie gezeigt.</li>
-<li><strong>Status</strong>: Galerien sind zuerst ein <em>Entwurf</em>. „Als veröffentlicht markieren“ nimmt sie beim nächsten Veröffentlichen mit.</li>
+<li><strong>Titel, Beschreibung, Adresse</strong>: Die Adresse (Kurzname) wird Teil der Web-Adresse. <strong>Ändert sich die Adresse einer Galerie, die online steht, leitet die alte Adresse nach dem nächsten Veröffentlichen automatisch auf die neue weiter.</strong></li>
+<li><strong>Kamera, Objektiv und Belichtung öffentlich zeigen</strong>: Das Häkchen blendet die Aufnahmedaten ein. GPS-Angaben werden nie gezeigt.</li>
+<li><strong>Status</strong>: Galerien sind zuerst ein <em>Entwurf</em>. „Galerie online stellen“ erzeugt die Seite sofort; „Galerie auf Entwurf setzen“ nimmt sie wieder heraus.</li>
 <li><strong>Sortieren</strong>: einmalig nach Aufnahmedatum oder Dateiname.</li>
 </ul>
-<h3>Titelbild, Startseite und Reihenfolge</h3>
-<p>Unter jedem Foto der Galerie stehen Knöpfe:</p>
-<ul>
-<li><strong>← →</strong> ändern die Reihenfolge (Ziehen mit der Maus geht auch).</li>
-<li><strong>Titelbild</strong> macht das Foto zum Titelbild der Galerie. Ohne Wahl gilt das erste Foto.</li>
-<li><strong>Startseite</strong> ist ein Schalter: Das Foto erscheint dann im Block „Startseiten-Fotos“ der Startseite (siehe unten). „Nicht mehr Startseite“ nimmt es wieder heraus.</li>
-</ul>
-<fig b="t_galerie_fotos">Die Fotos der Galerie: Titelbild (herbstglut) und Startseite sind umrandet markiert.</fig>
-<fig b="t_galerien_liste">Die Galerienliste mit Titelbild und Status.</fig>
+<p>Unter jedem Foto der Galerie stehen Knöpfe: <strong>← →</strong> ändern die Reihenfolge, <strong>Titelbild</strong> macht das Foto zum Titelbild der Galerie (ohne Wahl gilt das erste), <strong>Startseite</strong> nimmt es in den Baustein „Startseiten-Fotos“ der Startseite auf.</p>
+<fig b="t_galerie_fotos">Die Fotos einer Galerie.</fig>
 
 <h2>Papierkorb</h2>
-<p>Gelöschte Fotos kommen zuerst in den Papierkorb. Dort liegen sie <strong>30 Tage</strong> und lassen sich wiederherstellen (sie kehren in ihre früheren Galerien zurück). Danach werden sie samt Original endgültig gelöscht. „Endgültig löschen“ geht auch sofort und lässt sich nicht rückgängig machen. Wird ein Foto auf einer Seite verwendet, nennt der Papierkorb die Seite.</p>
-<fig b="t_papierkorb">Der Papierkorb.</fig>
+<p>Gelöschte Fotos kommen zuerst in den Papierkorb (Verwaltung → Papierkorb; für Medien-Ordner und Dateien gibt es einen eigenen unter dem Ordnerbaum). Dort liegen sie <strong>30 Tage</strong> und lassen sich wiederherstellen (Fotos kehren in ihre früheren Galerien zurück). Danach werden sie samt Original endgültig gelöscht.</p>
 
-<h2>Seiten und der Seiten-Editor</h2>
-<p>Unter <strong>Seiten</strong> legst du Textseiten an: „Über uns“, Kontakt, Impressum, Datenschutz. Es gibt Vorlagen („Über uns“, „Fotografen“, „Impressum“, „Datenschutz“) und leere Seiten. Seiten sind zuerst Entwürfe.</p>
-<fig b="t_seiten_liste">Die Seitenliste, gruppiert nach Menü oben, Fußzeile und nicht verlinkt.</fig>
-<p>Eine Seite besteht aus <strong>Blöcken</strong>. Jeder Block ist ein Baustein: eine Überschrift, ein Text, ein Bild. Mit „+ Block hinzufügen“ kommt Neues dazu, mit den Pfeilen <strong>↑ ↓</strong> oder durch Ziehen am Griff (⠿) ändert sich die Reihenfolge. Leere Blöcke werden beim Speichern entfernt.</p>
-<fig b="t_seite_kopf">Kopf der Seite: Titel, Adresse und die erste Überschrift.</fig>
-<p>Den <strong>Seitentitel</strong> kannst du oben auf der Seite an- oder ausschalten („Seitentitel oben auf der Seite anzeigen“). Ohne Häkchen bleibt er für Screenreader und Suchmaschinen erhalten, ist aber nicht sichtbar. Das ist praktisch, wenn die Seite mit einem eigenen Titelbild beginnt.</p>
-<fig b="t_blockmenue">Die Auswahl „Block hinzufügen“.</fig>
+<h1 id="k7" class="neu"><em>Seiten</em> bauen</h1>
+<p class="lead">Textseiten wie „Über uns“, Kontakt oder Impressum und die Startseite setzt du aus Bausteinen zusammen.</p>
 
-<h3>Die Blocktypen</h3>
+<h2>Eine Seite anlegen</h2>
+<p>Unter <strong>Seiten → Neue Seite</strong> legst du eine Seite mit Vorlage („Über uns“, „Fotografen“, „Impressum“, „Datenschutz“) oder leer an. <strong>Alle Seiten</strong> listet sie. Neue Seiten sind zuerst Entwürfe.</p>
+<fig b="t_seiten_liste">Alle Seiten.</fig>
+
+<h2>Der Editor</h2>
+<p>Oben stehen Titel und Adresse. Das Häkchen „Seitentitel oben auf der Seite anzeigen“ schaltet den sichtbaren Titel aus; für Suchmaschinen bleibt er erhalten. Darunter der Inhalt:</p>
+<ul>
+<li>Die <strong>Bausteinleiste</strong> zeigt alle Bausteine. <strong>Ziehe</strong> einen Baustein auf die Seite, oder tippe ihn an und klicke dann bei einem <strong>„+ hier einfügen“</strong> zwischen den Blöcken (das geht auch ohne Maus). „+ Block hinzufügen“ hängt ans Ende an.</li>
+<li>Jeder Block hat Pfeile <strong>↑ ↓</strong>, einen Griff (⠿) zum Ziehen, „Zuklappen“, „Duplizieren“ und „Löschen“.</li>
+<li><strong>Rückgängig</strong> (Knopf oder Strg/Cmd+Z) holt Gelöschtes und Verschobenes zurück, bis du speicherst. Beim Löschen gibt es keine Rückfrage, dafür kurz die Leiste „Block gelöscht. Rückgängig“.</li>
+<li><strong>Zwei Spalten</strong>: In die Spalten kommen Überschrift, Text, Bild, Zitat oder Knopf. Bausteine lassen sich zwischen Seite und Spalten ziehen oder mit „Verschieben nach …“ bewegen.</li>
+</ul>
+<fig b="t_editor">Der Seiten-Editor mit Bausteinleiste und Einfügepunkten.</fig>
+
+<h3>Die Bausteine</h3>
 <table class="tab">
-<tr><th>Block</th><th>Wofür</th></tr>
-<tr><td>Überschrift</td><td>Zwischentitel. Große oder kleinere Überschrift; Stil linksbündig oder zentriert.</td></tr>
-<tr><td>Text</td><td>Fließtext. Stile: normal, groß (Einleitung), zentriert, auf heller Fläche. Gestaltung: <code>**fett**</code>, <code>*kursiv*</code>, Listen mit „- “, Links als <code>[Text](https://adresse.de)</code>, Leerzeile = neuer Absatz.</td></tr>
-<tr><td>Bild und Text</td><td>Ein Foto neben einem Text, links oder rechts. Auf dem Handy rutscht der Text unter das Bild.</td></tr>
-<tr><td>Bild</td><td>Ein Foto mit Bildunterschrift, Breite schmal/normal/voll und optionalem Link.</td></tr>
-<tr><td>Galerie-Raster</td><td>2 bis 12 Fotos als Raster mit 2, 3 oder 4 Spalten; ein Klick vergrößert (Lightbox).</td></tr>
-<tr><td>Karussell</td><td>Mehrere Fotos zum Durchblättern, auf Wunsch automatisch. Bei „weniger Bewegung“ im System bleibt es stehen.</td></tr>
-<tr><td>Zitat</td><td>Hervorgehobener Satz mit Quelle. Stile: normal, groß, auf Fläche.</td></tr>
+<tr><th>Baustein</th><th>Wofür</th></tr>
+<tr><td>Überschrift</td><td>Zwischentitel, groß oder klein, linksbündig oder zentriert.</td></tr>
+<tr><td>Text</td><td>Fließtext. Gestaltung: <code>**fett**</code>, <code>*kursiv*</code>, Liste mit „- “ am Zeilenanfang, Link als <code>[Text](https://adresse.de)</code>, Leerzeile = neuer Absatz.</td></tr>
+<tr><td>Bild und Text</td><td>Ein Foto neben einem Text, links oder rechts; auf dem Handy untereinander.</td></tr>
+<tr><td>Bild</td><td>Ein Foto mit Bildunterschrift, Breite schmal/normal/voll, optionalem Link.</td></tr>
+<tr><td>Galerie-Raster</td><td>Mehrere Fotos als Raster; ein Klick vergrößert.</td></tr>
+<tr><td>Karussell</td><td>Mehrere Fotos zum Durchblättern, auf Wunsch automatisch.</td></tr>
+<tr><td>Zitat</td><td>Hervorgehobener Satz mit Quelle.</td></tr>
 <tr><td>Trennlinie</td><td>Eine dünne Linie zwischen Abschnitten.</td></tr>
 <tr><td>Knopf / Link</td><td>Ein Knopf zu einer eigenen Seite (<code>/galerien/</code>), einer <code>https://</code>-Adresse oder <code>mailto:</code>.</td></tr>
-<tr><td>Zwei Spalten</td><td>Zwei Spalten nebeneinander mit einfachen Blöcken darin; auf dem Handy untereinander.</td></tr>
-<tr><td>Galerien-Kacheln</td><td>Die Galerien als Kacheln mit Titelbild und Anzahl.</td></tr>
+<tr><td>Zwei Spalten</td><td>Zwei Spalten nebeneinander.</td></tr>
+<tr><td>Galerien-Kacheln</td><td>Die veröffentlichten Galerien als Kacheln.</td></tr>
 <tr><td>Startseiten-Fotos</td><td>Die Fotos, die in Galerien mit „Startseite“ markiert sind.</td></tr>
 <tr><td>Titelbild</td><td>Großes Bild mit Überschrift (nur auf der Startseite).</td></tr>
 </table>
-<p>Bewusst gibt es kein freies HTML und keine Farbwahl: Die Blöcke nutzen feste, geprüfte Vorlagen im Stil der Seite. Das hält die Seite einheitlich und sicher.</p>
+<p>Bewusst gibt es kein freies HTML und keine Farbwahl: Das hält die Seite einheitlich und sicher. Bei Fotos öffnet „Foto auswählen“ die Fotobibliothek mit Suche; Titel und Alt-Text des Fotos werden als Vorschlag übernommen. <strong>Alt-Text ist bei jedem Bild Pflicht</strong> (außer „Nur Dekoration“).</p>
+<fig b="t_block_bildtext">Baustein „Bild und Text“.</fig>
 
-<h3>Fotos in Blöcken wählen und beschreiben</h3>
-<p>„Foto auswählen“ öffnet die Fotobibliothek mit Suche. Ein Klick wählt das Foto (beim Raster mehrere, dann „Übernehmen“). Titel und Alt-Text des Fotos werden als Vorschlag übernommen und lassen sich ändern.</p>
-<fig b="t_fotoauswahl">Die Fotoauswahl.</fig>
-<fig b="t_block_bildtext">Block „Bild und Text“: Foto, Alt-Text, Bildunterschrift, Text und Seite.</fig>
-<p><strong>Alt-Text ist bei jedem Bild Pflicht.</strong> Fehlt er, erscheint am Block ein Hinweis, und die Seite lässt sich nicht veröffentlichen (als Entwurf speichern geht trotzdem). Für reine Zierde gibt es den Schalter „Nur Dekoration (kein Alt-Text nötig)“.</p>
-<fig b="t_block_raster">Block „Galerie-Raster“: je Foto ein Alt-Text, Pfeile zum Umsortieren.</fig>
-<div class="two"><fig b="t_block_karussell">Block „Karussell“.</fig><fig b="t_block_spalten">Block „Zwei Spalten“.</fig></div>
-
-<h3>Speichern</h3>
-<p>Unten stehen Status (Entwurf oder „veröffentlichen mit dem nächsten Veröffentlichen“) und „Verlinkt“ (Menü oben, Fußzeile, nirgends). Dann <strong>Speichern</strong>, „Speichern und zur Liste“ oder die <strong>Vorschau</strong> (gespeicherter Stand). Beim Verlassen mit ungespeicherten Änderungen fragt der Browser nach. Eine <em>Live-Vorschau</em> neben dem Editor gibt es nicht: Speichern, dann Vorschau öffnen.</p>
+<h2>Speichern und veröffentlichen</h2>
+<p>Unten auf der Seite stehen Status („Entwurf“ oder „Online sichtbar“) und „Verlinkt“ (im Menü oben, in der Fußzeile, nirgends) und zwei Knöpfe:</p>
+<ul>
+<li><strong>Speichern und veröffentlichen</strong> (bei einem Entwurf: „Speichern und online stellen“): speichert und erzeugt die öffentliche Seite in einem Schritt. Dabei geht alles Gespeicherte online, auch Änderungen an anderen Stellen; die Zeile unter dem Knopf nennt, was sonst noch mitgeht.</li>
+<li><strong>Nur speichern (noch nicht online)</strong>: speichert, Besucher sehen noch nichts. Dann erscheint oben das Hinweisband.</li>
+</ul>
+<p>Vorher kannst du die gespeicherte Seite in der <strong>Vorschau</strong> ansehen (Balken „Vorschau, nicht online“). Eine Live-Vorschau neben dem Editor gibt es nicht. Scheitert das Veröffentlichen, bleibt das Gespeicherte erhalten und die Meldung nennt den Grund.</p>
 <fig b="t_seite_unten">Status, Verlinkung und Speichern-Knöpfe.</fig>
-<fig b="t_seite_gespeichert">Nach dem Speichern: Bestätigung und Links zu Vorschau und Veröffentlichen.</fig>
-<p class="hint">Unter „Erweitert“ lässt sich eine Seite, die nur Überschriften, Texte, Zitate und Trennlinien enthält, wieder als einfacher Text speichern. Bilder, Knöpfe oder Spalten gehen dabei nicht.</p>
 
 <h2>Die Startseite</h2>
-<p>Die Startseite besteht wie jede Seite aus Blöcken. Du findest sie unter <strong>Startseite</strong> in der Seitenleiste. Beim ersten Öffnen ist sie so vorbelegt, dass sie der festen Startseite entspricht: ein Titelbild und die Galerien-Kacheln.</p>
-<fig b="t_start_vorbefuellt">Die vorbelegte Startseite.</fig>
-<h3>Titelbild</h3>
-<p>Wähle ein Foto, trage die Überschrift auf dem Bild ein und vergib den Alt-Text. Breite (im Rahmen oder über die ganze Fensterbreite) und Höhe (niedrig bis fast bildschirmfüllend) stellst du ein.</p>
-<h3>Bildausschnitt</h3>
-<p>Bei breiten oder flachen Formaten wird das Foto zugeschnitten. Klicke im Block auf das Bild, was im Mittelpunkt bleiben soll (oder nutze die beiden Regler). So bleibt der Himmel oder das Gesicht im Bild.</p>
-<fig b="t_block_titelbild">Titelbild mit Überschrift, Höhe und Bildausschnitt (der Punkt im Bild).</fig>
-<h3>Karussell und Startseiten-Fotos</h3>
-<p>Der Block <strong>Startseiten-Fotos</strong> zeigt die Fotos, die du in einer Galerie mit „Startseite“ markiert hast, als Karussell (Diashow), Raster oder einzelnes Bild. So änderst du die Bilder der Startseite, ohne diese Seite zu bearbeiten. Format, Breite, Höhe und Automatik sind einstellbar, und je Foto wählst du den Ausschnitt. Ein normales <strong>Karussell</strong>-Block mit fest gewählten Fotos gibt es zusätzlich.</p>
-<fig b="t_block_startseitenfotos">Block „Startseiten-Fotos“.</fig>
-<h3>Galerien-Kacheln</h3>
-<p>Der Block zeigt alle veröffentlichten Galerien (oder die ersten paar) als Kacheln. Überschrift und Anzahl stellst du ein.</p>
-<fig b="t_block_kacheln">Block „Galerien-Kacheln“.</fig>
-<fig b="t_start_gespeichert">Die gespeicherte Startseite.</fig>
-<p class="hint">Mit „Zur festen Startseite zurückkehren“ (unten auf der Seite) entfernst du die Blöcke wieder. Die Felder unter <em>Einstellungen</em> (Titelfoto, Text) gelten nur, solange die Startseite nicht im Editor gespeichert wurde.</p>
-
-<h2>Logos und Einstellungen</h2>
-<p>Unter <strong>Logos</strong> lädst du ein oder mehrere Logos hoch (SVG am besten; auch PNG, WebP, JPEG bis 300 KB) und wählst, welches wo erscheint: in der Kopfzeile der Seite und im Admin, getrennt für <strong>hell</strong> und <strong>dunkel</strong>, dazu das <strong>Favicon</strong> (Browser-Symbol). Ist nur eines für hell oder dunkel gewählt, gilt es für beide. Ohne Logo erscheint der Seitenname als Schrift. Auf der öffentlichen Seite wird es mit dem nächsten Veröffentlichen sichtbar.</p>
-<fig b="t_logos_zuordnen">Logos hell, dunkel und als Favicon zuordnen.</fig>
-<fig b="t_logos_fertig">Gespeichert: Das Logo erscheint auch im Admin.</fig>
-<p>Die <strong>Einstellungen</strong> enthalten Seitenname, Text auf dem Titelbild und das Titelfoto der festen Startseite.</p>
-<fig b="t_einstellungen">Einstellungen.</fig>
+<p>Die Startseite besteht ebenfalls aus Blöcken (<strong>Seiten → Startseite</strong>). Beim ersten Öffnen ist sie vorbelegt: ein Titelbild und die Galerien-Kacheln. Beim <strong>Titelbild</strong> wählst du ein Foto, die Überschrift, Breite und Höhe und klickst im Bild auf den Punkt, der im Mittelpunkt bleiben soll (Bildausschnitt). Der Baustein <strong>Startseiten-Fotos</strong> zeigt Fotos, die du in einer Galerie mit „Startseite“ markiert hast, als Karussell, Raster oder einzelnes Bild.</p>
+<fig b="t_start">Die Startseite im Editor.</fig>
 
 <h2>Menü und Fußzeile</h2>
-<p>Jede Seite wird entweder im <strong>Menü oben</strong>, in der <strong>Fußzeile</strong> oder <strong>nirgends</strong> verlinkt. Das stellst du in der Zeile der Seite um (Auswahl „Verlinkt“); die Seite wandert sofort in ihre Gruppe. Die Reihenfolge innerhalb einer Gruppe ändern die Pfeile ↑ ↓. „Galerien“ steht im Menü immer zuerst. Impressum und Datenschutz gehören üblicherweise in die Fußzeile.</p>
-<fig b="t_menue_vorher">Vorher: „Über uns“ steht vor „Fotografen“.</fig>
-<fig b="t_menue_nachher">Nachher: „Fotografen“ wurde mit ↑ nach oben gesetzt.</fig>
-<p>Haben zwei Seiten denselben Titel, markiert die Liste sie mit „Doppelt?“.</p>
+<p>Unter <strong>Seiten → Menü &amp; Fußzeile</strong> legst du fest, welche Seiten im Menü oben, in der Fußzeile oder nirgends verlinkt sind, und mit ↑ ↓ die Reihenfolge. „Galerien“ steht im Menü immer zuerst. Impressum und Datenschutz gehören üblicherweise in die Fußzeile. Das wird erst mit dem nächsten Veröffentlichen sichtbar.</p>
+<fig b="t_menue">Menü und Fußzeile.</fig>
 
-<h2>Vorschau, Veröffentlichen und Rückgängig</h2>
-<p>Alles, was du im Admin änderst, ist erst für Besucher sichtbar, wenn du <strong>veröffentlichst</strong>. Bis dahin prüfst du in der <strong>Vorschau</strong>: Sie zeigt die Seite genauso wie später, mit einem Balken „Vorschau, noch nicht veröffentlicht“.</p>
+<h1 id="k8" class="neu">Einstellungen, Logos und <em>Designs</em></h1>
+<h2>Einstellungen und das Design der öffentlichen Seite</h2>
+<p>Unter <strong>Verwaltung → Einstellungen</strong> stehen Seitenname, Text und Foto der festen Startseite und das <strong>Design der öffentlichen Seite</strong>: Warm, Klar, Studio, Blau, Rot oder Grün, mit kurzer Beschreibung. Besucher sehen immer dieses eine Design, hell oder dunkel je nach ihrer Geräteeinstellung. Nach dem Speichern zeigt die Vorschau es sofort; <strong>online geht es mit „Speichern und veröffentlichen“</strong>, dann werden alle Seiten neu erzeugt.</p>
+<fig b="t_einstellungen">Einstellungen mit der Wahl des Designs.</fig>
+<div class="two"><fig b="t_oeffentlich_warm">Öffentliche Seite im Design Warm.</fig><fig b="t_oeffentlich_gruen">Dieselbe Seite im Design Grün.</fig></div>
+
+<h2>Logos</h2>
+<p>Unter <strong>Verwaltung → Logos</strong> lädst du ein oder mehrere Logos hoch (SVG am besten; auch PNG, WebP, JPEG bis 300 KB) und wählst, welches wo erscheint: in der Kopfzeile der Seite und im Admin, getrennt für hell und dunkel, dazu das Favicon. Ist nur eines gewählt, gilt es für beide. Ohne Logo erscheint der Seitenname als Schrift. Auf der öffentlichen Seite wird das Logo mit dem nächsten Veröffentlichen sichtbar.</p>
+<fig b="t_logos">Logos hochladen und zuordnen.</fig>
+
+<h2>Vorschau, Veröffentlichen und frühere Fassungen</h2>
+<p>Alles, was du im Admin änderst, ist erst für Besucher sichtbar, wenn du <strong>veröffentlichst</strong>. Das geht mit „Speichern und veröffentlichen“, mit „Jetzt veröffentlichen“ im Hinweisband oder auf der Seite <strong>Veröffentlichen</strong>. Sie listet, was neu oder geändert ist, nennt Entwürfe und bietet an, alle Entwürfe mit zu veröffentlichen. Fehlt etwas, etwa ein Alt-Text, steht es unter „Das muss vorher behoben werden“, und der Knopf ist gesperrt. Menü-Pfeile und Foto-Änderungen bauen die Seite nicht von selbst neu.</p>
 <fig s="s_veroeffentlichen">Vom Entwurf zur Live-Seite.</fig>
-<fig b="t_vorschau_start">Die Vorschau der Startseite.</fig>
-<p>Die Seite <strong>Veröffentlichen</strong> listet, was neu oder geändert ist. Sie nennt auch, was noch Entwurf ist, und bietet an, „alle Entwürfe mit zu veröffentlichen“. Fehlt etwas, etwa ein Alt-Text, steht es unter „Das muss vorher behoben werden“, und der Knopf ist gesperrt.</p>
-<fig b="t_veroeffentlichen_fehler">Veröffentlichen ist gesperrt: Foto 15 hat keinen Alt-Text.</fig>
-<p>Nach dem Veröffentlichen steht eine neue <strong>Fassung</strong> in der Liste („live“). Frühere Fassungen bleiben erhalten; mit <strong>„Diese Fassung zurückholen“</strong> machst du einen Fehler mit einem Klick rückgängig.</p>
-<fig b="t_fassungen">Zwei Fassungen: die aktuelle ist live, die frühere lässt sich zurückholen.</fig>
+<fig b="t_veroeffentlichen">Die Seite Veröffentlichen.</fig>
+<p>Nach dem Veröffentlichen steht eine neue <strong>Fassung</strong> in der Liste. Die letzten <strong>20 Fassungen</strong> bleiben erhalten; mit <strong>„Diese Fassung zurückholen“</strong> machst du einen Fehler mit einem Klick rückgängig. Auf der Seite stehen auch die <strong>neuen Weiterleitungen</strong>: Hast du die Adresse einer online stehenden Seite oder Galerie geändert, leitet die alte Adresse automatisch auf die neue.</p>
+<fig b="t_fassungen">Fassungen: die aktuelle ist live, frühere lassen sich zurückholen.</fig>
 
-<h2>Die öffentliche Seite</h2>
-<p>So sehen Besucher deine Seite: Startseite, Galerien-Übersicht mit Filtern (Jahr, Ort, Fotograf), Galerien, Textseiten. Fotos vergrößern sich in einer Lightbox mit Aufnahmedaten (wenn du sie freigegeben hast). Die Seite passt sich Handys an und kennt hell und dunkel.</p>
-<fig b="t_oeffentlich_start">Startseite mit Titelbild, Karussell und Galerien-Kacheln.</fig>
-<div class="two"><fig b="t_oeffentlich_galerien">Galerien-Übersicht mit Filtern.</fig><fig b="t_oeffentlich_galerie">Eine Galerie.</fig></div>
-<fig b="t_oeffentlich_lightbox">Die Lightbox mit Aufnahmedaten.</fig>
-<fig b="t_oeffentlich_seite2">Eine Textseite aus Blöcken.</fig>
-<fig b="t_oeffentlich_handy" w="phone">Auf dem Handy (dunkles Design).</fig>
-
-<h1 id="k6" class="neu">Sicherung, Konto und <em>Sicherheit</em></h1>
-<h2>Datensicherung</h2>
-<p>Zwei Dinge musst du sichern: den <strong>Datenordner</strong> (Datenbank mit allen Texten, Galerien, Seiten) und die <strong>Originale</strong> (deine Fotos). Alles andere lässt sich aus dem Zip bzw. Image und den Originalen wiederherstellen. Dazu kommt der <strong>Schlüssel</strong> (<code>LK_APP_KEY</code>) aus der .env, am besten im Passwort-Manager und <em>getrennt</em> von der Datensicherung.</p>
-<ul>
-<li><strong>Webspace:</strong> <code>LK_DATA_DIR</code> und <code>LK_ORIGINALS_DIR</code> per FTP auf den Rechner laden, vor jedem Update und regelmäßig.</li>
-<li><strong>Docker:</strong> die Volumes <code>lk-data</code> und <code>lk-originals</code> sichern (und der Einfachheit halber <code>lk-media</code>).</li>
-</ul>
-<p>Vor jeder Datenbank-Änderung bei einem Update legt Lichtkammer außerdem selbst eine Sicherung an.</p>
-
+<h1 id="k9" class="neu">Konten, Protokoll und <em>Sicherheit</em></h1>
 <h2>Mein Konto</h2>
-<p>Unter <strong>Mein Konto</strong> änderst du dein Passwort (mit aktuellem Passwort und Code aus der App) und erzeugst neue Wiederherstellungscodes. Neue Codes machen alle alten ungültig. Die Übersicht warnt, wenn nur noch wenige übrig sind.</p>
-<fig b="t_konto">Mein Konto: Passwort ändern und Wiederherstellungscodes.</fig>
+<p>Unter <strong>Mein Konto</strong> änderst du dein Passwort und erzeugst neue Wiederherstellungscodes. Beides verlangt das aktuelle Passwort <em>und</em> einen Code aus der App. Neue Codes machen alle alten ungültig. Die Übersicht warnt, wenn nur noch wenige übrig sind.</p>
+<fig b="t_konto">Mein Konto.</fig>
 
 <h2>Konten und Einladungen (Administratoren)</h2>
-<p>Unter <strong>Konten</strong> lädst du weitere Personen ein: Rolle wählen, „Einladungslink erzeugen“ und den Link der Person geben. Die Person legt damit Passwort und App an. Je Konto stehen <strong>Sperren</strong>, <strong>Zurücksetzen</strong> (neues Gerät oder vergessenes Passwort, über einen Rücksetz-Link) und <strong>Sitzungen beenden</strong> zur Verfügung.</p>
-<fig b="t_konten">Konten und Einladungen.</fig>
+<p>Unter <strong>Verwaltung → Konten</strong> lädst du weitere Personen ein: Rolle wählen („Redaktion“ oder „Administrator“), „Einladungslink erzeugen“ und den Link der Person geben. Die Person legt damit Passwort und App an. Je Konto stehen <strong>Sperren</strong>, <strong>Zurücksetzen</strong> (neues Gerät oder vergessenes Passwort, über einen Rücksetz-Link) und <strong>Sitzungen beenden</strong> zur Verfügung.</p>
+<p><strong>Alles, was Administrator-Rechte vergibt oder übernimmt, verlangt noch einmal Passwort und Code:</strong> eine Administrator-Einladung, Zurücksetzen oder Entsperren eines Administrator-Kontos und das Ändern einer Rolle auf Administrator. So kann niemand, der nur an eine offene Anmeldung gekommen ist, ein Administrator-Konto anlegen.</p>
+<div class="two"><fig b="t_konten">Konten und Einladungen.</fig><fig b="t_confirm">Die Bestätigung mit Passwort und Code.</fig></div>
 
 <h2>Protokoll</h2>
-<p>Das <strong>Protokoll</strong> hält fest, wer wann was getan hat (Anmeldungen, Uploads, Speichern, Veröffentlichen). Die Einträge sind verkettet: Wird nachträglich etwas verändert, zeigt die Übersicht „Lücke ab Eintrag …“. Normal steht dort „unversehrt“.</p>
+<p>Das <strong>Protokoll</strong> hält fest, wer wann was getan hat (Anmeldungen, Uploads, Speichern, Veröffentlichen, Sicherung). Die Einträge sind verkettet: Wird nachträglich etwas verändert, zeigt die Übersicht eine Lücke. Normal steht dort „unversehrt“.</p>
 <fig b="t_protokoll">Das Protokoll (Ausschnitt).</fig>
 
 <h2>Sicherheit im Alltag</h2>
 <ul>
 <li>Wiederherstellungscodes und Schlüssel nie in E-Mails oder Cloud-Notizen ablegen, nur im Passwort-Manager oder ausgedruckt.</li>
-<li>Die Zeile <code>LK_SETUP_TOKEN</code> nach der Einrichtung löschen. Ein <code>LK_RESET_TOKEN</code> (Notfall, wenn der Administrator ausgesperrt ist) setzt du nur kurz, und löschst ihn danach wieder.</li>
-<li>Der Admin bremst Anmeldeversuche automatisch und zeigt dann „bitte später“.</li>
-<li>Sitzungen enden bei 30 Minuten Leerlauf und spätestens nach 12 Stunden.</li>
+<li>Die Zeile <code>LK_SETUP_TOKEN</code> nach der Einrichtung löschen. Ein <code>LK_RESET_TOKEN</code> (Notfall, wenn der Administrator ausgesperrt ist) setzt du nur kurz und löschst ihn danach wieder.</li>
+<li><strong>Sicherungen nur auf verschlüsselte Datenträger</strong>, <code>LK_APP_KEY</code> getrennt davon aufbewahren.</li>
+<li>Der Admin bremst Anmeldeversuche automatisch und zeigt dann „bitte später“. Sitzungen enden bei 30 Minuten Leerlauf und spätestens nach 12 Stunden.</li>
+<li>„Gerät 24 Stunden vertrauen“ nur auf dem eigenen Gerät.</li>
 </ul>
 
-<h1 id="k7" class="neu">Umzug von <em>WordPress</em></h1>
-<p class="lead">Wenn deine Fotos bisher auf einer WordPress-Seite liegen, kannst du sie samt Galerien und Seiten übernehmen. WordPress wird dabei nur gelesen, nie verändert.</p>
+<h1 id="k10" class="neu">Umzug von <em>WordPress</em></h1>
+<p class="lead">Wenn deine Fotos bisher auf einer WordPress-Seite liegen, kannst du sie samt Galerien und Seiten übernehmen. WordPress wird dabei nur gelesen, nie verändert. Das Exportskript <code>tools/wp-export/wp_export.py</code> gehört nicht zum Software-Zip; frage bei Bedarf danach.</p>
 <fig s="s_wordpress">Der Ablauf des Umzugs.</fig>
 <ol>
-<li><strong>Export auf deinem Rechner</strong> mit dem Skript <code>tools/wp-export/wp_export.py</code> (Python 3). Es liest die offene Schnittstelle von WordPress, lädt die Bilder und schreibt ein Paket (<code>manifest.json</code>, <code>bilder/</code>, <code>dateien/</code>) <em>außerhalb</em> des Programmordners. Mit <code>--probelauf</code> zählt es nur.</li>
+<li><strong>Export auf deinem Rechner</strong> mit dem Skript (Python 3). Es schreibt ein Paket (<code>manifest.json</code>, <code>bilder/</code>, <code>dateien/</code>); mit <code>--probelauf</code> zählt es nur.</li>
 <li><strong>Paket hochladen</strong>: den Ordner per FTPS in den Importordner legen (<code>LK_IMPORT_DIR</code>; bei Docker standardmäßig im Datenordner).</li>
-<li><strong>Import im Admin</strong> (Verwaltung → Import, nur Administratoren): „Import starten“. Der Browser stößt nacheinander an, ein Foto je Anfrage. Bricht die Verbindung ab, macht „Fortsetzen“ an derselben Stelle weiter; nichts wird doppelt angelegt.</li>
-<li><strong>Durchsehen</strong>: Zahlen, Alt-Text-Lücken, Fotos ohne Fotograf, Fehlschläge. Dann Alt-Texte ergänzen, Galerien und Seiten veröffentlichen.</li>
-<li><strong>Paket löschen</strong> (Knopf auf der Importseite), wenn alles passt. Die übernommenen Fotos bleiben.</li>
+<li><strong>Import im Admin</strong> (Verwaltung → Import, nur Administratoren): „Import starten“. Bricht die Verbindung ab, macht „Fortsetzen“ an derselben Stelle weiter; nichts wird doppelt angelegt.</li>
+<li><strong>Durchsehen</strong>: Zahlen, Alt-Text-Lücken, Fotos ohne Fotograf. Dann ergänzen und veröffentlichen.</li>
+<li><strong>Paket löschen</strong> (Knopf auf der Importseite), wenn alles passt.</li>
 </ol>
 <fig b="t_import">Die Importseite im Admin (hier ohne Paket).</fig>
-<p>Alles landet zuerst als <strong>Entwurf</strong>; die Alt-Text-Pflicht bleibt. Alte Adressen werden beim Veröffentlichen per Weiterleitung (301) auf die neuen geleitet, damit Links und Suchmaschinen nicht ins Leere laufen. Die Einzelheiten (Paketformat, was wie umzieht, was nicht abgedeckt ist) stehen im Entwurf <em>13 Umzug von WordPress</em> im Ordner <code>docs/planung</code> des Projekts.</p>
+<p>Alles landet zuerst als <strong>Entwurf</strong>; die Alt-Text-Pflicht bleibt. Alte Adressen werden beim Veröffentlichen per Weiterleitung (301) auf die neuen geleitet.</p>
 
-<h1 id="k8" class="neu">Häufige <em>Probleme</em></h1>
+<h1 id="k11" class="neu"><em>Probleme</em> lösen</h1>
 <table class="tab prob">
 <tr><th>Was passiert</th><th>Was hilft</th></tr>
-<tr><td><strong>„Admin nicht verfügbar“</strong></td><td>Die Konfiguration ist unvollständig. Lies die rote Meldung: Meist fehlt <code>LK_APP_KEY</code> oder die Datei liegt nicht als <code>app/.env</code> (sondern im Webroot). Die Seite erzeugt dir zwei fertige Zeilen. Die öffentliche Seite läuft derweil weiter.</td></tr>
+<tr><td><strong>„Admin nicht verfügbar“</strong> (Fehler 503, Konfiguration)</td><td>Die Konfiguration ist unvollständig. Ist <code>LK_APP_KEY</code> noch leer und <code>LK_BASE_URL</code> gültig, zeigt die Seite zwei fertige Zeilen zum Kopieren. Sonst prüfe: liegt die Datei als <code>app/.env</code> (nicht im Webroot)? Steht <code>LK_BASE_URL</code> mit <code>https://</code> darin? Sind <code>LK_DATA_DIR</code> und <code>LK_ORIGINALS_DIR</code> gesetzt und <em>außerhalb</em> des Webroots? Die öffentliche Seite läuft derweil weiter. In der Produktion nennt die Seite den Grund nur während der Einrichtung (solange <code>LK_SETUP_TOKEN</code> gesetzt ist); sonst steht er im Fehlerprotokoll des Servers.</td></tr>
+<tr><td>Ein weißer Apache-Fehler „Fehler“ statt der Seite (403/500/503)</td><td>Die Sperrregeln der <code>.htaccess</code> haben gegriffen oder PHP ist ausgefallen. Prüfe, ob die <code>.htaccess</code> hochgeladen wurde und der Anbieter sie liest (Apache, <code>AllowOverride</code>).</td></tr>
 <tr><td>Der Admin zeigt „LK_SETUP_TOKEN steht noch in app/.env“</td><td>Die Zeile aus der .env löschen und die Datei wieder hochladen (Docker: danach <code>docker compose up -d</code>).</td></tr>
 <tr><td>Der Code aus der App stimmt nicht</td><td>Prüfe die Uhr deines Telefons (automatische Zeit). Ein Code gilt nur einmal und etwa 30 Sekunden: nach dem Koppeln den <em>nächsten</em> Code abwarten. Alternativ ein Wiederherstellungscode.</td></tr>
 <tr><td>Gerät verloren oder Passwort vergessen</td><td>Mit einem Wiederherstellungscode anmelden; sonst setzt ein Administrator das Konto über „Zurücksetzen“ zurück. Gibt es keinen Administrator mehr, hilft ein kurzzeitig gesetzter <code>LK_RESET_TOKEN</code>.</td></tr>
 <tr><td>„Bitte später“ bei der Anmeldung</td><td>Zu viele Versuche in kurzer Zeit. Ein paar Minuten warten.</td></tr>
 <tr><td>Ein Foto lässt sich nicht hochladen</td><td>Erlaubt sind JPEG, PNG, WebP und HEIC bis 100 MB. Der Grund steht in der Zeile des Fotos. TIFF wird nicht gelesen: vorher in JPEG wandeln.</td></tr>
-<tr><td>„Veröffentlichen“ ist gesperrt</td><td>Unter „Das muss vorher behoben werden“ steht der Grund, meist ein fehlender Alt-Text. Filter „Alt-Text fehlt“ in der Mediathek nutzen.</td></tr>
+<tr><td>„Veröffentlichen“ ist gesperrt</td><td>Unter „Das muss vorher behoben werden“ steht der Grund, meist ein fehlender Alt-Text. In Fotos den Filter „Alt-Text fehlt“ nutzen.</td></tr>
 <tr><td>Eine Seite oder Galerie fehlt auf der Live-Seite</td><td>Status steht noch auf „Entwurf“, oder es wurde noch nicht veröffentlicht. Die Seite „Veröffentlichen“ nennt Entwürfe.</td></tr>
-<tr><td>Nach dem Update sieht alles alt aus</td><td>Einmal im Admin <strong>Veröffentlichen</strong> drücken, damit die öffentliche Seite neu erzeugt wird.</td></tr>
-<tr><td>Warnung „Datenordner im Webroot“</td><td>Setze <code>LK_DATA_DIR</code> und <code>LK_ORIGINALS_DIR</code> auf Ordner über dem Webroot (siehe .env.example).</td></tr>
+<tr><td>Nach dem Update sieht alles alt aus</td><td>Einmal im Admin <strong>Jetzt veröffentlichen</strong> drücken. Der Browser zeigt manchmal noch alte Dateien: Seite neu laden (Strg/Cmd+Umschalt+R).</td></tr>
+<tr><td><strong>Bilder fehlen</strong> nach dem Einspielen einer Sicherung</td><td>Die erzeugten Bildvarianten sind nicht in der Sicherung. Verwaltung → Bildvarianten → „Fehlende Bildvarianten erzeugen“, dann veröffentlichen. Das Warnband „… haben keine Bildvarianten“ weist darauf hin.</td></tr>
+<tr><td>Warnung „Daten im Webroot“ / Admin startet nicht</td><td>Setze <code>LK_DATA_DIR</code> und <code>LK_ORIGINALS_DIR</code> auf Ordner über dem Webroot.</td></tr>
 <tr><td>Docker: Admin startet nicht hinter dem Proxy</td><td><code>LK_TRUST_PROXY=1</code> braucht <code>LK_TRUSTED_PROXIES</code> mit der Adresse des Proxys. Prüfe auch, dass <code>LK_BASE_URL</code> mit <code>https://</code> beginnt.</td></tr>
 <tr><td>Eine Änderung rückgängig machen</td><td>Veröffentlichen → Fassungen → „Diese Fassung zurückholen“. Gelöschte Fotos liegen 30 Tage im Papierkorb.</td></tr>
 </table>
-<p>Noch Fragen? Die Datei <code>INSTALL.txt</code> im Zip, die <code>README.md</code> und der <code>CHANGELOG.md</code> ergänzen diese Anleitung.</p>
+
+<h1 id="k12" class="neu"><em>Probleme melden</em>: Hinweise für Tester</h1>
+<p>Bitte schreibe an <code>info@lurohome.de</code> und nenne:</p>
+<ul>
+<li>die Version (steht unten im Admin und auf der Titelseite) und wie du installiert hast (Webspace oder Docker, Anbieter, PHP-Version laut Systemprüfung),</li>
+<li>was du tun wolltest, was du getan hast und was stattdessen passiert ist (am besten mit Bildschirmfoto),</li>
+<li>die Meldung auf dem Bildschirm im Wortlaut.</li>
+</ul>
+<p class="warn">Schicke <strong>niemals</strong> <code>app/.env</code>, den Schlüssel, Token, Wiederherstellungscodes, Passwörter oder eine Sicherung. Wenn du ein Bildschirmfoto machst, in dem solche Werte zu sehen sind, überdecke sie vorher.</p>
+<p>Lichtkammer steht unter der Lizenz AGPL-3.0-or-later (Datei <code>LICENSE</code>).</p>
