@@ -53,4 +53,6 @@ ol.marks li::before { content: counter(m); position: absolute; left: 0; top: 0.3
 .toc ul { list-style: none; padding: 0; } .toc li { margin: 0; }
 .toc a { color: var(--ink); text-decoration: none; display: flex; align-items: baseline; }
 .toc a .t { flex: none; } .toc a .dots { flex: 1; border-bottom: 0.5pt dotted var(--muted); margin: 0 1.5mm; transform: translateY(-1mm); } .toc a::after { content: target-counter(attr(href), page); flex: none; font: 400 8pt 'Geist Mono'; }
-.toc .l1 { font: 500 10pt 'Archivo'; margin-top: 2.6mm; } .toc .l2 { font-size: 8.6pt; line-height: 1.35; padding-left: 6mm; color: #4a4742; }
+.toc .l1 { font: 500 9.4pt 'Archivo'; margin-top: 1.8mm; } .toc .l2 { font-size: 8pt; line-height: 1.22; padding-left: 6mm; color: #4a4742; }
+.toc h1 { margin-bottom: 3mm; }
+table.tab tr:first-child { break-after: avoid; }
