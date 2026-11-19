@@ -13,6 +13,8 @@ RewriteCond %{ENV:REDIRECT_STATUS} ^$
 RewriteCond %{HTTPS} !=on
 RewriteCond %{HTTP:X-Forwarded-Proto} !^https$ [NC]
 RewriteCond %{REMOTE_ADDR} !^(127\.0\.0\.1|::1)$
+# Docker-Test ohne HTTPS: docker/entrypoint.sh setzt LK_HTTP_OK nur, wenn LK_BASE_URL mit http:// beginnt (Anfragen kommen im Container nie von 127.0.0.1).
+RewriteCond %{ENV:LK_HTTP_OK} !=1
 RewriteCond %{REQUEST_URI} !^/health$
 RewriteCond %{REQUEST_URI} !^/\.well-known/
 RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]

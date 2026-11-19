@@ -11,4 +11,8 @@ if [ -n "${LK_TRUSTED_PROXIES:-}" ]; then
     printf 'RemoteIPHeader X-Forwarded-For\nRemoteIPInternalProxy %s\n' "$proxies" > "$conf"
     a2enconf lk-remoteip >/dev/null
 fi
+# Nur für lokale Tests: Beginnt LK_BASE_URL mit http:// (nicht https://), leitet die .htaccess nicht auf HTTPS um.
+case "${LK_BASE_URL:-}" in
+    http://*) printf 'SetEnvIf Request_URI .* LK_HTTP_OK=1\n' > /etc/apache2/conf-available/lk-http.conf; a2enconf lk-http >/dev/null ;;
+esac
 exec docker-php-entrypoint "$@"
