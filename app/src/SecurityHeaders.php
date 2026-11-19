@@ -16,6 +16,10 @@ final class SecurityHeaders
             'Referrer-Policy' => 'strict-origin-when-cross-origin',
             'X-Frame-Options' => 'DENY',
             'Permissions-Policy' => 'camera=(), microphone=(), geolocation=()',
+            // Kein Fenster-Austausch mit fremden Seiten, Antworten nur für die eigene Adresse (Entwurf 20, 1.1). Bilder unter
+            // /media liefert Apache aus (public/media/.htaccess: same-site).
+            'Cross-Origin-Opener-Policy' => 'same-origin',
+            'Cross-Origin-Resource-Policy' => 'same-origin',
         ];
         if ($request->isHttps()) {
             $h['Strict-Transport-Security'] = 'max-age=31536000';

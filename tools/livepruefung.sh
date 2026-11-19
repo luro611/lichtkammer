@@ -55,7 +55,7 @@ body=$("${CURL[@]}" "$BASIS/health" 2>/dev/null)
 
 echo "-- Köpfe"
 for p in / /admin/login; do
-  for k in Content-Security-Policy Strict-Transport-Security X-Content-Type-Options X-Frame-Options Referrer-Policy; do
+  for k in Content-Security-Policy Strict-Transport-Security X-Content-Type-Options X-Frame-Options Referrer-Policy Cross-Origin-Opener-Policy Cross-Origin-Resource-Policy; do
     v=$(kopf "$BASIS$p" "$k")
     [[ -n "$v" ]] && ok "$p: $k gesetzt" || bad "$p: $k fehlt"
   done
@@ -73,6 +73,17 @@ if [[ -n "$css" ]]; then
 else
   echo "  --      keine Stylesheet-Adresse auf der Startseite gefunden (noch nicht veröffentlicht?)"
 fi
+
+echo "-- Sicherung und Fehlerseite (ohne Anmeldung nie erreichbar)"
+for p in /admin/sicherung /admin/sicherung/originale /admin/sicherung/original/1 /admin/system; do
+  c=$(code "$BASIS$p")
+  [[ "$c" == 303 || "$c" == 302 || "$c" == 401 || "$c" == 403 || "$c" == 404 ]] && ok "$p ohne Anmeldung → $c" || bad "$p ohne Anmeldung → $c (erwartet Umleitung zur Anmeldung oder 403/404)"
+done
+c=$(code -X POST "$BASIS/admin/sicherung/paket")
+[[ "$c" == 303 || "$c" == 302 || "$c" == 401 || "$c" == 403 || "$c" == 404 ]] && ok "POST /admin/sicherung/paket ohne Anmeldung → $c" || bad "POST /admin/sicherung/paket ohne Anmeldung → $c"
+[[ "$(code "$BASIS/fehler.html")" == 200 ]] && ok "/fehler.html → 200 (eigene Fehlerseite)" || bad "/fehler.html fehlt"
+body=$("${CURL[@]}" "$BASIS/app/.env" 2>/dev/null)
+[[ "$body" != *Apache* && "$body" != *"Forbidden"* ]] && ok "403-Seite ohne Apache-Standardtext" || bad "403-Seite zeigt den Apache-Standardtext (ErrorDocument greift nicht)"
 
 echo "-- Suchmaschinen"
 robots=$("${CURL[@]}" "$BASIS/robots.txt" 2>/dev/null)

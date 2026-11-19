@@ -7,4 +7,6 @@ RemoveType .php
 # Dateinamen enthalten eine Zufallskennung und die Breite und ändern sich nie: dauerhaft zwischenspeichern.
 <IfModule mod_headers.c>
 Header set Cache-Control "public, max-age=31536000, immutable"
+# Bilder nur für Seiten derselben Webseite (gleiche Domain samt Subdomains), nicht für fremde Seiten (Entwurf 20, 1.1).
+Header always set Cross-Origin-Resource-Policy "same-site"
 </IfModule>

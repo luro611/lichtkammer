@@ -31,6 +31,7 @@ function lk_config(string $tmp, array $env = []): Config
         'LK_DATA_DIR' => $tmp . '/data',
         'LK_ORIGINALS_DIR' => $tmp . '/originals',
         'LK_SETUP_TOKEN' => TEST_SETUP_TOKEN,
+        'LK_DISK_MIN_FREE_MB' => '1', // die Testumgebung soll nicht vom freien Platz des Rechners abhängen
     ];
     foreach ($env as $k => $v) {
         if ($v === '') {

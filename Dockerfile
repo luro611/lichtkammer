@@ -24,6 +24,7 @@ RUN chmod +x /usr/local/bin/lk-entrypoint
 WORKDIR /var/www/html
 COPY app ./app
 COPY public ./public
+COPY LICENSE NOTICE /usr/share/doc/lichtkammer/
 
 # Daten, Originale und erzeugte Bilder liegen in Volumes außerhalb des Webroots.
 ENV LK_DATA_DIR=/var/lib/lichtkammer/data \

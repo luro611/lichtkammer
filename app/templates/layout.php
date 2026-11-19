@@ -29,7 +29,7 @@ $csrf = $csrf ?? '';
     $groups = [
         'Inhalte' => [['/admin/medien', 'Medien'], ['/admin/fotos', 'Fotos'], ['/admin/galerien', 'Galerien'], ['/admin/fotografen', 'Fotografen']],
         'Seiten' => [['/admin/startseite', 'Startseite'], ['/admin/seiten', 'Alle Seiten', ['/admin/seiten/neu']], ['/admin/seiten/neu', 'Neue Seite'], ['/admin/menue', 'Menü & Fußzeile']],
-        'Verwaltung' => array_merge([['/admin/logos', 'Logos'], ['/admin/einstellungen', 'Einstellungen'], ['/admin/papierkorb', 'Papierkorb']], ($user['role'] ?? '') === 'admin' ? [['/admin/users', 'Konten'], ['/admin/import', 'Import']] : [], [['/admin/log', 'Protokoll'], ['/admin/account', 'Mein Konto']]),
+        'Verwaltung' => array_merge([['/admin/logos', 'Logos'], ['/admin/einstellungen', 'Einstellungen'], ['/admin/papierkorb', 'Papierkorb']], ($user['role'] ?? '') === 'admin' ? [['/admin/users', 'Konten'], ['/admin/import', 'Import'], ['/admin/sicherung', 'Sicherung'], ['/admin/system', 'Systemprüfung']] : [], [['/admin/log', 'Protokoll'], ['/admin/account', 'Mein Konto']]),
     ];
 ?>
 <div class="frame">

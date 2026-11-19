@@ -25,6 +25,11 @@ RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ index.php [L]
 </IfModule>
+# Eigene Fehlerseiten statt des Apache-Standardtexts (der Serverkennung und Pfade nennen kann). Nur Apache-eigene
+# Fehler (403 durch die Sperren oben, 500 ohne PHP-Antwort); die Seiten der App (404, Fehler) kommen von PHP.
+ErrorDocument 403 /fehler.html
+ErrorDocument 500 /fehler.html
+ErrorDocument 503 /fehler.html
 # Im Medienordner läuft kein PHP: siehe public/media/.htaccess
 
 # Komprimieren und Zwischenspeichern: CSS/JS tragen ?v=<Änderungszeit>, Schriften ändern sich selten.

@@ -23,6 +23,7 @@ function check(string $name, bool $ok): void
 }
 
 $tmp = sys_get_temp_dir() . '/lk-test-' . bin2hex(random_bytes(4));
+ini_set('error_log', sys_get_temp_dir() . '/lk-test-errors.log'); // Fehlerprotokoll der App nicht in die Testausgabe mischen
 
 // --- Pfade: Betriebsart all-inkl (app/ liegt im Webroot neben index.php) ---
 mkdir($tmp . '/webroot/app', 0777, true);
@@ -99,7 +100,7 @@ $ni = Config::load($tmp . '/webroot/app', $tmp . '/webroot', []);
 check('noindex setzt X-Robots-Tag', isset(SecurityHeaders::for(new Request([], $ni), $ni)['X-Robots-Tag']));
 
 // --- Anmeldung (Schritt 2) ---
-foreach (['auth_unit.php', 'auth_flow.php', 'auth_race.php', 'design.php', 'media.php', 'bildverwaltung.php', 'medien.php', 'oeffentlich.php', 'bloecke.php', 'import.php', 'startseite.php', 'speichern.php', 'weiterleitung.php', 'haertung.php'] as $file) {
+foreach (['auth_unit.php', 'auth_flow.php', 'auth_race.php', 'design.php', 'media.php', 'bildverwaltung.php', 'medien.php', 'oeffentlich.php', 'bloecke.php', 'import.php', 'startseite.php', 'speichern.php', 'weiterleitung.php', 'haertung.php', 'sicherung.php'] as $file) {
     if (is_file(__DIR__ . '/' . $file)) {
         require __DIR__ . '/' . $file;
     }

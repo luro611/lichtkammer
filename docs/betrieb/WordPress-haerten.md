@@ -1,5 +1,7 @@
 # WordPress bis zum Umschalten härten (E3)
 
+> **Von Lutz gestrichen (19.11.2026, „Vergiss WordPress“).** Diese Anleitung bleibt nur als optionale Hilfe liegen; nichts davon wird gebaut oder vorbereitet.
+
 Stand: 18.11.2026. Entscheidung von Lutz (18.11.2026): WordPress wird **ab sofort** gehärtet, nicht erst kurz vor dem Livegang. Grund (Prüfung 21, H3): Alle Domains eines Kontos laufen unter einem Systembenutzer, `open_basedir` ist leer. Ein PHP-Skript einer beliebigen Domain des Kontos kann `app/.env` und die Datenbank von Lichtkammer lesen. Das Risiko besteht, **solange die Testinstallation echte Konten hat und WordPress öffentlich erreichbar ist**, also jetzt, nicht erst nach dem Umschalten. Echte Trennung gäbe nur ein eigener Systembenutzer (E3 a, Frage an den all-inkl-Support) oder ein anderer Server.
 
 **Das macht Lutz im WordPress und im KAS. Claude ändert an WordPress nichts.** Vor jeder Änderung eine Sicherung (Dateien und Datenbank) außerhalb aller Repositories ablegen.

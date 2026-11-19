@@ -321,6 +321,17 @@ final class Auth
         return null;
     }
 
+    /**
+     * Erneute Bestätigung vor besonders heiklen Aktionen (Sicherung): Passwort UND Code aus der App, wie beim Erzeugen neuer
+     * Wiederherstellungscodes. Zählt auf dem Zähler der zweiten Stufe (zu viele Fehlversuche sperren zeitweise).
+     *
+     * @return string|null Fehlermeldung oder null bei Erfolg
+     */
+    public function confirmSensitive(int $userId, string $password, string $totp): ?string
+    {
+        return $this->reauthenticate($userId, $password, $totp);
+    }
+
     /** @return string|null Fehlermeldung oder null bei Erfolg */
     public function changePassword(int $userId, string $sid, string $current, string $totp, string $new, string $ipPrefix): ?string
     {

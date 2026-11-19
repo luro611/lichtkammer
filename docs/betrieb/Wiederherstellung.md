@@ -1,7 +1,17 @@
 # Wiederherstellung einer Sicherung (auch auf all-inkl ohne SSH)
 
-Stand: 18.11.2026 (Schritt 8a, Entwurf 20 Abschnitt 2.4, Prüfung 21 H2). Gilt für all-inkl (nur FTPS) und Docker.
-Den Abholweg, der eine Sicherung erzeugt (`/admin/sicherung`, Schritt 8b), gibt es noch nicht; dieses Dokument legt das **Format** fest, das 8b liefern muss, und beschreibt das **Einspielen**, das schon da ist.
+Stand: 19.11.2026 (Schritt 8a und 8b, Entwurf 20 Abschnitt 2.4, Prüfung 21 H2). Gilt für all-inkl (nur FTPS) und Docker.
+Dieses Dokument beschreibt das **Erzeugen** einer Sicherung (Verwaltung → Sicherung, `/admin/sicherung`), ihr **Format** und das **Einspielen**.
+
+## Sicherung herunterladen (nur Administratoren)
+
+1. Verwaltung → **Sicherung**. Zuerst mit **Passwort und Code aus der App** bestätigen; danach sind die Downloads 10 Minuten freigeschaltet (Cookie, an die Sitzung gebunden). Wer nicht bestätigt hat, bekommt nichts, auch nicht mit der Adresse.
+2. **Paket herunterladen** (`.tar`): Datenbank (aus `VACUUM INTO`, nie die laufende Datei), `MANIFEST.json`, `originals.sha256`, `files/`. Ohne Originale. Doppelklick entpackt es auf Mac, Windows und Linux zu dem Ordner aus der Tabelle unten.
+3. **Originale** in Teilen herunterladen (je Teil ein `.tar`, Standard etwa 150 MB, `LK_BACKUP_PART_MB` 10 bis 500). Alle Teile **in denselben Ordner** entpacken: `originals/xx/…` kommt zum Paket dazu. Bricht ein Download ab oder kappt der Webserver ihn (all-inkl: 60 Sekunden Laufzeit), den Teil einfach noch einmal laden; die Seite führt über „nach Foto-Nummer“ weiter. Einzelne Originale mit Fortsetzen (HTTP-Range): `/admin/sicherung/original/<Foto-Nummer>`.
+4. Fotos, deren Original als Datei fehlt oder deren Pfad ungültig ist, nennt die Seite; sie sind nicht in der Sicherung.
+5. Jeder Abruf steht im Protokoll (`backup_confirmed`, `backup_package`, `backup_originals`, nur Zahlen), die Seite zeigt „Zuletzt heruntergeladen“ (gelb nach 3 Tagen). Es gibt Grenzen: höchstens 6 Pakete und 120 Original-Abrufe je 15 Minuten und Konto.
+6. **Ablegen:** auf einem verschlüsselten Datenträger (FileVault/LUKS). Die Sicherung enthält alle Konten samt zweitem Faktor; mit dem Schlüssel `LK_APP_KEY` (getrennt im Passwort-Manager) wäre sie voll lesbar. Originale enthalten alle Aufnahmedaten, auch GPS.
+7. **Nicht gebaut (offen, mit Lutz zu entscheiden):** ein Abruf mit Token vom Homeserver (E11 a, `LK_BACKUP_TOKEN`), damit die Sicherung nachts von allein kommt. Bis dahin ist die Sicherung eine Handarbeit von Lutz (am besten nach jedem Veröffentlichen von neuen Fotos und vor jedem Update).
 
 ## Was eine Sicherung ist
 
@@ -43,7 +53,7 @@ Vorher bereithalten: die Sicherung (Ordner), `LK_APP_KEY` aus dem Passwort-Manag
 
 ## Wiederherstellungsprobe (Pflicht vor dem Livegang)
 
-1. Sicherung der Testinstallation ziehen (sobald Schritt 8b den Abholweg hat; bis dahin ein Paket aus Datenbankkopie und Originalen von Hand nach obigem Format).
+1. Sicherung der Testinstallation ziehen (Verwaltung → Sicherung: Paket und alle Teile der Originale in denselben Ordner entpacken).
 2. **Probe A, Docker auf pve10:** frischer Container, Volumes leer, derselbe Schlüssel → Schritte 2 bis 7. Zeit stoppen. Prüfen: Anmeldung mit Passwort **und** TOTP, Wiederherstellungscode einlösbar, Fotozahl, Galerien, Seiten, Veröffentlichen, Bilder werden ausgeliefert, SHA-256 der Originale stimmen.
 3. **Probe B, all-inkl in einer Wegwerf-Subdomain** (eigener Datenordner und Originalordner, nur nach Freigabe von Lutz; FTPS, kein SSH, 60 Sekunden Laufzeit, Rechte): derselbe Ablauf. Das erst belegt den Weg, den br-foto.com wirklich nutzt. Danach Subdomain samt Ordnern entfernen.
 4. **Probe C mit falschem Schlüssel:** Das Einspielen muss mit der Meldung „LK_APP_KEY passt nicht“ scheitern und nichts verändern.
@@ -51,4 +61,4 @@ Vorher bereithalten: die Sicherung (Ordner), `LK_APP_KEY` aus dem Passwort-Manag
 
 ### Ergebnisse der Proben
 
-(noch keine; die automatischen Tests in `tests/haertung.php` prüfen den Ablauf, ersetzen die Proben auf echten Servern aber nicht)
+(noch keine; die automatischen Tests in `tests/haertung.php` und `tests/sicherung.php` prüfen den Ablauf (Sicherung erzeugen, entpacken, auf frischer Installation einspielen, Originale zurückholen, Prüfsummen vergleichen), ersetzen die Proben auf echten Servern aber nicht)

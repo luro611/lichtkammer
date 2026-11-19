@@ -21,7 +21,7 @@ NAME="lichtkammer-$VERSION"
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/$NAME" dist
-git archive --format=tar HEAD app public .env.example LICENSE README.md tools/INSTALL.txt | tar -x -C "$TMP/$NAME"
+git archive --format=tar HEAD app public .env.example LICENSE NOTICE README.md tools/INSTALL.txt | tar -x -C "$TMP/$NAME"
 mv "$TMP/$NAME/tools/INSTALL.txt" "$TMP/$NAME/INSTALL.txt"
 rmdir "$TMP/$NAME/tools"
 echo "$VERSION" > "$TMP/$NAME/VERSION"
@@ -30,7 +30,7 @@ if (( PRUEFEN )); then
   bad=$(cd "$TMP/$NAME" && find . \( -name '.env' -o -name '*.sqlite' -o -name '*.sqlite3' -o -name '*.db' -o -name '*.pem' -o -name '*.key' -o -name '.DS_Store' \) -print; \
         find . -path './data/*' -o -path './originals/*' -o -path './tests/*' -o -path './docs/*' -o -path './deploy/*' -o -path './public/media/*' ! -name '.htaccess' 2>/dev/null | grep -v '^./public/media/.htaccess$' || true)
   [[ -z "$bad" ]] || { echo "Abbruch: Verbotene Dateien im Paket:" >&2; echo "$bad" >&2; exit 1; }
-  for must in app/src/App.php public/index.php public/media/.htaccess .env.example INSTALL.txt LICENSE VERSION; do
+  for must in app/src/App.php public/index.php public/media/.htaccess public/.user.ini public/fehler.html .env.example INSTALL.txt LICENSE NOTICE VERSION; do
     [[ -e "$TMP/$NAME/$must" ]] || { echo "Abbruch: $must fehlt im Paket." >&2; exit 1; }
   done
 fi

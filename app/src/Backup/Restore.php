@@ -29,7 +29,7 @@ final class Restore
 {
     public const FORMAT = 1;
     private const BUDGET = 25;
-    private const ORIG_REL = '~^[0-9a-f]{2}/[0-9a-f]{24}\.[a-z0-9]{2,5}$~';
+    public const ORIG_REL = '~^[0-9a-f]{2}/[0-9a-f]{24}\.[a-z0-9]{2,5}$~';
 
     public function __construct(private readonly Config $config)
     {

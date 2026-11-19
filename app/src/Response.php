@@ -16,6 +16,8 @@ final class Response
         public readonly array $cookies = [],
         /** Datei, die beim Senden gestreamt wird (statt body): [Pfad, Beginn, Länge] */
         public readonly ?array $stream = null,
+        /** Erzeugt den Inhalt beim Senden (z. B. ein TAR-Strom); die Länge steht dann im Kopf Content-Length. */
+        public readonly ?\Closure $emit = null,
     ) {
     }
 
@@ -50,21 +52,32 @@ final class Response
         return new self('', $status, $headers + ['Content-Length' => (string) $length], [], [$path, $from, $length]);
     }
 
+    /**
+     * Inhalt, der beim Senden Stück für Stück erzeugt wird (Sicherung). $emit bekommt eine Funktion, der es Blöcke übergibt.
+     *
+     * @param array<string,string> $headers
+     * @param \Closure(callable(string):void):void $emit
+     */
+    public static function generated(int $length, array $headers, \Closure $emit): self
+    {
+        return new self('', 200, $headers + ['Content-Length' => (string) $length], [], null, $emit);
+    }
+
     /** @param array<string,string> $headers */
     public function withHeaders(array $headers): self
     {
-        return new self($this->body, $this->status, $headers + $this->headers, $this->cookies, $this->stream);
+        return new self($this->body, $this->status, $headers + $this->headers, $this->cookies, $this->stream, $this->emit);
     }
 
     /** Standard-Kopfzeilen ergänzen; bereits gesetzte Kopfzeilen der Antwort bleiben. @param array<string,string> $defaults */
     public function withDefaults(array $defaults): self
     {
-        return new self($this->body, $this->status, $this->headers + $defaults, $this->cookies, $this->stream);
+        return new self($this->body, $this->status, $this->headers + $defaults, $this->cookies, $this->stream, $this->emit);
     }
 
     public function withCookie(string $setCookie): self
     {
-        return new self($this->body, $this->status, $this->headers, [...$this->cookies, $setCookie], $this->stream);
+        return new self($this->body, $this->status, $this->headers, [...$this->cookies, $setCookie], $this->stream, $this->emit);
     }
 
     public function send(bool $headOnly = false): void
@@ -77,6 +90,17 @@ final class Response
             header('Set-Cookie: ' . $cookie, false);
         }
         if ($headOnly) {
+            return;
+        }
+        if ($this->emit !== null) {
+            @set_time_limit(0);
+            while (ob_get_level() > 0) {
+                ob_end_clean();
+            }
+            ($this->emit)(static function (string $chunk): void {
+                echo $chunk;
+                flush();
+            });
             return;
         }
         if ($this->stream === null) {

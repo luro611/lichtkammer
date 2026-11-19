@@ -19,3 +19,4 @@ deploy
 public/media/*
 !public/media/.htaccess
 public/*.html
+!public/fehler.html

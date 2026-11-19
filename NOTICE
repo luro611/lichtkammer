@@ -1,0 +1,30 @@
+Lichtkammer
+Copyright (C) 2026 luro (lurohome.de)
+Lizenz: GNU Affero General Public License, Version 3 oder neuer (AGPL-3.0-or-later), siehe Datei LICENSE.
+Quellcode: https://github.com/luro611/lichtkammer
+
+Hinweis zu AGPL Abschnitt 13: Wer Lichtkammer verändert und im Netz betreibt, muss den veränderten Quelltext
+den Nutzern dieses Dienstes anbieten.
+
+Eingebundene Fremdbestandteile
+------------------------------
+
+Schriften (Lizenz SIL Open Font License 1.1, OFL-1.1, https://openfontlicense.org), mitgeliefert unter
+public/assets/fonts/ (Lizenztext und Herkunft: public/assets/fonts/LIZENZEN.txt):
+  - Inter (Rasmus Andersson und Mitwirkende)
+  - Instrument Serif (Instrument)
+  - Archivo (Omnibus-Type)
+  - Geist Mono (Vercel)
+
+Eigener Code und eigene Listen ohne Fremdlizenz:
+  - app/resources/common-passwords.txt: selbst zusammengestellte Liste häufiger Passwörter
+  - app/src/Auth/Qr.php: eigene QR-Code-Erzeugung ohne Bibliothek
+
+Es werden keine Composer-Pakete und keine JavaScript-Bibliotheken von Dritten ausgeliefert.
+
+Nur im Docker-Image (nicht im Zip für Webspace)
+-----------------------------------------------
+Das Image baut auf dem offiziellen PHP-Image (php:8.5-apache, Debian) auf und enthält dessen Bestandteile unter
+deren eigenen Lizenzen, darunter PHP (PHP License), Apache HTTP Server (Apache License 2.0), die PHP-Erweiterung
+Imagick mit ImageMagick (ImageMagick License), libheif (LGPL-3.0), libavif (BSD-2-Clause) und libwebp (BSD-3-Clause).
+Die genauen Pakete und Versionen stehen im Image (dpkg -l).

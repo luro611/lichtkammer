@@ -45,9 +45,10 @@ final class App
             try {
                 $this->admin ??= new AdminController($this->services(), $this->view, $this->config);
             } catch (ConfigError $e) {
+                error_log('Lichtkammer: Konfiguration: ' . $e->getMessage());
                 return Response::html($this->view->render('admin/config_error', [
                     'title' => 'Admin nicht verfügbar',
-                    'problem' => $e->getMessage(),
+                    'problem' => $this->config->showConfigDetails() ? $e->getMessage() : null,
                 ]), 503)->withHeaders(['Cache-Control' => 'no-store', 'Referrer-Policy' => 'no-referrer']);
             }
             return $this->admin->handle($request);

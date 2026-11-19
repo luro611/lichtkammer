@@ -28,6 +28,8 @@ final class AdminController
     use SitePages;
     use ImportPages;
     use RestorePages;
+    use BackupPages;
+    use SystemPages;
 
     private readonly Router $router;
 
@@ -143,6 +145,12 @@ final class AdminController
         $r('POST', '/admin/import/loeschen', 'importPurge', false, 'admin');
         $r('GET', '/admin/wiederherstellung', 'restorePage', false, 'admin');
         $r('POST', '/admin/wiederherstellung/weiter', 'restoreStep', false, 'admin');
+        $r('GET', '/admin/sicherung', 'backupPage', false, 'admin');
+        $r('POST', '/admin/sicherung/bestaetigen', 'backupConfirm', false, 'admin');
+        $r('POST', '/admin/sicherung/paket', 'backupPackage', false, 'admin');
+        $r('GET', '/admin/sicherung/originale', 'backupPart', false, 'admin');
+        $r('GET', '/admin/sicherung/original/{id}', 'backupOriginal', false, 'admin');
+        $r('GET', '/admin/system', 'systemPage', false, 'admin');
         $r('GET', '/admin/users', 'users', false, 'admin');
         $r('POST', '/admin/users/invite', 'usersInvite', false, 'admin');
         $r('POST', '/admin/users/{id}/{action}', 'usersAction', false, 'admin');
@@ -257,6 +265,10 @@ final class AdminController
             $pend = (new \Lichtkammer\Backup\Restore($this->config))->pendingOriginals();
             if ($pend > 0) {
                 $b[] = $pend . ' Original(e) aus der eingespielten Sicherung warten noch im Bereitstellungsordner: Verwaltung → Sicherung (/admin/wiederherstellung).';
+            }
+            $disk = SystemCheck::diskWarning($this->config, $this->s->db, $this->s->clock);
+            if ($disk !== null) {
+                $b[] = $disk . ' Mehr dazu: Verwaltung → Systemprüfung.';
             }
             $recent = $this->s->db->value("SELECT 1 FROM audit_log WHERE event = 'emergency_reset' AND at > ?", [$this->s->clock->now() - 7 * 86400]);
             if ($recent !== null) {

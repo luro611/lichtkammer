@@ -188,6 +188,17 @@ final class Config
         return $this->bool('LK_REDIRECTS_PERMANENT');
     }
 
+    /**
+     * Darf die Fehlerseite bei unvollständiger Konfiguration den Grund nennen? Ja bei Entwicklung, solange ein
+     * Einrichtungs-Token gesetzt ist (Einrichtung, ohne SSH braucht man die Meldung) und solange noch gar kein Schlüssel
+     * konfiguriert ist (frische Installation). Danach sieht ein Unangemeldeter nur „nicht verfügbar“; der Grund steht im
+     * Fehlerprotokoll des Servers (Prüfung 08, C6).
+     */
+    public function showConfigDetails(): bool
+    {
+        return $this->isDebug() || $this->setupToken() !== '' || $this->appKey() === '';
+    }
+
     public function int(string $key, int $default): int
     {
         $v = $this->get($key, '');
