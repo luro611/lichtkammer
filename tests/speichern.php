@@ -121,7 +121,7 @@ $m['clock']->advance(61);
 $redirBefore = (int) $db->value('SELECT COUNT(*) FROM redirects');
 $b->post("/admin/seiten/$nid/speichern", ['_csrf' => $csrf, 'title' => 'Neu', 'slug' => 'neu-anders', 'body' => 'Neue Seite Inhalt', 'status' => 'published', 'nav' => 'none', 'veroeffentlichen' => '1']);
 $old = $anon->get('/neu/');
-check('Adresse geändert: Seite unter neuer Adresse online, alte Adresse ohne automatische Weiterleitung (Befund, siehe Entwurf 28)', str_contains($anon->get('/neu-anders/')->body, 'Neue Seite Inhalt') && (int) $db->value('SELECT COUNT(*) FROM redirects') === $redirBefore && $old->status === 404);
+check('Adresse geändert: Seite unter neuer Adresse online, alte Adresse leitet automatisch weiter (R3, Prüfung 31)', str_contains($anon->get('/neu-anders/')->body, 'Neue Seite Inhalt') && (int) $db->value('SELECT COUNT(*) FROM redirects') === $redirBefore && $old->status === 301 && ($old->headers['Location'] ?? '') === '/neu-anders/');
 
 // --- Einstellungen: Design ---
 $m['clock']->advance(61);

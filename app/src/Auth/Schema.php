@@ -310,6 +310,19 @@ CREATE TABLE plan_items (
 );
 CREATE INDEX plan_items_plan ON plan_items(plan);
 SQL,
+            // 11: Alte Adressen (Slugs) umbenannter, online stehender Seiten und Galerien; beim Bau werden daraus Weiterleitungen.
+            // Nur additiv (Rollback: Tabelle ignorieren).
+            <<<'SQL'
+CREATE TABLE slug_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind TEXT NOT NULL CHECK (kind IN ('page','gallery')),
+    target_id INTEGER NOT NULL,
+    old_slug TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    UNIQUE (kind, target_id, old_slug)
+);
+CREATE INDEX slug_history_slug ON slug_history(kind, old_slug);
+SQL,
         ];
     }
 

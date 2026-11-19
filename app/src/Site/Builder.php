@@ -14,7 +14,10 @@ use Lichtkammer\View;
  */
 final class Builder
 {
-    public const KEEP = 5;
+    /** Fassungen, die zurückgeholt werden können (nur HTML, wenige MB je Fassung; die aktive bleibt immer, auch wenn älter). */
+    public const KEEP = 20;
+    /** Datenbankkopien vor dem Bau: so viele wie Fassungen, denn zu jeder Fassung gehört der Datenstand davor. */
+    public const KEEP_BACKUPS = 20;
     public const MAX_FILES = 2000;
 
     public function __construct(
@@ -93,7 +96,7 @@ final class Builder
     /**
      * Probelauf im Speicher: Fehler, Hinweise und Änderungen gegenüber der aktiven Fassung.
      *
-     * @return array{errors:list<string>,warnings:list<string>,changes:list<array{kind:string,label:string}>,files:int,galleries:int,photos:int}
+     * @return array{redirects:list<array{from:string,to:string}>,errors:list<string>,warnings:list<string>,changes:list<array{kind:string,label:string}>,files:int,galleries:int,photos:int}
      */
     public function plan(): array
     {
@@ -116,7 +119,15 @@ final class Builder
             }
         }
         $d = $r->data();
+        $oldMap = $cur !== null ? json_decode((string) @file_get_contents($this->siteDir() . '/releases/' . $cur . '/_redirects.json'), true) : [];
+        $newRedirects = [];
+        foreach ($r->redirectMap as $from => $to) {
+            if (!is_array($oldMap) || ($oldMap[$from] ?? null) !== $to) {
+                $newRedirects[] = ['from' => $from . '/', 'to' => $to];
+            }
+        }
         return [
+            'redirects' => $newRedirects,
             'errors' => $r->errors, 'warnings' => $r->warnings, 'changes' => $changes, 'files' => count($files),
             'galleries' => count($d['galleries']), 'photos' => count($r->photoIds()),
         ];
@@ -239,7 +250,7 @@ final class Builder
         }
     }
 
-    /** Datenbankkopie vor dem Veröffentlichen; die letzten zehn bleiben. */
+    /** Datenbankkopie vor dem Veröffentlichen; die letzten KEEP_BACKUPS bleiben. */
     private function backupDatabase(): void
     {
         $dir = $this->dataDir . '/backups';
@@ -260,7 +271,7 @@ final class Builder
         }
         $all = glob($dir . '/lichtkammer-*.sqlite') ?: [];
         rsort($all);
-        foreach (array_slice($all, 10) as $f) {
+        foreach (array_slice($all, self::KEEP_BACKUPS) as $f) {
             @unlink($f);
         }
     }

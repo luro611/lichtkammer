@@ -24,6 +24,8 @@ final class Renderer
     public array $warnings = [];
     /** @var array<string,string> Adresse → Bezeichnung (für die Änderungsliste) */
     public array $labels = [];
+    /** Weiterleitungen der zuletzt berechneten Fassung (alte Adresse → neue). @var array<string,string> */
+    public array $redirectMap = [];
     /** @var array<string,mixed> */
     private array $data = [];
 
@@ -585,6 +587,7 @@ final class Renderer
             $this->labels['/' . $pg['slug'] . '/'] = 'Seite „' . $pg['title'] . '“';
         }
         $redirects = $this->redirects($files);
+        $this->redirectMap = $redirects;
         if ($redirects !== []) {
             $files['/_redirects.json'] = (string) json_encode($redirects, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
             $this->labels['/_redirects.json'] = 'Weiterleitungen alter Adressen (' . count($redirects) . ')';
@@ -626,6 +629,18 @@ final class Renderer
             $pg[(int) $p['id']] = '/' . $p['slug'] . '/';
         }
         $out = [];
+        // Alte Adressen umbenannter Seiten und Galerien (immer auf die aktuelle Adresse, daher keine Ketten); Vorrang haben eigene Seiten
+        // und die Weiterleitungen aus dem Import, reservierte Adressen werden nie umgeleitet.
+        foreach ($this->db->all('SELECT kind, target_id, old_slug FROM slug_history ORDER BY id') as $h) {
+            $slug = strtolower((string) $h['old_slug']);
+            $isGal = $h['kind'] === 'gallery';
+            $to = $isGal ? ($gal[(int) $h['target_id']] ?? null) : ($pg[(int) $h['target_id']] ?? null);
+            $from = ($isGal ? '/galerien/' : '/') . $slug;
+            if ($to === null || $slug === '' || (!$isGal && ($slug === 'galerie' || in_array($slug, Pages::RESERVED, true))) || isset($files[$from . '/']) || isset($files[$from]) || $to === $from . '/') {
+                continue;
+            }
+            $out[$from] = $to;
+        }
         foreach ($this->db->all('SELECT from_path, kind, target_id, to_path FROM redirects ORDER BY from_path') as $r) {
             $to = match ($r['kind']) {
                 'gallery' => $gal[(int) $r['target_id']] ?? null,

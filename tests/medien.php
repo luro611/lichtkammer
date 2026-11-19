@@ -61,7 +61,7 @@ $pdo->exec("INSERT INTO photos(token,original_name,original_path,sha256,bytes,mi
 $pdo->exec("INSERT INTO gallery_photos(gallery_id,photo_id,position,added_at) VALUES(1,1,1,1)");
 $pdo = null;
 $dbm = Database::open($dbfile);
-check('Migration 10: Bestand bleibt, Version 10, Sicherung vor Schema 9 angelegt', Schema::version($dbm) === 10 && (int) $dbm->value('SELECT COUNT(*) FROM photos') === 1 && is_file($dbfile . '.vor-schema-9.bak'));
+check('Migration 10 und 11: Bestand bleibt, aktuelle Version, Sicherung vor Schema 9 angelegt', Schema::version($dbm) === count(Schema::migrations()) && (int) $dbm->value('SELECT COUNT(*) FROM photos') === 1 && is_file($dbfile . '.vor-schema-9.bak'));
 check('Migration 10: alte Fotos liegen auf oberster Ebene, Galerie-Zuordnung unverändert', $dbm->value('SELECT folder_id FROM photos WHERE id = 1') === null && (int) $dbm->value('SELECT COUNT(*) FROM gallery_photos') === 1);
 foreach (['folders', 'files', 'plan_items'] as $t) {
     check("Migration 10: Tabelle $t", $dbm->value("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", [$t]) !== null);

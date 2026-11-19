@@ -97,7 +97,10 @@ final class Galleries
                  VALUES(?,?,?, (SELECT COALESCE(MAX(sort_order),0)+1 FROM galleries), ?, ?)',
                 [$this->uniqueSlug(self::slugify($title)), $title, self::clip($description, 5000), $now, $now],
             );
-            return $this->db->lastId();
+            $newId = $this->db->lastId();
+            $slug = (string) $this->db->value('SELECT slug FROM galleries WHERE id = ?', [$newId]);
+            $this->db->run("DELETE FROM slug_history WHERE kind = 'gallery' AND old_slug = ?", [$slug]); // neue Adresse hat Vorrang
+            return $newId;
         });
     }
 
@@ -116,6 +119,12 @@ final class Galleries
             'UPDATE galleries SET title=?, description=?, show_exif=?, slug=?, updated_at=? WHERE id=?',
             [$title, self::clip($description, 5000), $showExif ? 1 : 0, $newSlug, $this->clock->now(), $id],
         );
+        if ($newSlug !== (string) $g['slug']) {
+            $this->db->run("DELETE FROM slug_history WHERE kind = 'gallery' AND old_slug = ?", [$newSlug]); // neue Nutzung hat Vorrang
+            if ((string) $g['status'] === 'published') {
+                $this->db->run("INSERT OR IGNORE INTO slug_history(kind, target_id, old_slug, created_at) VALUES('gallery',?,?,?)", [$id, (string) $g['slug'], $this->clock->now()]);
+            }
+        }
     }
 
     /** Löscht nur die Zusammenstellung; Fotos bleiben in der Mediathek. */
@@ -123,6 +132,7 @@ final class Galleries
     {
         $this->must($id);
         $this->db->run('DELETE FROM galleries WHERE id = ?', [$id]); // gallery_photos wird per ON DELETE CASCADE geräumt
+        $this->db->run("DELETE FROM slug_history WHERE kind = 'gallery' AND target_id = ?", [$id]);
     }
 
     /**

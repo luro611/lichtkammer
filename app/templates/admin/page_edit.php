@@ -12,7 +12,7 @@
     <input type="hidden" name="titel_form" value="1">
     <label class="field"><span><input type="checkbox" name="titel_zeigen" value="1"<?= (int) ($pg['show_title'] ?? 1) === 1 ? ' checked' : '' ?>> Seitentitel oben auf der Seite anzeigen</span></label>
     <p class="small muted">Ohne Häkchen ist der Titel nicht sichtbar. Für Screenreader und Suchmaschinen bleibt er trotzdem erhalten.</p>
-    <label class="field"><span>Adresse (Teil der Web-Adresse)</span><input name="slug" value="<?= $e((string) $pg['slug']) ?>" maxlength="60"></label>
+    <label class="field"><span>Adresse (Teil der Web-Adresse)</span><input name="slug" value="<?= $e((string) $pg['slug']) ?>" maxlength="60"><small class="small muted">Wird die Adresse einer online stehenden Seite geändert, leitet die alte Adresse nach dem Veröffentlichen automatisch hierher weiter.</small></label>
     <input type="hidden" name="blocks" id="blocks-field" value="<?= $e($blocksField) ?>">
     <div class="field"><span id="editor-label">Inhalt</span>
       <div id="page-editor" class="editor" role="group" aria-labelledby="editor-label" data-pick-url="/admin/fotos/auswahl"></div>

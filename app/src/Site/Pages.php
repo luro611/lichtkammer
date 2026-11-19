@@ -72,7 +72,9 @@ final class Pages
                 'INSERT INTO pages(slug, title, body, blocks, status, nav, show_title, sort_order, created_at, updated_at) VALUES(?,?,?,?,?,?,?,(SELECT COALESCE(MAX(sort_order),0)+1 FROM pages),?,?)',
                 [$slug, $title, $body, $blocks ?? '', $status, $nav, ($f['show_title'] ?? true) ? 1 : 0, $now, $now],
             );
-            return $this->db->lastId();
+            $newId = $this->db->lastId();
+            $this->claimSlug($slug);
+            return $newId;
         }
         $cur = $this->get($id) ?? throw new MediaException('Die Seite gibt es nicht (mehr).');
         $slug = (string) ($f['slug'] ?? '') !== '' ? $this->uniqueSlug((string) $f['slug'], $id) : (string) $cur['slug'];
@@ -82,12 +84,25 @@ final class Pages
             'UPDATE pages SET slug=?, title=?, body=?, blocks=?, status=?, nav=?, show_title=?, updated_at=? WHERE id=?',
             [$slug, $title, $keepBody ? (string) $cur['body'] : $body, $blocks ?? (string) $cur['blocks'], $status, $nav, isset($f['show_title']) ? ($f['show_title'] ? 1 : 0) : (int) $cur['show_title'], $now, $id],
         );
+        if ($slug !== (string) $cur['slug']) {
+            $this->claimSlug($slug);
+            if ((string) $cur['status'] === 'published') { // nur was online stand, braucht eine Weiterleitung
+                $this->db->run("INSERT OR IGNORE INTO slug_history(kind, target_id, old_slug, created_at) VALUES('page',?,?,?)", [$id, (string) $cur['slug'], $now]);
+            }
+        }
         return $id;
+    }
+
+    /** Wer eine Adresse jetzt benutzt, hat Vorrang: eine alte Weiterleitung auf diese Adresse entfällt. */
+    private function claimSlug(string $slug): void
+    {
+        $this->db->run("DELETE FROM slug_history WHERE kind = 'page' AND old_slug = ?", [$slug]);
     }
 
     public function delete(int $id): void
     {
         $this->db->run('DELETE FROM pages WHERE id = ?', [$id]);
+        $this->db->run("DELETE FROM slug_history WHERE kind = 'page' AND target_id = ?", [$id]); // Kennung könnte wiederverwendet werden
     }
 
     public function setNav(int $id, string $nav): void

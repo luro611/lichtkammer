@@ -4,7 +4,7 @@ $fmt = static fn (string $id): string => preg_match('/^(\d{4})(\d{2})(\d{2})-(\d
 <section class="hero">
   <p class="eyebrow">Öffentliche Seite</p>
   <h1><em>Veröffentlichen</em></h1>
-  <p class="intro">Erst mit dem Veröffentlichen wird die Besucher-Seite neu erzeugt. Bis dahin sieht man Änderungen nur in der <a href="/admin/vorschau">Vorschau</a>. Die vorherigen Fassungen bleiben erhalten; eine davon lässt sich mit einem Klick zurückholen.</p>
+  <p class="intro">Erst mit dem Veröffentlichen wird die Besucher-Seite neu erzeugt. Bis dahin sieht man Änderungen nur in der <a href="/admin/vorschau">Vorschau</a>. Die letzten <?= \Lichtkammer\Site\Builder::KEEP ?> Fassungen bleiben erhalten (neueste zuerst); eine davon lässt sich mit einem Klick zurückholen.</p>
 <?php if ($ok): ?><div class="notice" role="status"><?= $e($ok) ?> <a href="/" target="_blank" rel="noopener">Seite ansehen</a></div><?php endif; ?>
 <?php if ($error): ?><div class="notice error" role="alert"><?= $e($error) ?></div><?php endif; ?>
 <?php if ($plan['errors'] !== []): ?>
@@ -20,6 +20,15 @@ $fmt = static fn (string $id): string => preg_match('/^(\d{4})(\d{2})(\d{2})-(\d
   <ul class="changes">
 <?php foreach ($plan['changes'] as $c): ?>    <li><span class="badge"><?= $e($c['kind']) ?></span> <?= $e($c['label']) ?></li>
 <?php endforeach; ?>  </ul>
+<?php endif; ?>
+<?php if (($plan['redirects'] ?? []) !== []): ?>
+  <div class="notice" role="note"><strong>Neue Weiterleitungen:</strong> Diese alten Adressen führen nach dem Veröffentlichen automatisch auf die neue Adresse.
+    <ul>
+<?php foreach (array_slice($plan['redirects'], 0, 20) as $rd): ?>      <li class="mono small"><?= $e($rd['from']) ?> → <?= $e($rd['to']) ?></li>
+<?php endforeach; ?>
+<?php if (count($plan['redirects']) > 20): ?>      <li class="small muted">… und <?= count($plan['redirects']) - 20 ?> weitere</li>
+<?php endif; ?>
+    </ul></div>
 <?php endif; ?>
 <?php if ($drafts !== [] || $draftGalleries !== []): ?>
   <div class="notice" role="note"><strong>Noch nicht online, weil der Status „Entwurf“ ist:</strong>

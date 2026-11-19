@@ -226,13 +226,13 @@ $busy = $svc->builder->publish(1);
 check('Sperre: gleichzeitiges Veröffentlichen wird abgewiesen', !$busy['ok'] && str_contains($busy['error'], 'anderes Veröffentlichen') && $svc->builder->current() === $rel2);
 flock($lockFile, LOCK_UN);
 fclose($lockFile);
-for ($i = 0; $i < 6; $i++) {
+for ($i = 0; $i < 6; $i++) { // KEEP = 20: Aufräumen wird in tests/weiterleitung.php (R1) über die Grenze geprüft
     $m['clock']->advance(61);
     $svc->builder->publish(1);
 }
 $dirs = glob($f5 . '/a/data/site/releases/*', GLOB_ONLYDIR) ?: [];
-check('Aufräumen: höchstens fünf Fassungen, die aktive bleibt', count($dirs) === 5 && is_dir($f5 . '/a/data/site/releases/' . $svc->builder->current()));
-check('Sicherung: höchstens zehn Datenbankkopien', count(glob($f5 . '/a/data/backups/lichtkammer-*.sqlite') ?: []) <= 10);
+check('Aufräumen: höchstens KEEP Fassungen, die aktive bleibt', count($dirs) <= Builder::KEEP && count($dirs) >= 5 && is_dir($f5 . '/a/data/site/releases/' . $svc->builder->current()));
+check('Sicherung: höchstens KEEP_BACKUPS Datenbankkopien', count(glob($f5 . '/a/data/backups/lichtkammer-*.sqlite') ?: []) <= Builder::KEEP_BACKUPS);
 
 // --- Alt-Text-Pflicht und fehlende Dateien beim Veröffentlichen ---
 $db->run("UPDATE photos SET alt_text = '' WHERE id = ?", [$p1]);
