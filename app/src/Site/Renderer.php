@@ -26,6 +26,8 @@ final class Renderer
     public array $labels = [];
     /** Weiterleitungen der zuletzt berechneten Fassung (alte Adresse → neue). @var array<string,string> */
     public array $redirectMap = [];
+    /** Davon automatisch aus Adressänderungen (slug_history): umkehrbar, daher nie dauerhaft im Browser. @var list<string> */
+    public array $autoRedirects = [];
     /** @var array<string,mixed> */
     private array $data = [];
 
@@ -592,6 +594,10 @@ final class Renderer
             $files['/_redirects.json'] = (string) json_encode($redirects, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
             $this->labels['/_redirects.json'] = 'Weiterleitungen alter Adressen (' . count($redirects) . ')';
         }
+        if ($this->autoRedirects !== []) {
+            $files['/_redirects_auto.json'] = (string) json_encode($this->autoRedirects, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+            $this->labels['/_redirects_auto.json'] = 'Weiterleitungen nach Adressänderung (' . count($this->autoRedirects) . ')';
+        }
         $base = $this->config->baseUrl();
         if ($this->config->noindex()) {
             $files['/robots.txt'] = "User-agent: *\nDisallow: /\n";
@@ -629,6 +635,7 @@ final class Renderer
             $pg[(int) $p['id']] = '/' . $p['slug'] . '/';
         }
         $out = [];
+        $auto = [];
         // Alte Adressen umbenannter Seiten und Galerien (immer auf die aktuelle Adresse, daher keine Ketten); Vorrang haben eigene Seiten
         // und die Weiterleitungen aus dem Import, reservierte Adressen werden nie umgeleitet.
         foreach ($this->db->all('SELECT kind, target_id, old_slug FROM slug_history ORDER BY id') as $h) {
@@ -640,6 +647,7 @@ final class Renderer
                 continue;
             }
             $out[$from] = $to;
+            $auto[$from] = true;
         }
         foreach ($this->db->all('SELECT from_path, kind, target_id, to_path FROM redirects ORDER BY from_path') as $r) {
             $to = match ($r['kind']) {
@@ -655,8 +663,11 @@ final class Renderer
                 continue;
             }
             $out[$from] = $to;
+            unset($auto[$from]); // Importeintrag gewinnt
         }
         ksort($out);
+        ksort($auto);
+        $this->autoRedirects = array_keys($auto);
         return $out;
     }
 

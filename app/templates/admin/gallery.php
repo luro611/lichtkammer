@@ -25,7 +25,7 @@ $bulkBack = '/admin/galerien/' . $gid; ?>
       <input type="hidden" name="_csrf" value="<?= $e($csrf) ?>">
       <label class="field"><span>Titel</span><input name="title" value="<?= $e($title) ?>" maxlength="200" required></label>
       <label class="field"><span>Beschreibung</span><textarea name="description" rows="4" maxlength="5000"><?= $e($desc) ?></textarea></label>
-      <label class="field"><span>Adresse (Kurzname)</span><input name="slug" class="mono" value="<?= $e((string) $g['slug']) ?>" maxlength="60"><small class="small muted">Die alte Adresse leitet nach dem Veröffentlichen automatisch hierher weiter.</small></label>
+      <label class="field"><span>Adresse (Kurzname)</span><input name="slug" class="mono" value="<?= $e((string) $g['slug']) ?>" maxlength="60"><small class="small muted">Steht die Galerie online, gilt: Die alte Adresse leitet nach dem Veröffentlichen automatisch hierher weiter.</small></label>
       <label class="check"><input type="checkbox" name="show_exif" value="1"<?= (int) $g['show_exif'] === 1 ? ' checked' : '' ?>> Kamera, Objektiv und Belichtung öffentlich zeigen (GPS nie)</label>
       <div class="actions">
 <?php if ($pub): ?>

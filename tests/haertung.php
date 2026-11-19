@@ -249,6 +249,14 @@ foreach ([0, 1] as $perm) {
     $rr = $Gm['app']->handle(new Request(['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => '/alt/seite', 'HTTPS' => 'on'], $Gm['config']));
     check($perm === 0 ? 'Umzugs-Weiterleitung: 301 mit kurzem Zwischenspeicher (Standard in der Übergangszeit)' : 'Umzugs-Weiterleitung: mit LK_REDIRECTS_PERMANENT=1 dauerhaft ohne Ablaufzeit',
         $rr->status === 301 && $rr->headers['Location'] === '/neu/seite/' && (($rr->headers['Cache-Control'] ?? '') === 'public, max-age=3600') === ($perm === 0));
+    // Prüfung 32, B1: Weiterleitung nach Adressänderung ist umkehrbar und bleibt immer nur kurz im Browser
+    file_put_contents($rel . '/_redirects.json', json_encode(['/alt/seite' => '/neu/seite/', '/umbenannt' => '/neu/']));
+    file_put_contents($rel . '/_redirects_auto.json', json_encode(['/umbenannt']));
+    $ra = $Gm['app']->handle(new Request(['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => '/Umbenannt/', 'HTTPS' => 'on'], $Gm['config']));
+    $ri = $Gm['app']->handle(new Request(['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => '/alt/seite', 'HTTPS' => 'on'], $Gm['config']));
+    check('Weiterleitung nach Adressänderung: immer kurzer Zwischenspeicher (LK_REDIRECTS_PERMANENT=' . $perm . '), Import-Weiterleitung unverändert',
+        $ra->status === 301 && $ra->headers['Location'] === '/neu/' && ($ra->headers['Cache-Control'] ?? '') === 'public, max-age=3600'
+        && (($ri->headers['Cache-Control'] ?? '') === 'public, max-age=3600') === ($perm === 0));
 }
 
 // Authorization-Kopf: direkt und über Apaches REDIRECT_-Variante

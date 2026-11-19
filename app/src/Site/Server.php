@@ -34,8 +34,10 @@ final class Server
         $to = $this->redirectFor($root, $path);
         if ($to !== null) {
             // Umzugs-Weiterleitung: in der Übergangszeit nur kurz im Browser merken (Rückfall auf die alte Seite, Entwurf 20, M2).
+            // Weiterleitungen nach einer Adressänderung sind umkehrbar (A→B→A, neue Seite unter alter Adresse) und werden
+            // daher nie dauerhaft im Browser gespeichert, auch nicht mit LK_REDIRECTS_PERMANENT (Prüfung 32, B1).
             $r = Response::redirect($to, 301);
-            return $this->config->redirectsPermanent() ? $r : $r->withHeaders(['Cache-Control' => 'public, max-age=3600']);
+            return $this->config->redirectsPermanent() && !$this->isAutoRedirect($root, $path) ? $r : $r->withHeaders(['Cache-Control' => 'public, max-age=3600']);
         }
         if (in_array($path, ['/robots.txt', '/sitemap.xml'], true)) {
             $file = $root . $path;
@@ -78,6 +80,12 @@ final class Server
             return null;
         }
         return $to;
+    }
+
+    private function isAutoRedirect(string $root, string $path): bool
+    {
+        $list = json_decode((string) @file_get_contents($root . '/_redirects_auto.json'), true);
+        return is_array($list) && in_array(strtolower(rtrim($path, '/')), $list, true);
     }
 
     private function notFound(string $root): Response

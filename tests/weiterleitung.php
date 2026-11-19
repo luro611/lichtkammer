@@ -55,6 +55,11 @@ check('Plan danach ohne neue Weiterleitung', $svc->builder->plan()['redirects'] 
 $ren($a, 'team');
 $pub();
 check('Kette A→B→C: beide alten Adressen zeigen direkt auf die aktuelle', $map() === ['/about' => '/team/', '/ueber-uns' => '/team/']);
+$autoList = static function () use ($svc): array {
+    $d = json_decode((string) @file_get_contents($svc->builder->siteDir() . '/releases/' . $svc->builder->current() . '/_redirects_auto.json'), true);
+    return is_array($d) ? $d : [];
+};
+check('Prüfung 32, B1: automatische Weiterleitungen sind als umkehrbar markiert (_redirects_auto.json)', $autoList() === ['/about', '/ueber-uns']);
 
 // --- Rücknahme A→B→A ---
 $ren($a, 'about');
@@ -120,6 +125,7 @@ $db->run("INSERT OR REPLACE INTO redirects(from_path, kind, target_id, to_path, 
 $db->run("INSERT OR REPLACE INTO redirects(from_path, kind, target_id, to_path, created_at) VALUES('/ueber-uns', 'path', NULL, '/impressum/', 1)", []);
 $pub();
 check('Import + automatisch: beide Quellen zusammengeführt, Importeintrag gewinnt bei gleicher Adresse', ($map()['/wp-alt'] ?? null) === '/about-b/' && ($map()['/ueber-uns'] ?? null) === '/impressum/');
+check('Prüfung 32, B1: gewinnt der Importeintrag, ist die Adresse nicht mehr als automatisch markiert', !in_array('/ueber-uns', $autoList(), true) && !in_array('/wp-alt', $autoList(), true));
 $db->run("DELETE FROM redirects");
 
 // --- Schema ---
