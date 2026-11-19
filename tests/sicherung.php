@@ -137,6 +137,7 @@ $b->jar[$cookieName] = $saved;
 // Paket
 $pkgResp = $b->post('/admin/sicherung/paket', ['_csrf' => $csrf()]);
 check('Paket: 200 mit Anhang, ohne Zwischenspeicher, nosniff', $pkgResp->status === 200 && str_contains($pkgResp->headers['Content-Disposition'], 'attachment') && str_contains($pkgResp->headers['Content-Disposition'], '.tar') && str_contains($pkgResp->headers['Cache-Control'], 'no-store') && $pkgResp->headers['X-Content-Type-Options'] === 'nosniff');
+check('Paket: Merker „zuletzt“ erst nach vollständigem Senden (Prüfung 34, N1)', $db->value("SELECT v FROM meta WHERE k = 'last_backup_at'") === null);
 $pkg = $collect($pkgResp);
 check('Paket: Content-Length stimmt mit dem Strom überein', (int) $pkgResp->headers['Content-Length'] === strlen($pkg));
 check('Paket: Datenbankkopie im Datenordner nach dem Senden gelöscht', glob($s . '/a-data/sicherung-*') === []);
@@ -338,6 +339,7 @@ $fe = (string) file_get_contents(__DIR__ . '/../public/fehler.html');
 check('Fehlerseite: statisch, deutsch, ohne Pfade, Skripte und Serverkennung, mit luro-Wortmarke', str_contains($fe, 'lang="de"') && !str_contains($fe, '<script') && !str_contains($fe, 'Apache') && !str_contains($fe, '/app/') && str_contains($fe, 'lu<em>ro</em>'));
 $di = (string) file_get_contents(__DIR__ . '/../.dockerignore');
 check('Docker: fehler.html bleibt im Image (Ausnahme zu public/*.html)', str_contains($di, '!public/fehler.html'));
+check('Git: fehler.html ist eingecheckt (Ausnahme zu /public/*.html in .gitignore, Prüfung 34, B1)', str_contains((string) file_get_contents(__DIR__ . '/../.gitignore'), "\n!/public/fehler.html\n"));
 $ui = (string) file_get_contents(__DIR__ . '/../public/.user.ini');
 check('.user.ini: Fehler nie anzeigen, Fehlerprotokoll an, keine Geheimnisse', str_contains($ui, 'display_errors = Off') && str_contains($ui, 'log_errors = On') && !preg_match('/key|token|passw/i', preg_replace('/^;.*$/m', '', $ui)));
 $cy = (string) file_get_contents(__DIR__ . '/../compose.yaml');

@@ -193,6 +193,9 @@ final class Backup
                     $this->emitEntry($out, $name, $path, $content, $size, $now);
                 }
                 $out(Tar::end());
+                if (connection_aborted() !== 1) {
+                    $this->noteTaken(); // erst nach vollständigem Senden „zuletzt heruntergeladen“ (Prüfung 34, N1)
+                }
             } finally {
                 @unlink($tmp);
             }
@@ -279,6 +282,10 @@ final class Backup
                 }
                 $out($chunk);
                 $left -= strlen($chunk);
+                if (connection_aborted() === 1) {
+                    fclose($fh);
+                    throw new \RuntimeException('abgebrochen');
+                }
             }
             if ($fh !== false) {
                 fclose($fh);

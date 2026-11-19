@@ -94,13 +94,20 @@ final class Response
         }
         if ($this->emit !== null) {
             @set_time_limit(0);
+            // Bricht der Browser ab, läuft das Skript weiter, bis emit den Abbruch bemerkt und aufräumt (die Datenbankkopie
+            // der Sicherung löscht). Ohne das beendet PHP das Skript sofort und die Kopie bleibt liegen (Prüfung 34, B2).
+            ignore_user_abort(true);
             while (ob_get_level() > 0) {
                 ob_end_clean();
             }
-            ($this->emit)(static function (string $chunk): void {
-                echo $chunk;
-                flush();
-            });
+            try {
+                ($this->emit)(static function (string $chunk): void {
+                    echo $chunk;
+                    flush();
+                });
+            } catch (\Throwable $t) { // Kopfzeilen sind schon gesendet: nur noch protokollieren
+                error_log('Lichtkammer: Download beendet: ' . $t->getMessage());
+            }
             return;
         }
         if ($this->stream === null) {

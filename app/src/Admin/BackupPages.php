@@ -95,7 +95,6 @@ trait BackupPages
             error_log('Lichtkammer: Sicherung: ' . $e->getMessage());
             return $this->backupView($req, $sess, 'Die Sicherung konnte nicht erzeugt werden. Ist im Datenordner noch Platz? Genaueres steht im Fehlerprotokoll des Servers.', 500);
         }
-        $b->noteTaken();
         $this->auditLog('backup_package', $sess, 'bytes=' . $pkg['length'] . ',files=' . $pkg['files'] . ',orig=' . $pkg['originals'], $req);
         return Response::generated($pkg['length'], self::backupHeaders('lichtkammer-sicherung-' . gmdate('Ymd-His', $this->s->clock->now()) . '.tar'), $pkg['emit']);
     }

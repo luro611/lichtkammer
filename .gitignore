@@ -25,6 +25,7 @@ id_ed25519*
 /public/media/*
 !/public/media/.htaccess
 /public/*.html
+!/public/fehler.html
 *.sqlite
 *.sqlite3
 *.db
