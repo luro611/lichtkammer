@@ -21,7 +21,7 @@ NAME="lichtkammer-$VERSION"
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/$NAME" dist
-git archive --format=tar HEAD app public .env.example LICENSE NOTICE README.md tools/INSTALL.txt | tar -x -C "$TMP/$NAME"
+git archive --format=tar HEAD app public docker Dockerfile compose.yaml .dockerignore .env.example LICENSE NOTICE README.md tools/INSTALL.txt | tar -x -C "$TMP/$NAME"
 mv "$TMP/$NAME/tools/INSTALL.txt" "$TMP/$NAME/INSTALL.txt"
 rmdir "$TMP/$NAME/tools"
 echo "$VERSION" > "$TMP/$NAME/VERSION"
@@ -35,7 +35,7 @@ if (( PRUEFEN )); then
   PRIVAT_MUSTER='/Users/|@g(oogle)?mail\.|\.local>|BEGIN [A-Z ]*PRIVATE KEY|/htdocs/v[0-9]{3,}|otpauth://totp/[^ ]*secret=[A-Z2-7]{16}'
   spuren=$(cd "$TMP/$NAME" && grep -rIlE "$PRIVAT_MUSTER" . || true)
   [[ -z "$spuren" ]] || { echo "Abbruch: Private Spuren im Paket (Muster PRIVAT_MUSTER):" >&2; echo "$spuren" >&2; exit 1; }
-  for must in app/src/App.php public/index.php public/media/.htaccess public/.user.ini public/fehler.html .env.example INSTALL.txt LICENSE NOTICE VERSION; do
+  for must in app/src/App.php public/index.php public/media/.htaccess public/.user.ini public/fehler.html Dockerfile compose.yaml .dockerignore docker/entrypoint.sh .env.example INSTALL.txt LICENSE NOTICE VERSION; do
     [[ -e "$TMP/$NAME/$must" ]] || { echo "Abbruch: $must fehlt im Paket." >&2; exit 1; }
   done
 fi

@@ -54,7 +54,7 @@ Vorher bereithalten: die Sicherung (Ordner), `LK_APP_KEY` aus dem Passwort-Manag
 ## Wiederherstellungsprobe (Pflicht vor dem Livegang)
 
 1. Sicherung der Testinstallation ziehen (Verwaltung → Sicherung: Paket und alle Teile der Originale in **einen** Ordner legen, die `.tar`-Dateien müssen nicht entpackt werden).
-2. **Probe A, Docker (lokal oder auf pve10):** frischer Container, Volumes leer, derselbe Schlüssel → Schritte 2 bis 7. Zeit stoppen. Prüfen: Anmeldung mit Passwort **und** TOTP, Fotozahl, Galerien, Seiten, Veröffentlichen, Bilder werden ausgeliefert, SHA-256 der Originale stimmen. **Das macht `tools/restore-probe.sh` selbst** (Anleitung unten). Nicht automatisch geprüft: das Einlösen eines Wiederherstellungscodes (einmal von Hand).
+2. **Probe A, Docker (lokal oder auf dem Docker-Testserver):** frischer Container, Volumes leer, derselbe Schlüssel → Schritte 2 bis 7. Zeit stoppen. Prüfen: Anmeldung mit Passwort **und** TOTP, Fotozahl, Galerien, Seiten, Veröffentlichen, Bilder werden ausgeliefert, SHA-256 der Originale stimmen. **Das macht `tools/restore-probe.sh` selbst** (Anleitung unten). Nicht automatisch geprüft: das Einlösen eines Wiederherstellungscodes (einmal von Hand).
 3. **Probe B, all-inkl in einer Wegwerf-Subdomain** (eigener Datenordner und Originalordner, nur nach Freigabe von Lutz; FTPS, kein SSH, 60 Sekunden Laufzeit, Rechte): derselbe Ablauf von Hand. Das erst belegt den Weg, den br-foto.com wirklich nutzt. Danach Subdomain samt Ordnern entfernen.
 4. **Probe C mit falschem Schlüssel:** Das Einspielen muss mit der Meldung „LK_APP_KEY passt nicht“ scheitern und nichts verändern. Auch das macht das Skript (`--probe c`, es nimmt von allein einen falschen Schlüssel).
 5. Ergebnis (Dauer, Probleme, Anpassungen) unten eintragen. **Ohne bestandene Probe A und B kein Livegang.**
@@ -109,23 +109,23 @@ Es fragt dann verdeckt nach dem Passwort und nach dem Code (der Code gilt nur 30
 
 Die Probe läuft auf `127.0.0.1` mit zufälligem Port und eigenen leeren Volumes; sie berührt weder den Testserver noch all-inkl noch die Datenbank der Test-Installation. „Härtung wie `compose.yaml`“: dieselben Optionen (`no-new-privileges`, `cap_drop ALL` mit vier Fähigkeiten, 1 GB Speicher, Protokolle begrenzt), also zugleich ein Test dafür.
 
-**Variante pve10.** Der Docker-Host für die Probe ist pve10 (Testserver). Name und Zugang kommen von Lutz; auf diesem Mac ist `pve10` nicht als SSH-Name bekannt, deshalb ist hier nichts eingetragen. Das Skript greift auf den Container über `127.0.0.1` zu, **muss also auf dem Docker-Host selbst laufen**; ein reiner Docker-Kontext (`DOCKER_HOST=ssh://…`) genügt nicht, weil Container und Port dann auf dem anderen Rechner liegen. Ablauf, wenn Lutz den SSH-Zugang `<pve10-Zugang>` (und darauf Docker, `curl`, `python3`, `openssl`, `zsh`) bestätigt hat:
+**Variante Docker-Host.** Der Docker-Host für die Probe ist der Docker-Testserver (Testserver). Name und Zugang kommen von Lutz; auf diesem Mac ist `der Docker-Testserver` nicht als SSH-Name bekannt, deshalb ist hier nichts eingetragen. Das Skript greift auf den Container über `127.0.0.1` zu, **muss also auf dem Docker-Host selbst laufen**; ein reiner Docker-Kontext (`DOCKER_HOST=ssh://…`) genügt nicht, weil Container und Port dann auf dem anderen Rechner liegen. Ablauf, wenn Lutz den SSH-Zugang `<Docker-Host-Zugang>` (und darauf Docker, `curl`, `python3`, `openssl`, `zsh`) bestätigt hat:
 
 ```bash
 # auf dem Mac: Repo (ohne .git) und Sicherung kopieren
-rsync -a --exclude .git ./ <pve10-Zugang>:/tmp/lk-probe/repo/
-rsync -a ~/Documents/Projekte/lichtkammer-sicherung/2026-11-xx/ <pve10-Zugang>:/tmp/lk-probe/sicherung/
+rsync -a --exclude .git ./ <Docker-Host-Zugang>:/tmp/lk-probe/repo/
+rsync -a ~/Documents/Projekte/lichtkammer-sicherung/2026-11-xx/ <Docker-Host-Zugang>:/tmp/lk-probe/sicherung/
 # Schlüssel NICHT kopieren: im SSH-Terminal verdeckt eingeben lassen (-t gibt ein Terminal)
-ssh -t <pve10-Zugang> 'cd /tmp/lk-probe/repo && tools/restore-probe.sh /tmp/lk-probe/sicherung'
+ssh -t <Docker-Host-Zugang> 'cd /tmp/lk-probe/repo && tools/restore-probe.sh /tmp/lk-probe/sicherung'
 # danach alles entfernen
-ssh <pve10-Zugang> 'rm -rf /tmp/lk-probe'
+ssh <Docker-Host-Zugang> 'rm -rf /tmp/lk-probe'
 ```
 
-Die Sicherung ist unverschlüsselte Kundendaten: auf pve10 nur auf einem Datenträger, dessen Inhalt danach gelöscht wird. Ob die Probe auf pve10 laufen darf, entscheidet Lutz; Probe A mit der Test-Sicherung auf dem Mac ist unten belegt.
+Die Sicherung ist unverschlüsselte Kundendaten: auf dem Docker-Testserver nur auf einem Datenträger, dessen Inhalt danach gelöscht wird. Ob die Probe auf dem Docker-Testserver laufen darf, entscheidet Lutz; Probe A mit der Test-Sicherung auf dem Mac ist unten belegt.
 
 ### Ergebnisse der Proben
 
-**Mit Test-Sicherung, noch nicht mit der echten Sicherung** (19.11.2026, lokal auf dem Mac in Docker mit OrbStack, `lichtkammer:probe` aus dem Repo-Stand `4f98402`, nicht pve10, nicht all-inkl):
+**Mit Test-Sicherung, noch nicht mit der echten Sicherung** (19.11.2026, lokal auf dem Mac in Docker mit OrbStack, `lichtkammer:probe` aus dem Repo-Stand `4f98402`, nicht der Docker-Testserver, nicht all-inkl):
 
 Die Test-Sicherung entsteht mit `tests/erzeuge_testsicherung.php` (Wegwerf-Installation mit zufälligem Schlüssel, Konto mit TOTP, vier Fotos mit echten Originalen von 5,1 MB und eines klein, zwei Galerien, zwei Seiten, eine private Datei; Paket und zwei Originalteile, insgesamt 15 MB, `LK_BACKUP_PART_MB=10`):
 
@@ -148,4 +148,4 @@ docker run --rm -v "$PWD":/app -v <Ausgabe>:/out -w /app lichtkammer-test php te
 
 **Nach dem Sammel-Knopf** (19.11.2026, Repo-Stand nach `cd651d6` mit dem Knopf, lokal in Docker, wieder mit der Test-Sicherung, nicht mit der echten): **Probe A mit Anmeldedaten, 19 von 19 Prüfungen bestanden**, jetzt mit dem echten Weg für die Bildvarianten statt des Einzelaufrufs je Foto: Warnband „… haben keine Bildvarianten“ erscheint nach dem Einspielen von selbst, `/admin/varianten` erzeugt die Varianten (**4 von 4 Fotos haben Bildvarianten**, 1 Runde, 4,6 s), keine Runde über der 60-Sekunden-Grenze, Warnband danach weg, Veröffentlichen, **Bilder werden ausgeliefert: 8 von 8** (Status 200, `image/*`). Probe gesamt 7,5 s. **Nach B1 und B2 (Sperre, Giftfoto)** wurde Probe A und C wiederholt: 25 von 25 bestanden (4 von 4 Fotos, 1 Runde, 4,8 s, 8 von 8 Bilder, Probe C lehnt den falschen Schlüssel ab). Die Test-Sicherung hat nur 4 Fotos; die Rundenlänge bei vielen Fotos (Grenze 20 s je Runde, jedes Foto vorher auf Platz im Zeitbudget geprüft) belegen die Tests mit fester Uhr in `tests/varianten.php`, **auf all-inkl ist sie noch nicht gemessen** (Teil von Probe B).
 
-**Noch offen:** Probe A und C mit der **echten** Sicherung der Testinstallation (Lutz zieht sie), Probe A optional auf pve10, **Probe B** auf all-inkl (nach Freigabe von Lutz; der Sammel-Knopf für Varianten ist gebaut). Die automatischen Tests in `tests/haertung.php` und `tests/sicherung.php` prüfen den Ablauf ebenfalls, ersetzen die Proben auf echten Servern aber nicht.
+**Noch offen:** Probe A und C mit der **echten** Sicherung der Testinstallation (Lutz zieht sie), Probe A optional auf dem Docker-Testserver, **Probe B** auf all-inkl (nach Freigabe von Lutz; der Sammel-Knopf für Varianten ist gebaut). Die automatischen Tests in `tests/haertung.php` und `tests/sicherung.php` prüfen den Ablauf ebenfalls, ersetzen die Proben auf echten Servern aber nicht.

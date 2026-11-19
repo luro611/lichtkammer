@@ -15,7 +15,7 @@
 #   mit Prüfung von Warnband, Zahl „N von N“ und Dauer der längsten Runde (Grenze von all-inkl: 60 s).
 # Es entsteht nichts im Repository und nichts auf einem Server: ein Container mit eigenen, leeren Volumes auf 127.0.0.1, am Ende
 # entfernt (außer mit --behalten). Docker-Host: der lokale, oder der aus DOCKER_HOST/DOCKER_CONTEXT, dann läuft das Skript auf diesem Host
-# (siehe Wiederherstellung.md, Variante pve10).
+# (siehe Wiederherstellung.md, Variante Docker-Host).
 emulate -L zsh
 setopt pipefail
 zmodload zsh/datetime

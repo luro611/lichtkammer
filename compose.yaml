@@ -1,14 +1,16 @@
-# Lichtkammer im eigenen LXC: docker compose up -d --build
+# Lichtkammer mit Docker: im Ordner dieser Datei "docker compose up -d --build" (baut das Image aus app/ und public/).
+# Update: neues Paket darüberlegen, dann wieder "docker compose up -d --build". Daten bleiben in den Volumes.
 # TLS beendet der Reverse-Proxy davor; LK_TRUST_PROXY=1 lässt X-Forwarded-Proto gelten und braucht
 # LK_TRUSTED_PROXIES (Adresse des Proxys), sonst startet der Admin nicht.
 services:
   lichtkammer:
-    # Veröffentlichtes Image (Version anpassen; Update: docker compose pull && docker compose up -d)
-    image: ghcr.io/luro611/lichtkammer:latest
-    # Entwickler bauen lokal: die Zeile "image" auskommentieren und stattdessen "build: ." verwenden.
-    #build: .
+    # Das Image wird aus diesem Ordner gebaut (Standardweg, auch für das Testpaket).
+    build: .
+    image: lichtkammer:local
+    # Alternative: ein veröffentlichtes Image verwenden (Update dann: docker compose pull && docker compose up -d).
+    # Dazu "build" und die Zeile "image" oben ersetzen durch z. B.: image: ghcr.io/luro611/lichtkammer:<Version>
     restart: unless-stopped
-    # Härtung (Entwurf 20, 4.2; auf pve10 noch zu prüfen, Schritt 8c): keine neuen Rechte, nur die Fähigkeiten, die Apache
+    # Härtung (Entwurf 20, 4.2; auf dem Testserver noch zu prüfen, Schritt 8c): keine neuen Rechte, nur die Fähigkeiten, die Apache
     # braucht, Speichergrenze (Bildverarbeitung), Protokolle mit Obergrenze.
     security_opt:
       - no-new-privileges:true
@@ -32,7 +34,7 @@ services:
     #  - /run/apache2
     # Nur lokal erreichbar (Proxy auf demselben Host). Läuft der Proxy im selben Docker-Netz, die Zeilen
     # "ports" ganz weglassen. Nie auf allen Schnittstellen veröffentlichen: sonst kann jeder im Netz
-    # X-Forwarded-For/-Proto fälschen. OFFEN: Lutz bestätigt die Form nach dem Test auf pve10.
+    # X-Forwarded-For/-Proto fälschen. OFFEN: Lutz bestätigt die Form nach dem Test auf dem Testserver.
     ports:
       - "127.0.0.1:8080:80"
     env_file:

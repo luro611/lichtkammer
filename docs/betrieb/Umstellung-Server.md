@@ -31,7 +31,7 @@ Warum: Auf dem Testserver liegen die Originale (mit GPS) heute noch in `<Webroot
 ### Voraussetzungen (alle erfüllt, bevor ein Termin genannt wird)
 
 - Schritte 8b bis 8e fertig: Sicherungsweg gebaut, **Fable-Prüfung** (Sicherungsweg, Anmeldung, Dateiannahme und Auslieferung, Geheimnisse), Opus-Prüfungen, Befunde behoben.
-- **Wiederherstellungsprobe A (Docker/pve10) und B (all-inkl, Wegwerf-Subdomain)** bestanden (`Wiederherstellung.md`).
+- **Wiederherstellungsprobe A (Docker auf dem Testserver) und B (all-inkl, Wegwerf-Subdomain)** bestanden (`Wiederherstellung.md`).
 - Abnahmeliste (Entwurf 20, Abschnitt 6) mit Lutz und der zweiten Person durchgegangen; Lutz schreibt „Abnahme bestanden“.
 - **E2:** Lutz hat im KAS **ohne etwas zu ändern** geprüft, dass der Zielordner der Domain frei wählbar ist (und dass „SSL für Domain und www“ aktiv ist). Sonst Weg C (Entwurf 3.2).
 - **E3:** WordPress gehärtet (`WordPress-haerten.md`), Sicherung der WordPress-Dateien und -Datenbank abgelegt, Rückweg einmal angesehen. Antwort des all-inkl-Supports zum eigenen Systembenutzer notiert.

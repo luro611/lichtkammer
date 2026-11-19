@@ -10,7 +10,7 @@ VERSION=$(grep -oE "VERSION = '[^']+'" app/src/Config.php | cut -d"'" -f2)
 [[ -n "$VERSION" ]] || { echo "Abbruch: Keine Version in app/src/Config.php." >&2; exit 1; }
 PDF=docs/anleitung/Lichtkammer-Anleitung.pdf
 [[ -f "$PDF" ]] || { echo "Abbruch: $PDF fehlt (docs/anleitung/bauen.sh)." >&2; exit 1; }
-git diff --quiet HEAD -- app public .env.example tools/INSTALL.txt 2>/dev/null || { echo "Abbruch: Uncommittete Änderungen in app/, public/ oder .env.example: das Software-Zip käme aus HEAD." >&2; exit 1; }
+git diff --quiet HEAD -- app public docker Dockerfile compose.yaml .dockerignore .env.example tools/INSTALL.txt 2>/dev/null || { echo "Abbruch: Uncommittete Änderungen in app/, public/ oder .env.example: das Software-Zip käme aus HEAD." >&2; exit 1; }
 
 echo "== Software-Zip bauen und prüfen"
 tools/release-zip.sh --pruefen >/dev/null
