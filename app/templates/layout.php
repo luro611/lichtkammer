@@ -53,6 +53,13 @@ $csrf = $csrf ?? '';
 <?php foreach ($banners as $b): ?>
 <div class="banner" role="alert"><div class="shell"><?= $e($b) ?></div></div>
 <?php endforeach; ?>
+<?php if ($user !== null && !empty($publishDirty) && !str_starts_with((string) ($navPath ?? ''), '/admin/veroeffentlichen')): ?>
+<div class="pubband" role="status"><div class="shell">
+  <span><strong><?= (int) ($publishN ?? 1) ?> Änderung<?= (int) ($publishN ?? 1) === 1 ? '' : 'en' ?></strong> <?= (int) ($publishN ?? 1) === 1 ? 'ist' : 'sind' ?> noch nicht online.</span>
+  <form method="post" action="/admin/veroeffentlichen"><input type="hidden" name="_csrf" value="<?= $e($csrf) ?>"><button class="btn small" type="submit" data-busy="Wird veröffentlicht …">Jetzt veröffentlichen</button></form>
+  <a class="btn small ghost" href="/admin/vorschau">Ansehen</a>
+</div></div>
+<?php endif; ?>
 <main class="shell"><?= $content ?></main>
 <footer class="foot"><div class="shell">
   <span class="mono"><a href="https://lurohome.de/lichtkammer/" target="_blank" rel="noopener">Lichtkammer</a> <?= $e(\Lichtkammer\Config::VERSION) ?></span>

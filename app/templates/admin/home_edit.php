@@ -4,8 +4,8 @@
   <h1><em>Startseite</em></h1>
   <p class="intro">Die Startseite besteht wie jede Seite aus Blöcken: Titelbild, Karussell, Text, Galerien und mehr. Beim ersten Öffnen ist sie so vorbefüllt, dass sie der bisherigen Startseite entspricht.</p>
 <?php include __DIR__ . '/../partials/notices.php'; ?>
-<?php if (!empty($flash)): ?>
-  <p class="after-save small"><a href="/admin/vorschau">Vorschau ansehen</a> · <a href="/admin/veroeffentlichen">Veröffentlichen</a></p>
+<?php if (!empty($flash) && empty($flashError)): ?>
+  <p class="after-save small"><a href="/admin/vorschau">Vorschau ansehen</a></p>
 <?php endif; ?>
   <form class="form card" method="post" action="/admin/startseite">
     <input type="hidden" name="_csrf" value="<?= $e($csrf) ?>">
@@ -16,9 +16,11 @@
       <p class="small muted">Neue Blöcke kommen aus der Bausteinleiste (ziehen) oder über „+ hier einfügen“ an die gewünschte Stelle. Mit den Pfeilen, „Verschieben nach …“ oder durch Ziehen am Griff ändert sich die Reihenfolge. „Rückgängig“ gilt nur, solange du nicht gespeichert hast. Das Titelbild gibt es nur auf der Startseite.</p>
     </div>
     <div class="actions">
-      <button class="btn" type="submit">Speichern</button>
+      <button class="btn" type="submit" name="veroeffentlichen" value="1" data-busy="Wird veröffentlicht …">Speichern und veröffentlichen</button>
+      <button class="btn ghost" type="submit">Nur speichern (noch nicht online)</button>
       <a class="btn ghost" href="/admin/vorschau">Vorschau (gespeicherter Stand)</a>
     </div>
+<?php include __DIR__ . '/../partials/also.php'; ?>
   </form>
 <?php if ($custom): ?>
   <form method="post" action="/admin/startseite"><input type="hidden" name="_csrf" value="<?= $e($csrf) ?>"><input type="hidden" name="zuruecksetzen" value="1">

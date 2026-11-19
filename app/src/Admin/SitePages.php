@@ -68,7 +68,7 @@ trait SitePages
         $raw = isset($draft['blocks']) && $draft['blocks'] !== '' ? (string) $draft['blocks']
             : ($pg['blocks'] !== '' ? (string) $pg['blocks'] : Blocks::encode(Blocks::fromMarkdown((string) $pg['body'])));
         [$editor, $blocksField] = $this->editorPayload($raw, false);
-        return $this->page('admin/page_edit', ['title' => (string) $pg['title'], 'pg' => $draft !== null ? $draft + $pg : $pg, 'error' => $error, 'editor' => $editor, 'blocksField' => $blocksField], $status, $sess);
+        return $this->page('admin/page_edit', ['title' => (string) $pg['title'], 'pg' => $draft !== null ? $draft + $pg : $pg, 'error' => $error, 'editor' => $editor, 'blocksField' => $blocksField, 'also' => $this->alsoLive('Seite „' . (string) $pg['title'] . '“')], $status, $sess);
     }
 
     /**
@@ -124,7 +124,7 @@ trait SitePages
             ]);
         }
         [$editor, $blocksField] = $this->editorPayload($raw, true);
-        return $this->page('admin/home_edit', ['title' => 'Startseite', 'error' => $error, 'editor' => $editor, 'blocksField' => $blocksField, 'custom' => trim($set['home_blocks']) !== ''], $status, $sess);
+        return $this->page('admin/home_edit', ['title' => 'Startseite', 'error' => $error, 'editor' => $editor, 'blocksField' => $blocksField, 'custom' => trim($set['home_blocks']) !== '', 'also' => $this->alsoLive('Startseite')], $status, $sess);
     }
 
     public function homeEdit(Request $req, array $p, ?array $sess): Response
@@ -150,7 +150,7 @@ trait SitePages
             return $this->homeForm($sess, $e->getMessage(), 400, $raw);
         }
         $this->auditLog('settings_saved', $sess, 'settings=home', $req);
-        return $this->done('/admin/startseite', 'homesaved');
+        return $this->saveThenPublish($req, $sess, '/admin/startseite', 'homesaved');
     }
 
     /** Verlinkung einer Seite (Menü, Fußzeile, nirgends) auf der Seite „Menü & Fußzeile“. */
@@ -171,7 +171,7 @@ trait SitePages
             $l['uri'] = $set->logoUri($l['id']);
             $logos[] = $l;
         }
-        return $this->page('admin/logos', ['title' => 'Logos', 'logos' => $logos, 'choice' => $set->logoChoice(), 'roles' => \Lichtkammer\Site\Settings::LOGO_ROLES, 'error' => $error], $status, $sess);
+        return $this->page('admin/logos', ['title' => 'Logos', 'logos' => $logos, 'choice' => $set->logoChoice(), 'roles' => \Lichtkammer\Site\Settings::LOGO_ROLES, 'error' => $error, 'also' => $this->alsoLive()], $status, $sess);
     }
 
     public function logosPage(Request $req, array $p, ?array $sess): Response
@@ -194,7 +194,7 @@ trait SitePages
     {
         $this->s->settings->chooseLogos(['light' => $req->input('light'), 'dark' => $req->input('dark'), 'favicon' => $req->input('favicon')]);
         $this->auditLog('settings_saved', $sess, 'settings=logo_chosen', $req);
-        return $this->done('/admin/logos', 'logochosen');
+        return $this->saveThenPublish($req, $sess, '/admin/logos', 'logochosen');
     }
 
     public function logoDelete(Request $req, array $p, ?array $sess): Response
@@ -259,6 +259,9 @@ trait SitePages
         if ($req->input('titel_form') === '1') { // Häkchen „Seitentitel anzeigen“ (nicht angekreuzt wird gar nicht gesendet)
             $f['show_title'] = $req->input('titel_zeigen') === '1';
         }
+        if ($req->input('online') === '1') { // „Speichern und online stellen“ bei einer Entwurfsseite
+            $f['status'] = 'published';
+        }
         $raw = $req->input('blocks');
         if ($raw !== '') {
             $f['blocks'] = $raw;
@@ -281,7 +284,8 @@ trait SitePages
             return $this->pageForm($id, $sess, $e->getMessage(), 400, $raw !== '' ? ['blocks' => $raw] + $f : $f);
         }
         $this->auditLog('page_saved', $sess, 'page=' . $id, $req);
-        return $this->done($req->input('weiter') === 'liste' ? '/admin/seiten' : '/admin/seiten/' . $id, 'page');
+        $back = $req->input('weiter') === 'liste' ? '/admin/seiten' : '/admin/seiten/' . $id;
+        return $this->saveThenPublish($req, $sess, $back, 'page', 'savedpub', $req->input('online') === '1');
     }
 
     public function pageDelete(Request $req, array $p, ?array $sess): Response
@@ -307,7 +311,7 @@ trait SitePages
                 $heroes[(int) $ph['id']] = ['id' => (int) $ph['id'], 'label' => (string) ($ph['title'] !== '' ? $ph['title'] : $ph['original_name']), 'gallery' => (string) $g['title'], 'thumb' => $ph['thumb']];
             }
         }
-        return $this->page('admin/settings', ['title' => 'Einstellungen', 'set' => $this->s->settings->all(), 'heroes' => $heroes, 'error' => $error], 200, $sess);
+        return $this->page('admin/settings', ['title' => 'Einstellungen', 'set' => $this->s->settings->all(), 'heroes' => $heroes, 'error' => $error, 'also' => $this->alsoLive()], 200, $sess);
     }
 
     public function siteSettingsSave(Request $req, array $p, ?array $sess): Response
@@ -321,7 +325,7 @@ trait SitePages
             $this->s->settings->saveDesign($design);
         }
         $this->auditLog('settings_saved', $sess, 'settings=site', $req);
-        return $this->done('/admin/einstellungen', 'settings');
+        return $this->saveThenPublish($req, $sess, '/admin/einstellungen', 'settings');
     }
 
     // --- Veröffentlichen ---
@@ -330,7 +334,7 @@ trait SitePages
     {
         $b = $this->s->builder;
         $plan = $b->plan();
-        $this->setSiteDirty($plan['changes'] !== [] || $b->current() === null);
+        $this->setSiteDirty($plan['changes'] !== [] || $b->current() === null, count($plan['changes']));
         return $this->page('admin/publish', [
             'title' => 'Veröffentlichen', 'plan' => $plan, 'releases' => $b->releases(), 'current' => $b->current(), 'error' => $error, 'ok' => $ok,
             'drafts' => $this->s->db->all("SELECT id, title FROM pages WHERE status <> 'published' ORDER BY title"),
@@ -383,5 +387,30 @@ trait SitePages
             return Response::html($r->notFound(), 404)->withHeaders($headers);
         }
         return Response::html($html)->withHeaders($headers);
+    }
+
+    /**
+     * Was beim Veröffentlichen außer der eigenen Änderung mit online geht (aus dem Probelauf). Nur wenn es überhaupt noch nicht Veröffentlichtes
+     * gibt, damit normale Seitenaufrufe nicht jedes Mal die ganze Seite durchrechnen.
+     *
+     * @return array{n:int,labels:list<string>}
+     */
+    private function alsoLive(string $ownLabel = ''): array
+    {
+        if (!$this->siteDirty()) {
+            return ['n' => 0, 'labels' => []];
+        }
+        try {
+            $ch = $this->s->builder->plan()['changes'];
+        } catch (\Throwable) {
+            return ['n' => 0, 'labels' => []];
+        }
+        $labels = [];
+        foreach ($ch as $c) {
+            if ($ownLabel === '' || $c['label'] !== $ownLabel) {
+                $labels[] = $c['label'];
+            }
+        }
+        return ['n' => count($labels), 'labels' => array_slice($labels, 0, 4)];
     }
 }

@@ -99,7 +99,7 @@ $ni = Config::load($tmp . '/webroot/app', $tmp . '/webroot', []);
 check('noindex setzt X-Robots-Tag', isset(SecurityHeaders::for(new Request([], $ni), $ni)['X-Robots-Tag']));
 
 // --- Anmeldung (Schritt 2) ---
-foreach (['auth_unit.php', 'auth_flow.php', 'auth_race.php', 'design.php', 'media.php', 'bildverwaltung.php', 'medien.php', 'oeffentlich.php', 'bloecke.php', 'import.php', 'startseite.php', 'haertung.php'] as $file) {
+foreach (['auth_unit.php', 'auth_flow.php', 'auth_race.php', 'design.php', 'media.php', 'bildverwaltung.php', 'medien.php', 'oeffentlich.php', 'bloecke.php', 'import.php', 'startseite.php', 'speichern.php', 'haertung.php'] as $file) {
     if (is_file(__DIR__ . '/' . $file)) {
         require __DIR__ . '/' . $file;
     }

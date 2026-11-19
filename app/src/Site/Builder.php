@@ -58,6 +58,15 @@ final class Builder
         return is_array($m) ? $m : null;
     }
 
+    /** Gründe, warum ein Bau scheitern kann (Schlüssel = Code, auch für die Meldung nach dem Speichern). */
+    public const FAIL_TEXT = [
+        'ordner' => 'Der Ordner für die Fassungen konnte nicht angelegt werden.',
+        'sperre' => 'Es läuft gerade ein anderes Veröffentlichen. Bitte gleich noch einmal versuchen.',
+        'fehler' => 'Vor dem Veröffentlichen sind Fehler zu beheben (Einzelheiten unter „Veröffentlichen“).',
+        'zuviele' => 'Die Seite hat mehr als 2000 Dateien; das ist nicht vorgesehen.',
+        'technisch' => 'Das Veröffentlichen ist fehlgeschlagen; die bisherige Seite bleibt unverändert.',
+    ];
+
     /** Neueste zuerst. @return list<array<string,mixed>> */
     public function releases(): array
     {
@@ -127,18 +136,18 @@ final class Builder
     }
 
     /**
-     * @return array{ok:bool,id:string,error:string}
+     * @return array{ok:bool,id:string,error:string,code:string}
      */
     public function publish(int $userId): array
     {
-        $fail = static fn (string $e): array => ['ok' => false, 'id' => '', 'error' => $e];
+        $fail = static fn (string $c): array => ['ok' => false, 'id' => '', 'error' => self::FAIL_TEXT[$c] ?? $c, 'code' => $c];
         $site = $this->siteDir();
         if (!is_dir($site . '/releases') && !@mkdir($site . '/releases', 0700, true) && !is_dir($site . '/releases')) {
-            return $fail('Der Ordner für die Fassungen konnte nicht angelegt werden.');
+            return $fail('ordner');
         }
         $lock = @fopen($site . '/.lock', 'c');
         if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) {
-            return $fail('Es läuft gerade ein anderes Veröffentlichen. Bitte gleich noch einmal versuchen.');
+            return $fail('sperre');
         }
         try {
             // Reste eines abgebrochenen Laufs (Zeitüberschreitung, Absturz); wir halten die Sperre, also läuft kein anderer Bau.
@@ -148,10 +157,10 @@ final class Builder
             $r = $this->renderer();
             $files = $r->all();
             if ($r->errors !== []) {
-                return $fail('Vor dem Veröffentlichen sind Fehler zu beheben.');
+                return $fail('fehler');
             }
             if (count($files) > self::MAX_FILES) {
-                return $fail('Die Seite hat mehr als ' . self::MAX_FILES . ' Dateien; das ist nicht vorgesehen.');
+                return $fail('zuviele');
             }
             @set_time_limit(120);
             $this->backupDatabase();
@@ -178,13 +187,13 @@ final class Builder
             }
             $this->activate($id);
             $this->prune();
-            return ['ok' => true, 'id' => $id, 'error' => ''];
+            return ['ok' => true, 'id' => $id, 'error' => '', 'code' => ''];
         } catch (\Throwable $t) {
             error_log('Lichtkammer: Veröffentlichen: ' . $t::class . ': ' . $t->getMessage());
             foreach (glob($site . '/building-*', GLOB_ONLYDIR) ?: [] as $d) {
                 self::removeDir($d);
             }
-            return $fail('Das Veröffentlichen ist fehlgeschlagen; die bisherige Seite bleibt unverändert.');
+            return $fail('technisch');
         } finally {
             flock($lock, LOCK_UN);
             fclose($lock);

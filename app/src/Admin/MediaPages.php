@@ -17,10 +17,16 @@ use Lichtkammer\Site\Blocks;
 trait MediaPages
 {
     private ?string $flash = null;
+    /** Meldung nach dem Speichern ist ein Fehler (Veröffentlichen gescheitert), mit Knopf „Erneut versuchen“. */
+    private bool $flashError = false;
+    /** Kennung der Meldung (aus der festen Liste), für Folgehinweise in den Vorlagen. */
+    private string $flashCode = '';
+    /** Der Bau hat gerade geklappt: der Merker „nicht veröffentlicht“ darf nicht wieder gesetzt werden. */
+    private bool $justPublished = false;
     private string $navPath = '';
 
     private const FLASH = [
-        'saved' => 'Gespeichert.',
+        'saved' => 'Gespeichert. Noch nicht online.',
         'created' => 'Galerie angelegt.',
         'deleted' => 'Galerie gelöscht. Die Fotos bleiben in der Mediathek.',
         'trashed' => '{n} Foto(s) in den Papierkorb gelegt. Dort sind sie 30 Tage wiederherstellbar.',
@@ -31,22 +37,25 @@ trait MediaPages
         'removed' => '{n} Foto(s) aus der Galerie entfernt. Sie bleiben in der Mediathek.',
         'sorted' => 'Sortiert.',
         'cover' => 'Titelbild gesetzt.',
-        'published' => 'Die Galerie ist als veröffentlicht markiert. Sichtbar wird sie auf der Seite mit dem Veröffentlichen.',
-        'draft' => 'Die Galerie ist wieder ein Entwurf.',
+        'published' => 'Die Galerie ist online.',
+        'draft' => 'Die Galerie ist wieder ein Entwurf und nicht mehr online.',
         'bulk' => 'Änderungen an {n} Foto(s) gespeichert.',
         'nothing' => 'Es war nichts ausgewählt.',
-        'page' => 'Gespeichert. Die Seite ist aktualisiert.',
+        'page' => 'Gespeichert. Noch nicht online.',
+        'savedpub' => 'Gespeichert und veröffentlicht.',
+        'galonline' => 'Die Galerie ist online. Gespeichert und veröffentlicht.',
+        'galoffline' => 'Die Galerie ist wieder ein Entwurf und nicht mehr online. Veröffentlicht.',
         'pagecreated' => 'Seite angelegt. Jetzt Text eintragen und speichern.',
         'pagedeleted' => 'Seite gelöscht.',
-        'settings' => 'Einstellungen gespeichert.',
+        'settings' => 'Gespeichert. Noch nicht online.',
         'logoadded' => 'Logo hochgeladen. Unten kannst du es auswählen.',
-        'logochosen' => 'Logo-Auswahl gespeichert. Sichtbar wird es auf der öffentlichen Seite mit dem Veröffentlichen.',
+        'logochosen' => 'Gespeichert. Noch nicht online.',
         'logodeleted' => 'Logo gelöscht.',
         'homeon' => 'Das Foto ist für die Startseite markiert. Es erscheint dort im Block „Startseiten-Fotos“ (Seiten → Startseite).',
         'homeoff' => 'Das Foto ist nicht mehr für die Startseite markiert.',
-        'homesaved' => 'Startseite gespeichert. Sichtbar wird sie mit dem Veröffentlichen.',
+        'homesaved' => 'Gespeichert. Noch nicht online.',
         'homereset' => 'Die feste Startseite ist wieder aktiv.',
-        'pagenav' => 'Verlinkung geändert. Sichtbar wird das mit dem Veröffentlichen.',
+        'pagenav' => 'Verlinkung geändert. Noch nicht online: oben „Jetzt veröffentlichen“ klicken, wenn alles passt.',
         'person' => 'Fotografen gespeichert.',
         'imported' => 'Importpaket gelöscht ({n} Dateien). Die übernommenen Inhalte bleiben unverändert.',
     ];
@@ -54,11 +63,35 @@ trait MediaPages
     private function flashFrom(Request $req): ?string
     {
         $m = $req->query('m');
+        if ($m === 'savedfail') { // Gespeichert, aber der Bau ist gescheitert; der Grund kommt nur aus einer festen Liste
+            $this->flashError = true;
+            return 'Gespeichert. Veröffentlichen hat nicht geklappt, online ist weiter die alte Fassung: ' . (\Lichtkammer\Site\Builder::FAIL_TEXT[$req->query('r')] ?? \Lichtkammer\Site\Builder::FAIL_TEXT['technisch']);
+        }
         $all = self::FLASH + self::MEDIEN_FLASH;
         if (!isset($all[$m])) {
             return null;
         }
+        $this->flashCode = (string) $m;
         return str_replace('{n}', (string) min(99999, max(0, (int) $req->query('n'))), $all[$m]);
+    }
+
+    /**
+     * Nach dem Speichern: auf Wunsch (Feld „veroeffentlichen“) gleich die ganze Seite neu erzeugen. Speichern gilt immer zuerst
+     * und bleibt auch dann, wenn der Bau scheitert (dann Meldung mit Grund und „Erneut versuchen“).
+     */
+    private function saveThenPublish(Request $req, ?array $sess, string $path, string $savedCode, string $publishedCode = 'savedpub', bool $force = false): Response
+    {
+        if (!$force && $req->input('veroeffentlichen') !== '1') {
+            return $this->done($path, $savedCode);
+        }
+        $res = $this->s->builder->publish((int) ($sess['user_id'] ?? 0));
+        if (!$res['ok']) {
+            return Response::redirect($path . (str_contains($path, '?') ? '&' : '?') . 'm=savedfail&r=' . rawurlencode($res['code']));
+        }
+        $this->auditLog('site_published', $sess, 'release=' . $res['id'], $req);
+        $this->setSiteDirty(false); // alles Gespeicherte ist jetzt online
+        $this->justPublished = true;
+        return $this->done($path, $publishedCode);
     }
 
     private function done(string $path, string $code, int $n = 0): Response
@@ -149,7 +182,7 @@ trait MediaPages
             return $this->galleryPage($id, $sess, $e->getMessage(), 400, [], ['title' => $req->input('title'), 'description' => $req->input('description')]);
         }
         $this->auditLog('gallery_saved', $sess, 'gallery=' . $id, $req);
-        return $this->done('/admin/galerien/' . $id, 'saved');
+        return $this->saveThenPublish($req, $sess, '/admin/galerien/' . $id, 'saved');
     }
 
     public function galleryStatus(Request $req, array $p, ?array $sess): Response
@@ -165,7 +198,8 @@ trait MediaPages
             return $this->galleryPage($id, $sess, $r['reason'], 400, $r['blockers']);
         }
         $this->auditLog($to === 'published' ? 'gallery_published' : 'gallery_saved', $sess, 'gallery=' . $id, $req);
-        return $this->done('/admin/galerien/' . $id, $to === 'published' ? 'published' : 'draft');
+        // „Online stellen“ und „Auf Entwurf setzen“ gelten sofort: Status speichern, dann bauen (Entwurf 28)
+        return $this->saveThenPublish($req, $sess, '/admin/galerien/' . $id, $to === 'published' ? 'published' : 'draft', $to === 'published' ? 'galonline' : 'galoffline', true);
     }
 
     public function galleryDelete(Request $req, array $p, ?array $sess): Response

@@ -19,8 +19,10 @@
 <?php $beschr = ['warm' => 'Papierfarben, Terrakotta, Serifenüberschriften (so sieht die Seite heute aus).', 'klar' => 'Neutral und rund, Überschriften in Inter, Terrakotta als Akzent.', 'studio' => 'Hell und luftig, tiefes Schwarz im Dunkel, blaue Knöpfe und Links, sehr runde Formen.', 'blau' => 'Marine- und Himmelblau, kleine Radien, Serifenüberschriften.', 'rot' => 'Warmes Rot auf Rosé und Schwarzrot, rund, Überschriften in Inter.', 'gruen' => 'Gedecktes Grün, ruhig, mittlere Radien, Serifenüberschriften.']; ?>
 <?php foreach (\Lichtkammer\Site\Settings::DESIGNS as $key => $name): ?>      <label><input type="radio" name="design" value="<?= $e($key) ?>"<?= $set['design'] === $key ? ' checked' : '' ?>> <strong><?= $e($name) ?></strong> <span class="muted small"><?= $e($beschr[$key]) ?></span></label>
 <?php endforeach; ?>
-      <p class="small muted">Besucher sehen immer dieses eine Design, hell oder dunkel nach ihrer Geräteeinstellung. Nach dem Speichern zeigt die <a href="/admin/vorschau">Vorschau</a> es sofort. Live geht es erst beim nächsten Veröffentlichen, dann werden alle Seiten neu erzeugt.</p>
+      <p class="small muted">Besucher sehen immer dieses eine Design, hell oder dunkel nach ihrer Geräteeinstellung. Nach dem Speichern zeigt die <a href="/admin/vorschau">Vorschau</a> es sofort. Online geht es mit „Speichern und veröffentlichen“, dann werden alle Seiten neu erzeugt.</p>
     </fieldset>
-    <div class="actions"><button class="btn" type="submit">Speichern</button> <a class="btn ghost" href="/admin/vorschau">Vorschau</a></div>
+    <div class="actions"><button class="btn" type="submit" name="veroeffentlichen" value="1" data-busy="Wird veröffentlicht …">Speichern und veröffentlichen</button> <button class="btn ghost" type="submit">Nur speichern (noch nicht online)</button> <a class="btn ghost" href="/admin/vorschau">Vorschau</a></div>
+    <p class="small muted">Name und Design betreffen alle Seiten: beim Veröffentlichen werden alle neu erzeugt.</p>
+<?php include __DIR__ . '/../partials/also.php'; ?>
   </form>
 </section>

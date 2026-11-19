@@ -18,6 +18,19 @@
     });
   });
 
+  // Knöpfe mit data-busy: nach dem Absenden sperren und „Wird veröffentlicht …“ zeigen (verhindert Doppelklick, Entwurf 28).
+  // Erst nach dem Absenden (setTimeout), sonst würde der Wert des gedrückten Knopfes nicht mitgeschickt.
+  document.addEventListener('submit', function (e) {
+    var f = e.target;
+    if (!f || !f.querySelector || !f.querySelector('[data-busy]') || e.defaultPrevented) { return; }
+    setTimeout(function () {
+      Array.prototype.forEach.call(f.querySelectorAll('button[type=submit]'), function (b) {
+        if (b.hasAttribute('data-busy') && (!e.submitter || e.submitter === b)) { b.textContent = b.getAttribute('data-busy'); }
+        b.disabled = true;
+      });
+    }, 0);
+  });
+
   document.addEventListener('click', function (e) {
     var t = e.target;
     while (t && t !== document && !(t.getAttribute && t.getAttribute('data-confirm'))) { t = t.parentNode; }

@@ -26,7 +26,7 @@ $fav = $h->favicon();
 </head>
 <body class="<?= $e($page['class'] ?? '') ?>">
 <a class="skip" href="#inhalt">Zum Inhalt</a>
-<?php if ($h->isPreview()): ?><div class="previewbar" role="status">Vorschau, noch nicht veröffentlicht. <a href="/admin">Zurück zur Verwaltung</a></div>
+<?php if ($h->isPreview()): ?><div class="previewbar" role="status">Vorschau, nicht online. <a href="/admin/veroeffentlichen">Veröffentlichen</a> · <a href="/admin">Zurück zur Verwaltung</a></div>
 <?php endif; ?>
 <header class="top"><div class="wrap head">
   <a class="brand" href="<?= $e($h->url('/')) ?>" aria-label="<?= $e($site) ?>, Startseite"><?= $h->brand() ?></a>

@@ -168,10 +168,13 @@ final class AdminController
                     return $this->page('admin/message', ['title' => 'Abgelehnt', 'heading' => 'Anfrage abgelehnt', 'text' => 'Die Seite war zu lange offen oder die Anfrage kam nicht von dieser Seite. Bitte neu laden und noch einmal versuchen.'], 403, $sess);
                 }
             }
+            $this->flashError = false;
+            $this->flashCode = '';
             $this->flash = $this->flashFrom($req);
             $this->navPath = $req->path();
+            $this->justPublished = false;
             $res = $this->{$handler}($req, $params, $sess);
-            if ($req->method() === 'POST' && $res->status < 400 && preg_match('~^/admin/(fotos|galerien|seiten|menue|startseite|logos|einstellungen|fotografen|papierkorb|import|medien)(/|$)~', $req->path()) === 1) {
+            if ($req->method() === 'POST' && $res->status < 400 && !$this->justPublished && preg_match('~^/admin/(fotos|galerien|seiten|menue|startseite|logos|einstellungen|fotografen|papierkorb|import|medien)(/|$)~', $req->path()) === 1) {
                 $this->setSiteDirty(true); // Inhalt kann sich geändert haben; genau wird es beim Öffnen von „Veröffentlichen“ geprüft
             }
             return $res;
@@ -192,9 +195,18 @@ final class AdminController
         return (string) ($this->s->db->value("SELECT v FROM meta WHERE k = 'site_dirty'") ?? '1') !== '0';
     }
 
-    private function setSiteDirty(bool $dirty): void
+    /** Anzahl gespeicherter, noch nicht veröffentlichter Änderungen (zählt Speichervorgänge; genau wird es beim Öffnen von „Veröffentlichen“). */
+    private function dirtyCount(): int
     {
+        return max(1, (int) ($this->s->db->value("SELECT v FROM meta WHERE k = 'site_dirty_n'") ?? 1));
+    }
+
+    /** $n = genaue Zahl (aus dem Probelauf); ohne Angabe zählt jeder Aufruf mit $dirty eine Änderung dazu. */
+    private function setSiteDirty(bool $dirty, ?int $n = null): void
+    {
+        $n = $dirty ? ($n ?? ($this->siteDirty() ? $this->dirtyCount() + 1 : 1)) : 0;
         $this->s->db->run("INSERT INTO meta(k, v) VALUES('site_dirty', ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v", [$dirty ? '1' : '0']);
+        $this->s->db->run("INSERT INTO meta(k, v) VALUES('site_dirty_n', ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v", [(string) $n]);
     }
 
     private function transportOk(Request $req): bool
@@ -257,7 +269,7 @@ final class AdminController
     /** @param array<string,mixed> $data @param array<string,mixed>|null $sess */
     private function page(string $template, array $data, int $status = 200, ?array $sess = null): Response
     {
-        $data += ['siteName' => $this->s->settings->all()['site_name'], 'logoPair' => $this->s->settings->logoPair(), 'favicon' => ($fid = $this->s->settings->logoChoice()['favicon']) !== '' ? $this->s->settings->logoUri($fid) : null, 'publishDirty' => $sess !== null && $this->siteDirty(), 'flash' => $this->flash, 'banners' => $this->banners($sess), 'user' => $sess, 'navPath' => $this->navPath, 'csrf' => $sess['csrf_token'] ?? ''];
+        $data += ['siteName' => $this->s->settings->all()['site_name'], 'logoPair' => $this->s->settings->logoPair(), 'favicon' => ($fid = $this->s->settings->logoChoice()['favicon']) !== '' ? $this->s->settings->logoUri($fid) : null, 'publishDirty' => $sess !== null && $this->siteDirty(), 'publishN' => $sess !== null ? $this->dirtyCount() : 0, 'flash' => $this->flash, 'flashError' => $this->flashError, 'flashCode' => $this->flashCode, 'banners' => $this->banners($sess), 'user' => $sess, 'navPath' => $this->navPath, 'csrf' => $sess['csrf_token'] ?? ''];
         return Response::html($this->view->render($template, $data), $status)->withHeaders([
             'Cache-Control' => 'no-store',
             'Pragma' => 'no-cache',

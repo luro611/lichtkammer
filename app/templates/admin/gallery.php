@@ -5,7 +5,7 @@ $desc = $draft['description'] ?? (string) $g['description'];
 $pub = $g['status'] === 'published';
 $bulkBack = '/admin/galerien/' . $gid; ?>
 <section class="hero">
-  <p class="eyebrow"><a href="/admin/galerien">Galerien</a> · <?= $pub ? 'veröffentlicht' : 'Entwurf' ?></p>
+  <p class="eyebrow"><a href="/admin/galerien">Galerien</a> · <?= $pub ? 'online sichtbar' : 'Entwurf (nicht online)' ?></p>
   <h1><?= $e($title) ?></h1>
   <p><a class="btn small ghost" href="/admin/vorschau/galerien/<?= $e((string) $g['slug']) ?>">Vorschau der Galerie</a></p>
 <?php include __DIR__ . '/../partials/notices.php'; ?>
@@ -27,13 +27,20 @@ $bulkBack = '/admin/galerien/' . $gid; ?>
       <label class="field"><span>Beschreibung</span><textarea name="description" rows="4" maxlength="5000"><?= $e($desc) ?></textarea></label>
       <label class="field"><span>Adresse (Kurzname)</span><input name="slug" class="mono" value="<?= $e((string) $g['slug']) ?>" maxlength="60"></label>
       <label class="check"><input type="checkbox" name="show_exif" value="1"<?= (int) $g['show_exif'] === 1 ? ' checked' : '' ?>> Kamera, Objektiv und Belichtung öffentlich zeigen (GPS nie)</label>
-      <div class="actions"><button class="btn" type="submit">Speichern</button></div>
+      <div class="actions">
+<?php if ($pub): ?>
+        <button class="btn" type="submit" name="veroeffentlichen" value="1" data-busy="Wird veröffentlicht …">Speichern und veröffentlichen</button>
+        <button class="btn ghost" type="submit">Nur speichern (noch nicht online)</button>
+<?php else: ?>
+        <button class="btn" type="submit">Speichern (Entwurf)</button>
+<?php endif; ?>
+      </div>
     </form>
     <div class="card form">
-      <p class="muted">Status: <strong><?= $pub ? 'veröffentlicht' : 'Entwurf' ?></strong>. Zum Veröffentlichen braucht jedes Foto einen Alt-Text. Auf der Seite sichtbar wird die Galerie mit dem Veröffentlichen (kommt im nächsten Schritt).</p>
+      <p class="muted">Status: <strong><?= $pub ? 'Online sichtbar' : 'Entwurf (nicht online)' ?></strong>. Zum Online-Stellen braucht jedes Foto einen Alt-Text. Der Knopf setzt den Status und erzeugt die Seite sofort neu.</p>
       <form method="post" action="/admin/galerien/<?= $gid ?>/status"><input type="hidden" name="_csrf" value="<?= $e($csrf) ?>">
         <input type="hidden" name="status" value="<?= $pub ? 'draft' : 'published' ?>">
-        <button class="btn" type="submit"><?= $pub ? 'Zurück zum Entwurf' : 'Als veröffentlicht markieren' ?></button></form>
+        <button class="btn" type="submit" data-busy="Wird veröffentlicht …"><?= $pub ? 'Galerie auf Entwurf setzen' : 'Galerie online stellen' ?></button></form>
       <form method="post" action="/admin/galerien/<?= $gid ?>/sortieren" class="inline"><input type="hidden" name="_csrf" value="<?= $e($csrf) ?>">
         <label class="field"><span>Einmal sortieren nach</span>
           <select name="modus"><option value="date_asc">Aufnahmedatum, alt → neu</option><option value="date_desc">Aufnahmedatum, neu → alt</option><option value="name">Dateiname</option></select></label>

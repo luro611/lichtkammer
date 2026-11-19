@@ -1,6 +1,6 @@
 # Entwurf 28: Speichern und Veröffentlichen verständlich machen
 
-Stand: 18.11.2026, Entwurf, **nichts gebaut, nichts hochgeladen**. Auslöser: Lutz wählte unter Einstellungen ein Design und drückte „Veröffentlichen“, ohne vorher „Speichern“. Die Auswahl ging verloren. Sein Wunsch: Wer einen Block ändert, soll davon ausgehen können, dass es auch schon online ist.
+Stand: 19.11.2026. **Gebaut (Abschnitt 7), nichts hochgeladen, nichts auf dem Server.** Entwurf vom 18.11.2026. Auslöser: Lutz wählte unter Einstellungen ein Design und drückte „Veröffentlichen“, ohne vorher „Speichern“. Die Auswahl ging verloren. Sein Wunsch: Wer einen Block ändert, soll davon ausgehen können, dass es auch schon online ist.
 
 ## 1. Was heute passiert (Bestand, belegt)
 
@@ -74,7 +74,7 @@ Bei Fehler im Bau (Probelauf-Fehler, Sperre, Zeit): **Speichern gilt trotzdem**,
 | **Zeitüberschreitung mitten im Bau** | Alte Fassung bleibt, Reste werden gelöscht, Sperre fällt weg (`Builder.php:141-190`). Ein Rest: kurze Lücke zwischen `rename` und `activate` | Meldung „Zeit überschritten, online ist die alte Fassung“; bei Bedarf Schritt in Stücke teilen (nur falls die Messung es nötig macht) |
 | **Doppelklick / zwei Personen** | Sperre sagt „läuft gerade ein anderes Veröffentlichen“ | Knopf nach Klick sperren (Skript), klare Meldung |
 | **Halbfertige Änderungen gehen live** | Wichtigstes fachliches Risiko von A und D, bei B gemildert, weil beide Knöpfe benannt sind und die Zeile „dabei gehen auch … online“ steht | Status Entwurf für Unfertiges; Zweitknopf „Nur speichern“; Zeile mit Liste |
-| **Weiterleitungen, Sitemap** | Werden bei jedem Bau neu erzeugt (`Renderer.php:589-604`), also immer passend zum Stand. Änderung einer Adresse: ob dann automatisch eine Weiterleitung entsteht, **ist nicht geprüft** | Beim Bauen des Entwurfs gegenprüfen; ohne Verhaltensänderung sonst |
+| **Weiterleitungen, Sitemap** | Werden bei jedem Bau neu erzeugt (`Renderer.php:589-604`), also immer passend zum Stand. **Geprüft am 19.11.2026:** Eine Adressänderung (Seite oder Galerie) erzeugt **keine** automatische Weiterleitung (`Pages.php` kennt keine Tabelle `redirects`; die Weiterleitungen kommen nur aus dem WordPress-Import). Die alte Adresse ist nach dem Veröffentlichen 404, Test `tests/speichern.php`. Verhalten unverändert gelassen, kein Teil dieses Auftrags; als Vorschlag für später: bei Adressänderung einer **online stehenden** Seite eine Weiterleitung anlegen | Hinweis im Bericht an Lutz; nichts geändert |
 | **Vorschau** | Zeigt den gespeicherten Stand, nicht den Formularinhalt. Mit „Speichern und veröffentlichen“ als Standard wird das seltener gebraucht | Banner „Vorschau“; Link „Vorschau“ nur neben „Nur speichern“ |
 | **Rückgängig** | Fassungen und Zurücksetzen existieren, Datenbanksicherung vor jedem Bau | Unverändert behalten; im Erfolgstext Link „Rückgängig (vorherige Fassung)“ |
 | **Tests und Audit** | Neuer Weg „speichern und bauen“ braucht Tests (Fehler beim Bauen, Sperre, Entwurf, Reihenfolge) und Audit-Zeilen (`page_saved` + `site_published` schon vorhanden) | Kein neues Recht nötig; bisherige Rechteprüfung des Veröffentlichens gilt auch für den Kombiknopf (Redaktion darf veröffentlichen? siehe Frage 2) |
@@ -92,7 +92,7 @@ Bei Fehler im Bau (Probelauf-Fehler, Sperre, Zeit): **Speichern gilt trotzdem**,
 
 Gesamt: ein Block, kein Eingriff in Datenmodell oder Bildverarbeitung, keine Migration. Das Fassungssystem bleibt unverändert.
 
-## 6. Offene Fragen an Lutz (höchstens vier)
+## 6. Fragen an Lutz (beantwortet am 19.11.2026: alle Empfehlungen wie vorgeschlagen)
 
 1. **Zwei Knöpfe oder einer?** Empfehlung: Hauptknopf „Speichern und veröffentlichen“ plus kleiner „Nur speichern (noch nicht online)“. Soll es den Zweitknopf wirklich geben, oder darf jede Änderung sofort live gehen?
 2. **Wer darf veröffentlichen?** Soll die Redaktion (zweite Person) den Kombiknopf auch haben, oder nur du? Wenn nur du, sieht die Redaktion nur „Speichern“ und das Hinweisband zeigt „wartet auf Freigabe“.
@@ -100,3 +100,30 @@ Gesamt: ein Block, kein Eingriff in Datenmodell oder Bildverarbeitung, keine Mig
 4. **Galerien:** Soll „Online stellen“ sofort bauen (Empfehlung), oder zählt der Status wie bisher nur als Merker bis zum nächsten Veröffentlichen?
 
 Nach deiner Antwort: erst die Bauzeit auf dem Testserver messen, dann bauen, danach Opus-Prüfung. Nichts geht auf pve01/br-foto.com, bevor du es freigibst.
+
+
+## 7. Gebaut (19.11.2026)
+
+**Entscheidungen von Lutz (19.11.2026):** (1) Hauptknopf „Speichern und veröffentlichen“ plus Zweitknopf „Nur speichern (noch nicht online)“; (2) beide Nutzer dürfen veröffentlichen, es gibt keine neue Rollenprüfung (die Routen haben wie das bisherige Veröffentlichen keine Admin-Sperre); (3) Menü-Pfeile und Foto-Änderungen bauen nicht, sondern erscheinen im Hinweisband; (4) „Galerie online stellen“ und „Galerie auf Entwurf setzen“ bauen sofort.
+
+**Umsetzung:**
+
+- `MediaPages::saveThenPublish()` (gemeinsame Hilfsfunktion): wird **nach** dem erfolgreichen Speichern gerufen, baut nur bei Feld `veroeffentlichen=1` (oder erzwungen für Galerie-Status und „online stellen“), schreibt `site_published` ins Protokoll (`page_saved` usw. schreibt der jeweilige Speicherweg wie bisher) und setzt den Merker zurück. Fehler beim Speichern brechen vorher ab (400, nichts gebaut).
+- Scheitert der Bau, bleibt das Gespeicherte. Weiterleitung mit `m=savedfail&r=<Code>`; der Grund kommt nur aus der festen Liste `Builder::FAIL_TEXT` (`sperre`, `fehler`, `zuviele`, `ordner`, `technisch`), nie aus freiem Text der Adresse. Meldung: „Gespeichert. Veröffentlichen hat nicht geklappt, online ist weiter die alte Fassung: …“ mit Knopf „Erneut versuchen“ (führt zu „Veröffentlichen“).
+- Meldungen einheitlich: „Gespeichert. Noch nicht online.“ / „Gespeichert und veröffentlicht.“ / für die Galerie „Die Galerie ist online. …“ bzw. „… wieder ein Entwurf und nicht mehr online. Veröffentlicht.“
+- Knöpfe: Seite (online), Startseite, Einstellungen, Logos, Galerie (online): Haupt- und Zweitknopf. Seite im Entwurf: „Speichern und online stellen“ (Feld `online`, setzt den Status auf „veröffentlicht“ und baut) und „Speichern (Entwurf, nicht online)“. Status heißt jetzt „Online sichtbar“ / „Entwurf (nicht online)“. „Speichern und zur Liste“ bleibt als „Nur speichern, dann zur Liste“.
+- Sperre nach Klick: `data-busy` an den Knöpfen, `admin.js` sperrt nach dem Absenden (per `setTimeout`, sonst ginge der Knopfwert verloren) und zeigt „Wird veröffentlicht …“.
+- **Hinweisband** auf jeder Admin-Seite außer „Veröffentlichen“: „N Änderung(en) sind noch nicht online. [Jetzt veröffentlichen] [Ansehen]“. Es rechnet **nicht** mit `plan()`, sondern nutzt `site_dirty` und den neuen Zähler `site_dirty_n` (Tabelle `meta`, keine Migration): jeder Speichervorgang zählt eins dazu, die Seite „Veröffentlichen“ setzt die genaue Zahl aus dem Probelauf, ein erfolgreicher Bau setzt auf 0. Die Zahl zählt also Speichervorgänge, nicht geänderte Dateien.
+- **Zeile „Dabei gehen auch N weitere Änderungen online: …“** (aus `plan()['changes']`, ohne die eigene Seite) steht unter den Knöpfen der Formulare und rechnet **nur, wenn es Unveröffentlichtes gibt**.
+- Vorschau-Band heißt „Vorschau, nicht online“ (mit Link zu „Veröffentlichen“).
+
+**Messung der Bauzeit (nur Docker auf dem Mac, PHP 8.5 CLI; `tests/messung_bauzeit.php`, nicht Teil von `run.php`):**
+
+| Bestand | Dateien | `plan()` | `publish()` | Speicher |
+|---|---|---|---|---|
+| 40 Galerien × 25 Fotos, 200 Seiten | 245 | 0,06 s | 0,07 s | 15 MB |
+| 150 Galerien × 60 Fotos, 600 Seiten | 755 | 0,26 s | 0,30 s | 38 MB |
+
+Das ist **nicht** all-inkl: dort ist die Platte langsamer (FTP-Hosting, Netzwerk-Dateisystem), `max_execution_time` ist 60 s. Die **Messung auf all-inkl (Testserver) steht aus und erfolgt erst nach Freigabe von Lutz.** Die Fotos sind hier 25 bzw. 60 echte Bilder, die mehrfach verwendet werden; der Bau schreibt nur HTML, die Bilddateien werden nicht kopiert.
+
+**Nicht gebaut / offen:** Foto-, Medien- und Papierkorb-Seiten haben weiter nur „Speichern“ und das Hinweisband (wie im Entwurf). Rechte: keine zweite Rolle getestet (die zweite Person ist ein normales Konto mit denselben Routen; die Routen haben keine Admin-Sperre).

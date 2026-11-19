@@ -334,3 +334,11 @@ body.app{padding-inline:0}
 .designwahl{border:0;padding:0;margin:0;min-width:0;display:flex;flex-direction:column;gap:10px}
 .designwahl legend{padding:0;margin-bottom:6px;font-weight:600}
 .designwahl label{display:block}
+
+/* Hinweisband „noch nicht online“ (Entwurf 28) */
+.pubband{background:var(--soft);color:var(--ink);border-bottom:1px solid var(--line);font-size:14px;margin-inline:calc(-1 * max(16px,env(safe-area-inset-left,0px)));padding:8px max(16px,env(safe-area-inset-left,0px))}
+.content .pubband{margin-inline:calc(-1 * clamp(16px,3vw,40px));padding-inline:clamp(16px,3vw,40px)}
+.pubband .shell{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:0}
+.pubband form{margin:0}
+.notice form.inline{display:inline;margin-left:10px}
+.also{margin:4px 0 0}

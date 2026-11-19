@@ -36,7 +36,8 @@
 <?php endforeach; ?></select></label>
 <?php endforeach; ?>
     <p class="small muted">Ist nur ein Logo für hell oder dunkel gewählt, gilt es für beide Modi. Ohne Auswahl erscheint der Seitenname als Schrift.</p>
-    <div class="actions"><button class="btn" type="submit">Auswahl speichern</button></div>
+    <div class="actions"><button class="btn" type="submit" name="veroeffentlichen" value="1" data-busy="Wird veröffentlicht …">Auswahl speichern und veröffentlichen</button> <button class="btn ghost" type="submit">Nur speichern (noch nicht online)</button></div>
+<?php include __DIR__ . '/../partials/also.php'; ?>
   </form>
 <?php endif; ?>
 </section>

@@ -107,7 +107,7 @@ check('Übersicht: Hinweis auf unveröffentlichte Seite', str_contains($b->get('
 
 // --- Vorschau mit Entwürfen ---
 $pv = $b->get("/admin/vorschau/galerien/$slug2");
-check('Vorschau: Entwurfsgalerie sichtbar, mit Leiste, noindex, nicht zwischenspeichern', $pv->status === 200 && str_contains($pv->body, 'Vorschau, noch nicht veröffentlicht') && str_contains($pv->body, 'noindex')
+check('Vorschau: Entwurfsgalerie sichtbar, mit Leiste, noindex, nicht zwischenspeichern', $pv->status === 200 && str_contains($pv->body, 'Vorschau, nicht online') && str_contains($pv->body, 'noindex')
     && ($pv->headers['Cache-Control'] ?? '') === 'no-store' && str_contains($pv->headers['X-Robots-Tag'] ?? '', 'noindex'));
 check('Vorschau: Links bleiben in der Vorschau', str_contains($b->get('/admin/vorschau')->body, 'href="/admin/vorschau/galerien/"'));
 check('Vorschau: unbekannte Adresse 404', $b->get('/admin/vorschau/gibt-es-nicht')->status === 404 && $b->get('/admin/vorschau/galerien/nix')->status === 404);
