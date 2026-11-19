@@ -1,0 +1,24 @@
+LICHTKAMMER – Testpaket: Installation in Kürze
+==============================================
+
+Die vollständige Anleitung (Installation, Bedienung, Fehlersuche) ist die Datei
+Lichtkammer-Anleitung.pdf in diesem Paket. Bitte lies dort Kapitel 2 (Webspace) oder
+Kapitel 3 (Docker).
+
+Kurzfassung für einen Webspace (nur FTP nötig)
+----------------------------------------------
+1. lichtkammer-<Version>.zip prüfen (Prüfsumme in der Datei .sha256) und entpacken.
+2. Den Inhalt des Ordners "public" in den Webroot deiner Domain hochladen, den Ordner "app" daneben.
+3. Zwei Ordner ÜBER dem Webroot festlegen (Daten und Originale) und in app/.env eintragen:
+   LK_BASE_URL, LK_SITE_NAME, LK_DATA_DIR, LK_ORIGINALS_DIR (Vorlage: .env.example im Zip).
+4. Die Seite https://deine-domain/admin aufrufen: Sie zeigt zwei fertige Zeilen für LK_APP_KEY und
+   LK_SETUP_TOKEN. In app/.env eintragen, hochladen.
+5. https://deine-domain/admin/setup: Konto anlegen, Authenticator-App koppeln, Wiederherstellungscodes sichern.
+6. Die Zeile LK_SETUP_TOKEN aus app/.env löschen. Verwaltung → Systemprüfung ansehen.
+
+Docker
+------
+Siehe Kapitel 3 der Anleitung. Das Image ist bei dieser Vorabversion noch nicht öffentlich: Frage bei
+info@lurohome.de nach dem Zugang.
+
+Vorabversion, nicht für den Echtbetrieb. Lizenz: AGPL-3.0-or-later (Datei LICENSE).

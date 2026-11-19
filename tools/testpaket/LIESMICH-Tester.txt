@@ -1,0 +1,54 @@
+LICHTKAMMER – Testpaket für Tester
+==================================
+
+Vorabversion @VERSION@. Nicht für den Echtbetrieb. Lizenz: AGPL-3.0-or-later (Dateien LICENSE und NOTICE).
+
+Was ist das?
+------------
+Lichtkammer ist ein schlankes Foto-CMS: Du zeigst eigene Fotos als Webseite (Galerien, Textseiten, Startseite)
+und verwaltest alles im Browser. Es läuft auf einem normalen Webspace (PHP, nur FTP nötig) oder mit Docker.
+Bitte teste nur mit Testfotos und Testdaten.
+
+Was liegt im Paket?
+-------------------
+- lichtkammer-@VERSION@.zip (+ .sha256): die Software
+- Lichtkammer-Anleitung.pdf: Installation und Bedienung, mit Bildern
+- INSTALL.txt: Kurzfassung der Installation
+- LICENSE, NOTICE: Lizenz und Fremdbestandteile
+
+In 5 Schritten installieren (Webspace)
+--------------------------------------
+1. Zip prüfen und entpacken, "public" und "app" per FTPS in den Webroot hochladen.
+2. app/.env anlegen: LK_BASE_URL, LK_SITE_NAME, LK_DATA_DIR und LK_ORIGINALS_DIR (zwei Ordner über dem Webroot).
+3. /admin aufrufen, die zwei Zeilen für LK_APP_KEY und LK_SETUP_TOKEN in die .env kopieren.
+4. /admin/setup: Konto, Passwort, Authenticator-App, Wiederherstellungscodes.
+5. LK_SETUP_TOKEN aus der .env löschen, Verwaltung → Systemprüfung öffnen.
+Alles ausführlich: Lichtkammer-Anleitung.pdf, Kapitel 2.
+
+Was soll getestet werden? (Checkliste)
+--------------------------------------
+[ ] Installation: Hat jeder Schritt der Anleitung funktioniert? Wo hat es gehakt?
+[ ] Systemprüfung (Verwaltung → Systemprüfung): Gibt es Punkte, die rot oder „Bitte ansehen“ sind?
+[ ] Anmelden mit Passwort und Code; „Gerät 24 Stunden vertrauen“; Abmelden; Anmelden mit Wiederherstellungscode
+[ ] Medien: Fotos hochladen (einzeln und ganzer Ordner), Ordner anlegen, verschieben, umbenennen, Papierkorb
+[ ] Ordner als Galerie hochladen; Galerie online stellen
+[ ] Fotos beschriften (Alt-Text), mehrere Fotos auf einmal bearbeiten
+[ ] PDF hochladen und öffentlich schalten; Logo hochladen und zuordnen
+[ ] Seiten bauen: Bausteine ziehen, Spalten, Rückgängig, Bild wählen
+[ ] Startseite, Menü & Fußzeile
+[ ] Einstellungen: Design der öffentlichen Seite wechseln (Warm, Klar, Studio, Blau, Rot, Grün), Verwaltung hell/dunkel
+[ ] „Speichern und veröffentlichen“ gegenüber „Nur speichern“; Hinweisband; Vorschau
+[ ] Frühere Fassung zurückholen; Adresse einer Seite ändern und die alte Adresse aufrufen (Weiterleitung)
+[ ] Die öffentliche Seite am Handy ansehen
+[ ] Konto einladen (Redaktion); Administrator-Einladung verlangt Passwort und Code
+[ ] Sicherung herunterladen (Verwaltung → Sicherung) und – wenn du magst – auf einem zweiten Testserver wieder einspielen
+[ ] Update: neue Version über die alte hochladen (sobald es eine gibt)
+[ ] Verständlichkeit: Ist die Anleitung klar? Welche Begriffe oder Bilder waren unklar?
+
+Probleme melden
+---------------
+Schreib an info@lurohome.de und nenne: Version, Webspace-Anbieter oder Docker, PHP-Version (laut Systemprüfung),
+was du tun wolltest, was passiert ist (am besten mit Bildschirmfoto) und die Meldung im Wortlaut.
+Schicke NIE app/.env, den Schlüssel, Token, Wiederherstellungscodes, Passwörter oder eine Sicherung.
+
+Danke fürs Testen!
