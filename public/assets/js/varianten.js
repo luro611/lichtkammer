@@ -37,10 +37,17 @@
     if (msg) { line(msg, true); }
   }
 
-  function next(query, retries) {
+  // query bleibt bei jedem Wiederholen gleich (neu/erzwingen gehen nicht verloren); der Server erkennt einen Wiederholversuch des Beginns
+  function next(query, retries, waits) {
+    waits = waits || 0;
     post(query).then(function (j) {
+      if (j.busy) { // ein anderer Aufruf arbeitet (zweites Fenster, anderer Administrator, abgebrochene Runde): warten und neu fragen
+        if (waits >= 40) { return stop('Es arbeitet noch ein anderer Aufruf. Bitte später „Weiter“ drücken.'); }
+        text.textContent = 'Ein anderer Aufruf arbeitet gerade. Warte 3 Sekunden …';
+        return setTimeout(function () { next(query, retries, waits + 1); }, 3000);
+      }
       if (j.error) {
-        if (retries > 0 && j._status >= 500) { return setTimeout(function () { next('', retries - 1); }, 1500); }
+        if (retries > 0 && j._status >= 500) { return setTimeout(function () { next(query, retries - 1, waits); }, 1500); }
         return stop(j.error);
       }
       sum.created += j.created; sum.skipped += j.skipped; sum.problems += j.failed + j.noorig;
@@ -54,7 +61,7 @@
       }
       next('', 3);
     }).catch(function () {
-      if (retries > 0) { return setTimeout(function () { next('', retries - 1); }, 1500); }
+      if (retries > 0) { return setTimeout(function () { next(query, retries - 1, waits); }, 1500); }
       stop('Die Verbindung wurde unterbrochen. „Weiter“ macht an derselben Stelle weiter.');
     });
   }

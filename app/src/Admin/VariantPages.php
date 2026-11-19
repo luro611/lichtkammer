@@ -36,18 +36,14 @@ trait VariantPages
      */
     private function variantsRun(Request $req, array $sess): array
     {
-        $v = $this->variants();
         $fresh = $req->input('neu') === '1' || $req->query('neu') === '1';
         $force = $req->input('erzwingen') === '1' || $req->query('erzwingen') === '1';
-        $started = false;
-        if ($fresh) {
-            $n = $v->start($force);
-            $this->auditLog('variants_start', $sess, 'force=' . (int) $force . ',photos=' . $n, $req);
-            $started = true;
+        $res = $this->variants()->step($fresh, $force);
+        if ($res['busy']) {
+            return $res; // ein anderer Aufruf arbeitet: nichts tun, nichts protokollieren
         }
-        $res = $v->step();
-        if ($res['started'] && !$started) {
-            $this->auditLog('variants_start', $sess, 'force=0,photos=' . $res['total'], $req);
+        if ($res['started']) {
+            $this->auditLog('variants_start', $sess, 'force=' . (int) $res['force'] . ',photos=' . $res['total'], $req);
         }
         if ($res['done']) {
             $r = $res['run'];

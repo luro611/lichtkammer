@@ -11,7 +11,9 @@ $all = $st['total'] > 0 && $st['ok'] === $st['total'];
 <?php endif; ?>
   <div class="card form" id="var-box" data-csrf="<?= $e($csrf) ?>" data-total="<?= (int) $st['total'] ?>" data-done="<?= (int) $st['position'] ?>">
     <p id="var-summary" class="notice<?= $all ? ' ok' : ($st['total'] === 0 ? '' : ' error') ?>" role="status"><strong><?= (int) $st['ok'] ?> von <?= (int) $st['total'] ?> Fotos haben Bildvarianten.</strong><?= $all ? '' : ($st['total'] === 0 ? ' Es gibt noch keine Fotos.' : ' Die übrigen Fotos erscheinen erst auf der Seite, wenn ihre Varianten erzeugt sind.') ?></p>
-<?php if ($res !== null): ?>
+<?php if ($res !== null && $res['busy']): ?>
+    <p class="notice" role="status">Gerade arbeitet ein anderer Aufruf (zweites Fenster oder andere Person). Bitte einen Moment warten und dann „Weiter“ drücken.</p>
+<?php elseif ($res !== null): ?>
     <p class="notice ok" role="status">Dieser Durchgang: <?= (int) $res['created'] ?> Foto(s) neu erzeugt, <?= (int) $res['skipped'] ?> schon fertig<?= $res['failed'] + $res['noorig'] > 0 ? ', <strong>' . (int) ($res['failed'] + $res['noorig']) . ' mit Problem</strong>' : '' ?>. <?= $res['done'] ? 'Fertig.' : 'Es geht noch weiter: unten „Weiter“.' ?></p>
 <?php elseif ($run !== null && !$st['running']): ?>
     <p class="small muted">Letzter Durchgang: <?= (int) $run['created'] ?> Foto(s) neu erzeugt, <?= (int) $run['skipped'] ?> schon fertig, <?= (int) ($run['failed'] + $run['noorig']) ?> mit Problem.</p>

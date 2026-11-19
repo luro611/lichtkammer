@@ -272,7 +272,7 @@ final class AdminController
             }
             $vm = (new \Lichtkammer\Media\VariantRebuild($this->s->db, $this->s->clock, $this->s->library, $this->config->originalsDir()))->missingCount();
             if ($vm['missing'] > 0) {
-                $b[] = $vm['missing'] . ' von ' . $vm['total'] . ' Foto(s) haben keine Bildvarianten. Die Seite zeigt diese Fotos erst, wenn sie erzeugt sind: Verwaltung → Bildvarianten (/admin/varianten).';
+                $b[] = $vm['missing'] . ' von ' . $vm['total'] . ' Foto(s) haben keine Bildvarianten' . ($vm['noorig'] > 0 ? ' (davon ' . $vm['noorig'] . ' ohne Original: nur über die Sicherung zurückzuholen)' : '') . '. Die Seite zeigt diese Fotos erst, wenn sie erzeugt sind: Verwaltung → Bildvarianten (/admin/varianten).';
             }
             $disk = SystemCheck::diskWarning($this->config, $this->s->db, $this->s->clock);
             if ($disk !== null) {

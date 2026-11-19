@@ -235,16 +235,106 @@ check('Ohne Skript: „Weiter“ liefert die Seite mit dem Ergebnis des Durchgan
 check('Protokoll: Erzwingen als force=1 festgehalten', (string) $vdb->value("SELECT detail FROM audit_log WHERE event = 'variants_start' ORDER BY id DESC LIMIT 1") === 'force=1,photos=5' && $vsvc->audit->verify()['ok']);
 check('Skript: Datei public/assets/js/varianten.js ist da und wird von der Seite geladen', is_file(__DIR__ . '/../public/assets/js/varianten.js') && str_contains($page->body, '/assets/js/varianten.js'));
 
+// ---------------------------------------------------------------- Sperre (B2) und Giftfoto (B1)
+$clearMedia();
+$setMeta = static function (string $k, string $v) use ($vdb): void {
+    $vdb->run('INSERT INTO meta(k, v) VALUES(?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v', [$k, $v]);
+};
+$getMeta = static fn (string $k): ?string => ($x = $vdb->value('SELECT v FROM meta WHERE k = ?', [$k])) === null ? null : (string) $x;
+$vdb->run("DELETE FROM meta WHERE k LIKE 'variants%'");
+$a = $mk(0.0, $tick(10.0));
+$r1 = $a->step();
+check('Sperre: nach einem Aufruf ist die Sperre wieder frei, kein Rest „in Arbeit“', $getMeta('variants_lock') === null && $getMeta('variants_inflight') === null && !$r1['busy']);
+// ein zweiter Aufruf kommt, während der erste arbeitet (Sperre frisch)
+$setMeta('variants_lock', (string) $V['clock']->now());
+$cursorBefore = $getMeta('variants_cursor');
+$busy = $mk(0.0, $tick(10.0))->step();
+check('Sperre: gleichzeitiger zweiter Aufruf bekommt busy und arbeitet nicht (nichts bearbeitet, Zeiger gleich)', $busy['busy'] === true && $busy['handled'] === 0 && $getMeta('variants_cursor') === $cursorBefore && $mk()->status()['ok'] === 1);
+$busyFresh = $mk(0.0, $tick(10.0))->step(true, true);
+check('Sperre: auch „neu beginnen“ setzt einen laufenden Durchgang nicht zurück', $busyFresh['busy'] === true && $getMeta('variants_cursor') === $cursorBefore && ((array) json_decode((string) $getMeta('variants_run'), true))['force'] === false);
+$bj = (array) json_decode($vb->request('POST', '/admin/varianten/schritt', [], ['HTTP_X_CSRF_TOKEN' => $vcsrf])->body, true);
+$auditBusy = (int) $vdb->value("SELECT COUNT(*) FROM audit_log WHERE event LIKE 'variants_%'");
+check('Sperre: über HTTP kommt {"busy":true}, es wird nichts protokolliert', ($bj['busy'] ?? null) === true && ($bj['handled'] ?? -1) === 0);
+$vb->post('/admin/varianten/weiter', ['_csrf' => $vcsrf]);
+check('Sperre: ohne Skript zeigt die Seite den Hinweis „arbeitet ein anderer Aufruf“', str_contains((string) $vb->last->body, 'arbeitet ein anderer Aufruf') && (int) $vdb->value("SELECT COUNT(*) FROM audit_log WHERE event LIKE 'variants_%'") === $auditBusy);
+// Sperre läuft ab (abgestürzter Aufruf hinterlässt sie)
+$V['clock']->advance(VariantRebuild::LOCK_TTL - 1);
+check('Sperre: kurz vor Ablauf noch gesperrt', $mk(0.0, $tick(10.0))->step()['busy'] === true);
+$V['clock']->advance(2);
+$r = $mk(0.0, $tick(10.0))->step();
+check('Sperre: nach Ablauf arbeitet der nächste Aufruf weiter (Fortsetzen, zweites Foto)', $r['busy'] === false && $r['handled'] === 1 && $r['position'] === 2);
+
+// Giftfoto: der Aufruf ist mitten im Foto abgebrochen (Eintrag „in Arbeit“ bleibt, Sperre läuft ab)
+$poison = (int) $vdb->value('SELECT MIN(id) FROM photos WHERE deleted_at IS NULL AND id > ?', [(int) $getMeta('variants_cursor')]);
+$setMeta('variants_inflight', $poison . ':' . $V['clock']->now());
+$setMeta('variants_lock', (string) $V['clock']->now());
+check('Giftfoto: solange die Sperre gilt, wird der Eintrag nicht angefasst', $mk(0.0, $tick(10.0))->step()['busy'] === true && $getMeta('variants_inflight') !== null);
+$V['clock']->advance(VariantRebuild::LOCK_TTL + 1);
+$vdb->run('DELETE FROM photo_variants WHERE photo_id = ?', [$poison]);
+$r = $mk(0.0, $tick(10.0))->step();
+$txt = (string) $vdb->value('SELECT error FROM photos WHERE id = ?', [$poison]);
+check('Giftfoto: nach Ablauf wird es als fehlgeschlagen markiert („Zeitüberschreitung, bitte kleiner exportieren“), gezählt, der Durchgang geht dahinter weiter', (string) $vdb->value('SELECT status FROM photos WHERE id = ?', [$poison]) === 'failed' && str_contains($txt, 'Zeitüberschreitung, bitte kleiner exportieren') && $r['failed'] === 1 && $r['handled'] === 1 && $r['cursor'] > $poison && $getMeta('variants_inflight') === null);
+$guard = 0;
+do {
+    $r = $mk(0.0, $tick(10.0))->step();
+} while (!$r['done'] && ++$guard < 10);
+check('Giftfoto: der Durchgang endet, die anderen vier Fotos haben Varianten, das Giftfoto steht in der Fehlerliste', $r['done'] && ($mk()->runStats()['failed'] ?? 0) === 1 && $mk()->status()['ok'] === 4 && in_array($poison, array_column($mk()->status()['problems'], 'id'), true) && str_contains(implode(' ', array_column($mk()->status()['problems'], 'text')), 'Zeitüberschreitung'));
+// der nächste normale Lauf versucht das Foto wieder (nicht endgültig verbannt)
+$r = $mk()->step();
+check('Giftfoto: ein neuer Lauf versucht es erneut und schafft es, wenn es diesmal geht', $r['done'] && $mk()->status()['ok'] === 5);
+
+// Giftfoto mit guten alten Varianten (erzwungen): Status bleibt, nichts wird als fehlgeschlagen markiert
+$f2 = $mk(0.0, $tick(10.0));
+$f2->start(true);
+$id0 = (int) $vdb->value('SELECT MIN(id) FROM photos');
+$setMeta('variants_inflight', $id0 . ':' . $V['clock']->now());
+$V['clock']->advance(VariantRebuild::LOCK_TTL + 1);
+$r = $f2->step();
+check('Giftfoto im Erzwingen: gute alte Varianten bleiben gültig, Status bleibt „ready“, gezählt wird es trotzdem', $r['failed'] === 1 && (string) $vdb->value('SELECT status FROM photos WHERE id = ?', [$id0]) === 'ready');
+$f2->step();
+$vdb->run("DELETE FROM meta WHERE k LIKE 'variants_%' AND k <> 'variants_last'");
+
+// N3: Wiederholversuch des Beginns (erste Anfrage kam nicht an) setzt nichts zurück und behält „erzwingen“
+$f3 = $mk(0.0, $tick(10.0));
+$f3->start(true); // erster Versuch: angefangen, noch kein Stück gearbeitet
+$r = $f3->step(true, true); // Wiederholversuch mit neu=1&erzwingen=1
+check('Wiederholversuch: Beginn mit „erzwingen“ bleibt erhalten, wird als Beginn gemeldet (Protokoll), nicht doppelt zurückgesetzt', $r['force'] === true && $r['started'] === true && $r['handled'] === 1);
+$r = $f3->step(true, false); // jemand klickt später ohne Erzwingen: das ist ein echter Neubeginn
+check('Neubeginn: ein späteres „neu“ mit anderer Wahl beginnt wirklich neu', $r['force'] === false && $r['started'] === true && $r['position'] === 1);
+$vdb->run("DELETE FROM meta WHERE k LIKE 'variants_%' AND k <> 'variants_last'");
+check('Wiederholversuch: varianten.js behält neu und erzwingen beim Wiederholen und wartet 3 s bei busy', substr_count((string) file_get_contents(__DIR__ . '/../public/assets/js/varianten.js'), 'next(query, retries - 1') === 2 && str_contains((string) file_get_contents(__DIR__ . '/../public/assets/js/varianten.js'), 'j.busy') && str_contains((string) file_get_contents(__DIR__ . '/../public/assets/js/varianten.js'), '3000'));
+
+// N4: misslungenes Erzwingen (Original unlesbar) markiert ein Foto mit guten Varianten nicht als fehlgeschlagen
+$rel0 = (string) $vdb->value('SELECT original_path FROM photos WHERE id = ?', [$id0]);
+$good0 = (string) file_get_contents($origDir . '/' . $rel0);
+file_put_contents($origDir . '/' . $rel0, 'kein Bild');
+$f4 = $mk();
+$f4->start(true);
+$r = $f4->step();
+check('Erzwingen mit unlesbarem Original: Foto bleibt „ready“ mit seinen guten Varianten, wird aber als Problem gezählt', $r['failed'] === 1 && $r['done'] && (string) $vdb->value('SELECT status FROM photos WHERE id = ?', [$id0]) === 'ready' && $mk()->status()['ok'] === 5);
+file_put_contents($origDir . '/' . $rel0, $good0);
+
+// N2: Warnbandtext nennt Fotos ohne Original
+$clearMedia();
+rename($origDir . '/' . $rel0, $vs . '/weg0.jpg');
+$mk()->invalidate();
+$bandBody = $vb->get('/admin')->body;
+check('Warnband: „5 von 5 … (davon 1 ohne Original …)“', str_contains($bandBody, '5 von 5 Foto(s) haben keine Bildvarianten (davon 1 ohne Original'));
+rename($vs . '/weg0.jpg', $origDir . '/' . $rel0);
+$vdb->run("UPDATE photos SET status = 'ready', error = '' WHERE id = ?", [$id0]);
+$mk()->step(); // alles wieder erzeugen
+$vdb->run("DELETE FROM meta WHERE k LIKE 'variants_%' AND k <> 'variants_last'");
+
 // ---------------------------------------------------------------- Warnband-Zwischenspeicher und Papierkorb
 $cnt = $mk();
-check('Warnband: Zahl aus dem Zwischenspeicher, nach einem Schritt neu berechnet', $cnt->missingCount() === ['missing' => 0, 'total' => 5]);
+check('Warnband: Zahl aus dem Zwischenspeicher, nach einem Schritt neu berechnet', $cnt->missingCount() === ['missing' => 0, 'total' => 5, 'noorig' => 0]);
 $vdb->run("UPDATE photos SET deleted_at = 1 WHERE id = ?", [$ids[0]]);
 $clearMedia();
 $cnt->invalidate();
-check('Papierkorb: Fotos im Papierkorb zählen nicht mit', $cnt->missingCount() === ['missing' => 4, 'total' => 4]);
+check('Papierkorb: Fotos im Papierkorb zählen nicht mit', $cnt->missingCount() === ['missing' => 4, 'total' => 4, 'noorig' => 0]);
 $vdb->run("UPDATE photos SET status = 'pending' WHERE id = ?", [$ids[1]]);
 $cnt->invalidate();
-check('Warnband: frisch hochgeladene (pending) Fotos zählen nicht als fehlend', $cnt->missingCount() === ['missing' => 3, 'total' => 4]);
+check('Warnband: frisch hochgeladene (pending) Fotos zählen nicht als fehlend', $cnt->missingCount() === ['missing' => 3, 'total' => 4, 'noorig' => 0]);
 $vdb->run('UPDATE photos SET deleted_at = NULL, status = ? WHERE id IN (?, ?)', ['ready', $ids[0], $ids[1]]);
 
 // Rückweg: das Einspielen einer Sicherung verwirft den Stand der Bildvarianten (die Dateien gehören zum alten Server)

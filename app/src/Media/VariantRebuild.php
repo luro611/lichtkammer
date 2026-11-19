@@ -22,6 +22,9 @@ final class VariantRebuild
     private const CURSOR = 'variants_cursor';
     private const RUN = 'variants_run';
     private const CACHE = 'variants_missing';
+    private const LOCK = 'variants_lock';
+    private const INFLIGHT = 'variants_inflight';
+    public const LOCK_TTL = 90;
     private const CACHE_TTL = 300;
 
     /** @var callable():float */
@@ -55,24 +58,70 @@ final class VariantRebuild
     }
 
     /**
-     * Ein Stück arbeiten. Beginnt von selbst einen Durchgang (ohne Erzwingen), wenn keiner läuft.
+     * Ein Stück arbeiten. Beginnt von selbst einen Durchgang (ohne Erzwingen), wenn keiner läuft; mit $fresh auf Wunsch neu
+     * (ein erneuter Aufruf mit $fresh, bevor irgendein Stück gearbeitet wurde, ist ein Wiederholversuch und setzt nichts zurück).
      *
-     * @return array{done:bool,started:bool,force:bool,total:int,position:int,created:int,skipped:int,failed:int,noorig:int,handled:int,cursor:int}
+     * Sperre (B2): Es arbeitet immer nur ein Aufruf. `variants_lock` trägt die Uhrzeit, gilt LOCK_TTL Sekunden und wird nach jedem Foto
+     * erneuert; ein zweiter Aufruf bekommt busy=true und tut nichts (auch kein Neubeginn).
+     * Giftfoto (B1): vor jedem Foto steht `variants_inflight` = „Nummer:Uhrzeit“. Findet ein Aufruf beim Start (Sperre ist frei, also
+     * ist der letzte Aufruf mindestens LOCK_TTL Sekunden her) noch einen Eintrag, ist die Anfrage mitten im Foto abgebrochen worden
+     * (Zeitgrenze, Speicher): das Foto gilt als fehlgeschlagen, der Durchgang geht dahinter weiter.
+     *
+     * @return array{busy:bool,done:bool,started:bool,force:bool,total:int,position:int,created:int,skipped:int,failed:int,noorig:int,handled:int,cursor:int}
      */
-    public function step(): array
+    public function step(bool $fresh = false, bool $force = false): array
+    {
+        $now = $this->clock->now();
+        $got = $this->db->run(
+            "INSERT INTO meta(k, v) VALUES(?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v WHERE CAST(meta.v AS INTEGER) <= ?",
+            [self::LOCK, (string) $now, $now - self::LOCK_TTL],
+        )->rowCount();
+        if ($got < 1) {
+            return $this->state(['busy' => true, 'done' => false, 'started' => false, 'force' => (bool) ($this->run()['force'] ?? false), 'handled' => 0,
+                'created' => 0, 'skipped' => 0, 'failed' => 0, 'noorig' => 0], (int) ($this->meta(self::CURSOR) ?? 0));
+        }
+        try {
+            return $this->locked($fresh, $force);
+        } finally {
+            $this->db->run('DELETE FROM meta WHERE k IN (?, ?)', [self::LOCK, self::INFLIGHT]);
+        }
+    }
+
+    /** @return array<string,mixed> */
+    private function locked(bool $fresh, bool $force): array
     {
         $started = false;
-        if (!$this->running()) {
-            $this->start(false);
+        $stale = $this->meta(self::INFLIGHT); // Rest eines abgebrochenen Aufrufs
+        if ($fresh && $this->running() && (int) ($this->run()['steps'] ?? 1) === 0 && (bool) $this->run()['force'] === $force) {
+            $fresh = false; // Wiederholversuch desselben Beginns: nichts zurücksetzen, aber als Beginn melden (Protokoll)
             $started = true;
+        }
+        if ($fresh || !$this->running()) {
+            $this->start($fresh ? $force : false);
+            $started = true;
+            $stale = null; // ein neuer Durchgang erbt keinen alten Abbruch
+            $this->db->run('DELETE FROM meta WHERE k = ?', [self::INFLIGHT]);
         }
         $run = $this->run();
         $force = (bool) $run['force'];
         $cursor = (int) $this->meta(self::CURSOR);
+        $c = ['created' => 0, 'skipped' => 0, 'failed' => 0, 'noorig' => 0];
+        if ($stale !== null && preg_match('/^(\d+):\d+$/', $stale, $m) === 1) {
+            $pid = (int) $m[1];
+            $row = $this->db->one('SELECT * FROM photos WHERE id = ? AND deleted_at IS NULL', [$pid]);
+            if ($row !== null && $pid > $cursor) {
+                if (!$this->library->variantsComplete($row)) { // gute alte Varianten bleiben gültig (wie bei einem Fehler im Erzwingen)
+                    $this->library->markFailed($pid, 'Zeitüberschreitung, bitte kleiner exportieren.');
+                }
+                $c['failed']++;
+                $cursor = $pid;
+                $this->setMeta(self::CURSOR, (string) $cursor);
+            }
+            $this->db->run('DELETE FROM meta WHERE k = ?', [self::INFLIGHT]);
+        }
         $t0 = ($this->timer)();
         $longest = 0.0;
         $handled = 0;
-        $c = ['created' => 0, 'skipped' => 0, 'failed' => 0, 'noorig' => 0];
         $done = false;
         while (true) {
             $row = $this->db->one('SELECT * FROM photos WHERE deleted_at IS NULL AND id > ? ORDER BY id LIMIT 1', [$cursor]);
@@ -85,7 +134,10 @@ final class VariantRebuild
                 break;
             }
             $t1 = ($this->timer)();
+            $this->setMeta(self::INFLIGHT, $row['id'] . ':' . $this->clock->now());
+            $this->setMeta(self::LOCK, (string) $this->clock->now()); // Sperre bleibt frisch, solange gearbeitet wird
             $r = $this->one($row, $force);
+            $this->db->run('DELETE FROM meta WHERE k = ?', [self::INFLIGHT]);
             $longest = max($longest, ($this->timer)() - $t1);
             $c[$r['kind']]++;
             $cursor = (int) $row['id'];
@@ -97,17 +149,22 @@ final class VariantRebuild
         }
         $run['steps']++;
         $this->invalidate();
-        $position = (int) $this->db->value('SELECT COUNT(*) FROM photos WHERE deleted_at IS NULL AND id <= ?', [$cursor]);
-        $res = ['done' => $done, 'started' => $started, 'force' => $force, 'total' => (int) $this->db->value('SELECT COUNT(*) FROM photos WHERE deleted_at IS NULL'),
-            'position' => $position, 'handled' => $handled, 'cursor' => $cursor] + $c;
+        $res = $this->state(['busy' => false, 'done' => $done, 'started' => $started, 'force' => $force, 'handled' => $handled] + $c, $cursor);
         if ($done) {
-            $res += ['run' => $run];
+            $res['run'] = $run;
             $this->setMeta('variants_last', json_encode($run, JSON_THROW_ON_ERROR)); // Ergebnis des letzten Durchgangs bleibt sichtbar
             $this->db->run('DELETE FROM meta WHERE k IN (?, ?)', [self::CURSOR, self::RUN]);
         } else {
             $this->setMeta(self::RUN, json_encode($run, JSON_THROW_ON_ERROR));
         }
         return $res;
+    }
+
+    /** @param array<string,mixed> $res @return array<string,mixed> */
+    private function state(array $res, int $cursor): array
+    {
+        return $res + ['total' => (int) $this->db->value('SELECT COUNT(*) FROM photos WHERE deleted_at IS NULL'),
+            'position' => (int) $this->db->value('SELECT COUNT(*) FROM photos WHERE deleted_at IS NULL AND id <= ?', [$cursor]), 'cursor' => $cursor];
     }
 
     /** @return array<string,mixed> */
@@ -157,24 +214,26 @@ final class VariantRebuild
      * Zahl der Fotos ohne vollständige Bildvarianten, für das Warnband. Zwischengespeichert (5 Minuten), damit nicht jede
      * Seite alle Dateien prüft. Frisch hochgeladene Fotos (Status pending) zählen nicht: sie werden gerade verarbeitet.
      *
-     * @return array{missing:int,total:int}
+     * @return array{missing:int,total:int,noorig:int} noorig: davon ohne Original (lassen sich nur über die Sicherung zurückholen)
      */
     public function missingCount(): array
     {
         $raw = $this->meta(self::CACHE);
-        if ($raw !== null && preg_match('/^(\d+):(\d+):(\d+)$/', $raw, $m) === 1 && $this->clock->now() - (int) $m[3] < self::CACHE_TTL) {
-            return ['missing' => (int) $m[1], 'total' => (int) $m[2]];
+        if ($raw !== null && preg_match('/^(\d+):(\d+):(\d+):(\d+)$/', $raw, $m) === 1 && $this->clock->now() - (int) $m[4] < self::CACHE_TTL) {
+            return ['missing' => (int) $m[1], 'total' => (int) $m[2], 'noorig' => (int) $m[3]];
         }
         $missing = 0;
         $total = 0;
+        $noorig = 0;
         foreach ($this->db->all('SELECT * FROM photos WHERE deleted_at IS NULL') as $p) {
             $total++;
             if ($p['status'] !== 'pending' && !$this->library->variantsComplete($p)) {
                 $missing++;
+                $noorig += $this->originalPath((string) $p['original_path']) === null ? 1 : 0;
             }
         }
-        $this->setMeta(self::CACHE, $missing . ':' . $total . ':' . $this->clock->now());
-        return ['missing' => $missing, 'total' => $total];
+        $this->setMeta(self::CACHE, $missing . ':' . $total . ':' . $noorig . ':' . $this->clock->now());
+        return ['missing' => $missing, 'total' => $total, 'noorig' => $noorig];
     }
 
     /** Zwischenspeicher des Warnbands verwerfen (nach Wiederherstellung und nach jedem Schritt). */
@@ -202,10 +261,14 @@ final class VariantRebuild
             $this->library->markFailed($id, 'Das Original fehlt im Speicher.');
             return ['kind' => 'noorig'];
         }
+        $had = $force && $this->library->variantsComplete($row);
         try {
             $r = $this->library->process($id, $force);
         } catch (MediaException) {
             return ['kind' => 'failed'];
+        }
+        if ($r['status'] === 'failed' && $had) { // misslungenes Erzwingen: gute alte Varianten bleiben gültig, das Foto bleibt auf der Seite
+            $this->db->run("UPDATE photos SET status = 'ready', error = '' WHERE id = ?", [$id]);
         }
         return $r['status'] === 'failed' ? ['kind' => 'failed'] : ['kind' => $r['created'] > 0 ? 'created' : 'skipped'];
     }
