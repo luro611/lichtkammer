@@ -100,8 +100,8 @@ Ein Messpunkt löst sich auf: Die öffentlichen Seiten tragen die Sicherheitskop
 
 - **Lokal gesucht (80 Commits, alle Zweige):** keine Gmail-Adresse, kein echter `LK_APP_KEY` (nur der Testwert `AAAA…` in `tests/einrichten.sh`), kein privater Schlüssel, kein FTP-Passwort.
 - **Gefunden:**
-  - **Drei frühe Commits** (`874c4f2`, `7107823`, `390ca48`) haben als Autor `luro@Mac-Studio-luro.local` (Rechnername statt noreply).
-  - Die Kundennummer `v119013` steht in `04`, `Erster-Start-Testserver.md`, `20` und als **Vorgabe im Code** `deploy/einrichten.sh`; `kasserver` steht in `04`.
+  - **Drei frühe Commits** (`874c4f2`, `7107823`, `390ca48`) haben als Autor `<Rechnername>@<Rechner>.local` (Rechnername statt noreply).
+  - Die Kundennummer `vXXXXXX` steht in `04`, `Erster-Start-Testserver.md`, `20` und als **Vorgabe im Code** `deploy/einrichten.sh`; `kasserver` steht in `04`.
   - Die Bildschirmfotos `docs/anleitung/bilder/t_codes.png` und `t_enroll.png` zeigen vermutlich Wiederherstellungscodes und ein TOTP-Geheimnis der Testinstallation. Prüfen, ob sie aus einer Wegwerf-Instanz stammen.
 - **Empfehlung:** In 5.2 Nr. 1 aufnehmen. Vorgabe in `einrichten.sh` durch Pflichtwert aus `deploy/.env` ersetzen. Bei E7 bedenken: Autor-Adressen ändern geht nur durch Umschreiben der Historie oder ein frisches Repo.
 - gitleaks/trufflehog sind **nicht** gelaufen; das bleibt Aufgabe von 8i.

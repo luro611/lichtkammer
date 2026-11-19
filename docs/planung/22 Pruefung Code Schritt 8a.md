@@ -44,7 +44,7 @@ In `Request.php` stand der Kommentar zu `remoteAddr()` über `host()`. Verschobe
 
 ## Offene Hinweise (niedrig, nicht behoben)
 
-- **N3 – Kundennummer in der Doku:** Aus `deploy/einrichten.sh` ist die Vorgabe `v119013` entfernt (gut). In `Erster-Start-Testserver.md`, `04` und `20` steht sie noch. Kein Geheimnis, das Repo ist privat; vor dem öffentlichen Release durch `vXXXXXX` ersetzen.
+- **N3 – Kundennummer in der Doku:** Aus `deploy/einrichten.sh` ist die Vorgabe `vXXXXXX` entfernt (gut). In `Erster-Start-Testserver.md`, `04` und `20` steht sie noch. Kein Geheimnis, das Repo ist privat; vor dem öffentlichen Release durch `vXXXXXX` ersetzen.
 - **N4 – `nosniff` doppelt:** `Header always set X-Content-Type-Options` in der `.htaccess` kommt zu dem Kopf hinzu, den PHP schon setzt. Browser kommen mit dem doppelten Wert zurecht. Wer es sauber will: `Header always setifempty …` (Apache 2.4.7+). Beim Livegang mit `curl -I` ansehen.
 - **N5 – Reste im Bereitstellungsordner:** Nach dem Einspielen löscht die App nur `lichtkammer.sqlite`. `files/`, `MANIFEST.json` und Originale mit falscher Prüfsumme bleiben im (gesperrten) Ordner im Webroot, bis Lutz ihn per FTPS leert. So steht es auch in `Wiederherstellung.md` Schritt 8. Ein Knopf „Bereitstellungsordner leeren“ wäre eine Erleichterung für 8b.
 - **N6 – Schlüsselprüfung beim Einspielen:** `validate()` prüft `LK_APP_KEY` nur an TOTP-Geheimnissen. Eine Sicherung ganz ohne eingerichteten zweiten Faktor würde mit falschem Schlüssel eingespielt. Da jedes Konto TOTP braucht, kommt das praktisch nicht vor.

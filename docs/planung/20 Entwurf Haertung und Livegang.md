@@ -173,8 +173,8 @@ Auf **pve10** (Testserver, frei) mit Docker, **nicht** auf der Live-Seite:
 
 ### 3.1 Ausgangslage
 
-- Hauptdomain `br-foto.com` (all-inkl Konto A): WordPress, Ordner z. B. `/www/htdocs/v119013/br-foto.com/` (genauer Pfad im KAS prüfen).
-- Testinstallation `lichtkammer.br-foto.com`: eigener Ordner `/www/htdocs/v119013/lichtkammer.br-foto.com/`, Daten **über** dem Webroot in `/www/htdocs/v119013/lichtkammer-data/` (bereits so geplant, `04`).
+- Hauptdomain `br-foto.com` (all-inkl Konto A): WordPress, Ordner z. B. `/www/htdocs/vXXXXXX/br-foto.com/` (genauer Pfad im KAS prüfen).
+- Testinstallation `lichtkammer.br-foto.com`: eigener Ordner `/www/htdocs/vXXXXXX/lichtkammer.br-foto.com/`, Daten **über** dem Webroot in `/www/htdocs/vXXXXXX/lichtkammer-data/` (bereits so geplant, `04`).
 - Import vom WordPress-Bestand ist noch nicht gelaufen (offen bei Lutz); die vier Fragen (Welche Galerien/Seiten, bessere Originale, Kamera öffentlich, Schreibweise Namen) sind in `13` schon beantwortet (alles, größte Auflösung, EXIF an, Schreibweise wie alt), **Lutz bestätigt in E1**, dass das so bleibt.
 
 ### 3.2 Empfehlung: Hauptdomain im KAS auf den Ordner der Testinstallation legen

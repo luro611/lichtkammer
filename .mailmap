@@ -1,0 +1,4 @@
+# Zeigt die drei frühen Commits (874c4f2, 7107823, 390ca48) mit der Repository-Identität an (git log, git shortlog, GitHub-unabhängig).
+# Die Commits selbst bleiben unverändert; ändern geht nur durch Umschreiben der Historie (docs/planung/38).
+# Entfällt, wenn die Historie vor dem öffentlichen Release umgeschrieben oder das Repo neu begonnen wird.
+Lutz Rothe <128689439+luro611@users.noreply.github.com> <luro@Mac-Studio-luro.local>
