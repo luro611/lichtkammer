@@ -32,7 +32,7 @@
 <?php else: ?>
     <div class="actions">
       <button class="btn" type="submit" name="online" value="1" data-busy="Wird veröffentlicht …">Speichern und online stellen</button>
-      <button class="btn ghost" type="submit">Speichern (Entwurf, nicht online)</button>
+      <button class="btn ghost" type="submit">Nur speichern (noch nicht online)</button>
       <button class="btn ghost" type="submit" name="weiter" value="liste">Speichern, dann zur Liste</button>
       <a class="btn ghost" href="/admin/vorschau/<?= $e((string) $pg['slug']) ?>" target="_blank" rel="noopener">Vorschau (gespeicherter Stand)</a>
     </div>

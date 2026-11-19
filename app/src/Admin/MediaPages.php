@@ -21,8 +21,8 @@ trait MediaPages
     private bool $flashError = false;
     /** Kennung der Meldung (aus der festen Liste), für Folgehinweise in den Vorlagen. */
     private string $flashCode = '';
-    /** Der Bau hat gerade geklappt: der Merker „nicht veröffentlicht“ darf nicht wieder gesetzt werden. */
-    private bool $justPublished = false;
+    /** saveThenPublish() hat den Merker „nicht veröffentlicht“ schon selbst gesetzt (vor dem Bau) bzw. nach Erfolg gelöscht. */
+    private bool $dirtyHandled = false;
     private string $navPath = '';
 
     private const FLASH = [
@@ -65,7 +65,9 @@ trait MediaPages
         $m = $req->query('m');
         if ($m === 'savedfail') { // Gespeichert, aber der Bau ist gescheitert; der Grund kommt nur aus einer festen Liste
             $this->flashError = true;
-            return 'Gespeichert. Veröffentlichen hat nicht geklappt, online ist weiter die alte Fassung: ' . (\Lichtkammer\Site\Builder::FAIL_TEXT[$req->query('r')] ?? \Lichtkammer\Site\Builder::FAIL_TEXT['technisch']);
+            $r = (string) $req->query('r');
+            $why = $r !== 'technisch' && isset(\Lichtkammer\Site\Builder::FAIL_TEXT[$r]) ? \Lichtkammer\Site\Builder::FAIL_TEXT[$r] : 'Ein technischer Fehler ist aufgetreten (Einzelheiten im Fehlerprotokoll des Servers).';
+            return 'Gespeichert. Veröffentlichen hat nicht geklappt, online ist weiter die alte Fassung: ' . $why;
         }
         $all = self::FLASH + self::MEDIEN_FLASH;
         if (!isset($all[$m])) {
@@ -84,13 +86,15 @@ trait MediaPages
         if (!$force && $req->input('veroeffentlichen') !== '1') {
             return $this->done($path, $savedCode);
         }
+        // Merker vor dem Bau setzen: bricht PHP mitten im Bau ab (max_execution_time), bleibt das Hinweisband sichtbar.
+        $this->setSiteDirty(true);
+        $this->dirtyHandled = true;
         $res = $this->s->builder->publish((int) ($sess['user_id'] ?? 0));
         if (!$res['ok']) {
             return Response::redirect($path . (str_contains($path, '?') ? '&' : '?') . 'm=savedfail&r=' . rawurlencode($res['code']));
         }
         $this->auditLog('site_published', $sess, 'release=' . $res['id'], $req);
         $this->setSiteDirty(false); // alles Gespeicherte ist jetzt online
-        $this->justPublished = true;
         return $this->done($path, $publishedCode);
     }
 

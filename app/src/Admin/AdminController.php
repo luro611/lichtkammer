@@ -172,9 +172,9 @@ final class AdminController
             $this->flashCode = '';
             $this->flash = $this->flashFrom($req);
             $this->navPath = $req->path();
-            $this->justPublished = false;
+            $this->dirtyHandled = false;
             $res = $this->{$handler}($req, $params, $sess);
-            if ($req->method() === 'POST' && $res->status < 400 && !$this->justPublished && preg_match('~^/admin/(fotos|galerien|seiten|menue|startseite|logos|einstellungen|fotografen|papierkorb|import|medien)(/|$)~', $req->path()) === 1) {
+            if ($req->method() === 'POST' && $res->status < 400 && !$this->dirtyHandled && preg_match('~^/admin/(fotos|galerien|seiten|menue|startseite|logos|einstellungen|fotografen|papierkorb|import|medien)(/|$)~', $req->path()) === 1) {
                 $this->setSiteDirty(true); // Inhalt kann sich geändert haben; genau wird es beim Öffnen von „Veröffentlichen“ geprüft
             }
             return $res;

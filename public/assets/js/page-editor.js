@@ -523,6 +523,7 @@
     tg.setAttribute('aria-expanded', b._c ? 'false' : 'true');
     tools.appendChild(tg);
     tools.appendChild(btn('Duplizieren', '', function () {
+      if (colFull(list)) { hint(FULL_TEXT); return; } // Prüfung 31: auch Duplizieren füllt eine Spalte
       pushUndo();
       var copy = JSON.parse(JSON.stringify(b, replacer));
       copy._id = ++uid;

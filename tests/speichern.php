@@ -44,6 +44,7 @@ check('Hinweisband: „1 Änderung ist noch nicht online“ mit Knopf und Ansehe
 $save([], 1, 'Neuer Text B');
 check('Hinweisband: zählt weiter (2 Änderungen)', str_contains($b->get('/admin/fotos')->body, '2 Änderungen</strong> sind noch nicht online'));
 check('Hinweisband: nicht auf der Seite „Veröffentlichen“ selbst', !str_contains($b->get('/admin/veroeffentlichen')->body, 'class="pubband"'));
+check('Hinweisband: Öffnen von „Veröffentlichen“ ändert den Zähler nicht (zählt weiter Speichervorgänge, Prüfung 31)', $db->value("SELECT v FROM meta WHERE k = 'site_dirty_n'") === '2' && str_contains($b->get('/admin/fotos')->body, '2 Änderungen</strong>'));
 $pageForm = $b->get('/admin/seiten/1')->body;
 check('Formular (online): Hauptknopf „Speichern und veröffentlichen“, Zweitknopf „Nur speichern (noch nicht online)“, Sperre per data-busy',
     str_contains($pageForm, 'name="veroeffentlichen" value="1"') && str_contains($pageForm, 'Speichern und veröffentlichen') && str_contains($pageForm, 'Nur speichern (noch nicht online)') && str_contains($pageForm, 'data-busy='));
@@ -72,13 +73,16 @@ check('Fehler im Bau: Speichern gilt (Seite steht auf „veröffentlicht“), on
 $fl = $b->get("/admin/seiten/$leer?m=savedfail&r=fehler")->body;
 check('Fehler im Bau: Meldung mit Grund und Knopf „Erneut versuchen“', str_contains($fl, 'Gespeichert. Veröffentlichen hat nicht geklappt, online ist weiter die alte Fassung: Vor dem Veröffentlichen sind Fehler zu beheben') && str_contains($fl, 'Erneut versuchen') && str_contains($fl, 'class="notice error"'));
 check('Fehler im Bau: Merker bleibt „nicht veröffentlicht“', $db->value("SELECT v FROM meta WHERE k = 'site_dirty'") === '1');
-check('Fehler im Bau: unbekannter Grund aus der Adresse wird nicht ausgegeben', !str_contains($b->get("/admin/seiten/$leer?m=savedfail&r=<b>x</b>")->body, '<b>x</b>') && str_contains($b->get("/admin/seiten/$leer?m=savedfail&r=zzz")->body, 'fehlgeschlagen'));
+$nBad = (int) $db->value("SELECT v FROM meta WHERE k = 'site_dirty_n'");
+check('Fehler im Bau: technischer Grund ohne doppelte Aussage', str_contains($b->get("/admin/seiten/$leer?m=savedfail&r=technisch")->body, 'alte Fassung: Ein technischer Fehler ist aufgetreten'));
+check('Fehler im Bau: unbekannter Grund aus der Adresse wird nicht ausgegeben', !str_contains($b->get("/admin/seiten/$leer?m=savedfail&r=<b>x</b>")->body, '<b>x</b>') && str_contains($b->get("/admin/seiten/$leer?m=savedfail&r=zzz")->body, 'technischer Fehler'));
 $b->post("/admin/seiten/$leer/loeschen", ['_csrf' => $csrf]);
 
 // --- Sperre ---
 $lock = fopen($f28 . '/a/data/site/.lock', 'c');
 flock($lock, LOCK_EX);
 $lk = $save(['veroeffentlichen' => '1'], 1, 'Text unter Sperre');
+check('Sperre: Kombiweg zählt genau eine Änderung dazu (Merker vor dem Bau gesetzt, nicht doppelt)', (int) $db->value("SELECT v FROM meta WHERE k = 'site_dirty_n'") === $nBad + 2);
 check('Sperre: Meldung „anderes Veröffentlichen“, Text trotzdem gespeichert, nichts umgeschaltet', ($lk->headers['Location'] ?? '') === '/admin/seiten/1?m=savedfail&r=sperre' && $db->value('SELECT body FROM pages WHERE id = 1') === 'Text unter Sperre' && $svc->builder->current() === $rel1
     && str_contains($b->get('/admin/seiten/1?m=savedfail&r=sperre')->body, 'anderes Veröffentlichen'));
 flock($lock, LOCK_UN);
@@ -92,19 +96,19 @@ $rel2 = (string) $svc->builder->current();
 $b->post('/admin/seiten/1/verlinken', ['_csrf' => $csrf, 'nav' => 'main']);
 check('Menü: Änderung baut nicht, Band erscheint', $svc->builder->current() === $rel2 && str_contains($b->get('/admin/menue')->body, 'class="pubband"'));
 $pf = $b->get('/admin/seiten/1')->body;
-check('Zeile „Dabei gehen auch … online“ nennt andere gespeicherte Änderungen (Menü)', str_contains($pf, 'Dabei gehen auch') && str_contains($pf, 'weitere Änderung'));
+check('Zeile „Dabei geht alles Gespeicherte online …“ nennt andere gespeicherte Änderungen (Menü)', str_contains($pf, 'Dabei geht alles Gespeicherte online') && str_contains($pf, 'Noch nicht online sind außerdem'));
 $m['clock']->advance(61);
 $svc->builder->publish(1);
 $b->post('/admin/seiten/1/verlinken', ['_csrf' => $csrf, 'nav' => 'footer']);
 $svc->builder->publish(1); // wieder sauber
 $db->run("INSERT INTO meta(k, v) VALUES('site_dirty', '0') ON CONFLICT(k) DO UPDATE SET v = '0'");
-check('Zeile: ohne Ungespeichertes keine Zeile', !str_contains($b->get('/admin/seiten/1')->body, 'Dabei gehen auch'));
+check('Zeile: ohne Ungespeichertes keine Zeile', !str_contains($b->get('/admin/seiten/1')->body, 'Dabei geht alles Gespeicherte'));
 
 // --- Entwurfsseite: online stellen ---
 $b->post('/admin/seiten', ['_csrf' => $csrf, 'title' => 'Neu']);
 $nid = (int) $db->value("SELECT id FROM pages WHERE title = 'Neu'");
 $df = $b->get("/admin/seiten/$nid")->body;
-check('Formular (Entwurf): „Speichern und online stellen“ und „Speichern (Entwurf, nicht online)“', str_contains($df, 'Speichern und online stellen') && str_contains($df, 'Speichern (Entwurf, nicht online)') && str_contains($df, 'name="online" value="1"'));
+check('Formular (Entwurf): „Speichern und online stellen“ und „Nur speichern (noch nicht online)“', str_contains($df, 'Speichern und online stellen') && str_contains($df, 'Nur speichern (noch nicht online)') && str_contains($df, 'name="online" value="1"'));
 $m['clock']->advance(61);
 $dr = $b->post("/admin/seiten/$nid/speichern", ['_csrf' => $csrf, 'title' => 'Neu', 'slug' => 'neu', 'body' => 'Neue Seite Inhalt', 'status' => 'draft', 'nav' => 'none']);
 check('Entwurf speichern: bleibt Entwurf, nicht online', ($dr->headers['Location'] ?? '') === "/admin/seiten/$nid?m=page" && $db->value('SELECT status FROM pages WHERE id = ?', [$nid]) === 'draft' && $anon->get('/neu/')->status === 404);
@@ -127,6 +131,7 @@ $m['clock']->advance(61);
 $sd = $b->post('/admin/einstellungen', ['_csrf' => $csrf, 'site_name' => 'br.foto', 'tagline' => '', 'design' => 'blau', 'veroeffentlichen' => '1']);
 check('Einstellungen speichern und veröffentlichen: Design ist online', ($sd->headers['Location'] ?? '') === '/admin/einstellungen?m=savedpub' && str_contains($anon->get('/impressum/')->body, 'data-design="blau"'));
 $sf = $b->get('/admin/einstellungen')->body;
+check('Einstellungen, Logos, Galerie: Formular warnt vor Verlust ungespeicherter Eingaben (data-guard, Prüfung 31)', str_contains($sf, 'action="/admin/einstellungen" data-guard') && str_contains((string) file_get_contents(dirname(__DIR__) . '/public/assets/js/admin.js'), 'form[data-guard]'));
 check('Einstellungen: Hauptknopf, Zweitknopf, Hinweis auf alle Seiten', str_contains($sf, 'Speichern und veröffentlichen') && str_contains($sf, 'Nur speichern (noch nicht online)') && str_contains($sf, 'alle neu erzeugt'));
 
 // --- Logos ---

@@ -21,7 +21,7 @@ $bulkBack = '/admin/galerien/' . $gid; ?>
   </div>
 <?php endif; ?>
   <div class="split">
-    <form class="form card" method="post" action="/admin/galerien/<?= $gid ?>/speichern">
+    <form class="form card" method="post" action="/admin/galerien/<?= $gid ?>/speichern" data-guard>
       <input type="hidden" name="_csrf" value="<?= $e($csrf) ?>">
       <label class="field"><span>Titel</span><input name="title" value="<?= $e($title) ?>" maxlength="200" required></label>
       <label class="field"><span>Beschreibung</span><textarea name="description" rows="4" maxlength="5000"><?= $e($desc) ?></textarea></label>

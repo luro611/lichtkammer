@@ -18,6 +18,19 @@
     });
   });
 
+  // Formulare mit data-guard: ungespeicherte Eingaben nicht still verwerfen (Prüfung 31, B1). Klickt man z. B. nach einer
+  // Designwahl im Hinweisband auf „Jetzt veröffentlichen“ oder verlässt die Seite, fragt der Browser nach.
+  // Der Seiten-Editor hat dafür seine eigene Abfrage.
+  var guardDirty = false, guardSubmitting = false;
+  Array.prototype.forEach.call(document.querySelectorAll('form[data-guard]'), function (f) {
+    f.addEventListener('input', function () { guardDirty = true; });
+    f.addEventListener('change', function () { guardDirty = true; });
+    f.addEventListener('submit', function () { guardSubmitting = true; });
+  });
+  window.addEventListener('beforeunload', function (e) {
+    if (guardDirty && !guardSubmitting) { e.preventDefault(); e.returnValue = ''; }
+  });
+
   // Knöpfe mit data-busy: nach dem Absenden sperren und „Wird veröffentlicht …“ zeigen (verhindert Doppelklick, Entwurf 28).
   // Erst nach dem Absenden (setTimeout), sonst würde der Wert des gedrückten Knopfes nicht mitgeschickt.
   document.addEventListener('submit', function (e) {

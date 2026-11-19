@@ -334,7 +334,9 @@ trait SitePages
     {
         $b = $this->s->builder;
         $plan = $b->plan();
-        $this->setSiteDirty($plan['changes'] !== [] || $b->current() === null, count($plan['changes']));
+        // Zähler bleibt „Speichervorgänge“ (wie im Band); der Probelauf entscheidet nur, ob überhaupt etwas offen ist.
+        $open = $plan['changes'] !== [] || $b->current() === null;
+        $this->setSiteDirty($open, $open && $this->siteDirty() ? $this->dirtyCount() : 1);
         return $this->page('admin/publish', [
             'title' => 'Veröffentlichen', 'plan' => $plan, 'releases' => $b->releases(), 'current' => $b->current(), 'error' => $error, 'ok' => $ok,
             'drafts' => $this->s->db->all("SELECT id, title FROM pages WHERE status <> 'published' ORDER BY title"),
@@ -393,17 +395,17 @@ trait SitePages
      * Was beim Veröffentlichen außer der eigenen Änderung mit online geht (aus dem Probelauf). Nur wenn es überhaupt noch nicht Veröffentlichtes
      * gibt, damit normale Seitenaufrufe nicht jedes Mal die ganze Seite durchrechnen.
      *
-     * @return array{n:int,labels:list<string>}
+     * @return array{n:int,labels:list<string>,own:bool}
      */
     private function alsoLive(string $ownLabel = ''): array
     {
         if (!$this->siteDirty()) {
-            return ['n' => 0, 'labels' => []];
+            return ['n' => 0, 'labels' => [], 'own' => $ownLabel !== ''];
         }
         try {
             $ch = $this->s->builder->plan()['changes'];
         } catch (\Throwable) {
-            return ['n' => 0, 'labels' => []];
+            return ['n' => 0, 'labels' => [], 'own' => $ownLabel !== ''];
         }
         $labels = [];
         foreach ($ch as $c) {
@@ -411,6 +413,6 @@ trait SitePages
                 $labels[] = $c['label'];
             }
         }
-        return ['n' => count($labels), 'labels' => array_slice($labels, 0, 4)];
+        return ['n' => count($labels), 'labels' => array_slice($labels, 0, 4), 'own' => $ownLabel !== ''];
     }
 }

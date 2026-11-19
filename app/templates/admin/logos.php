@@ -28,7 +28,7 @@
     </li>
 <?php endforeach; ?>
   </ul>
-  <form class="form card" method="post" action="/admin/logos/zuordnen">
+  <form class="form card" method="post" action="/admin/logos/zuordnen" data-guard>
     <input type="hidden" name="_csrf" value="<?= $e($csrf) ?>">
 <?php foreach ($roles as $role => $label): ?>
     <label class="field"><span><?= $e($label) ?></span><select name="<?= $e($role) ?>"><option value="">– keines –</option>
