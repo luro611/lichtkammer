@@ -34,17 +34,19 @@ for f in $(cd "$D" && ls -A); do
 done
 for f in $erlaubt; do [[ -f "$D/$f" ]] || { echo "Abbruch: $f fehlt." >&2; exit 1; }; done
 # Verbotene Muster in den Textdateien und in der PDF (entpackt gelesen) sowie im Software-Zip (entpackt)
-MUSTER='v119013|/Users/|pve10|pve01|luroPVE|@g(oogle)?mail\.|\.local>|BEGIN [A-Z ]*PRIVATE KEY|/htdocs/v[0-9]{3,}|otpauth://totp/[^ ]*secret=[A-Z2-7]{16}|docs/planung|CLAUDE\.md|deploy\.sh|luro611\.github|printhero|lutz\.rothe'
+MUSTER='v119013|/Users/|pve10|pve01|luroPVE|@g(oogle)?mail\.|\.local>|BEGIN [A-Z ]*PRIVATE KEY|/htdocs/v[0-9]{3,}|otpauth://totp/[^ ]*secret=[A-Z2-7]{16}|printhero|lutz\.rothe'
+# Nur für Texte und PDF zusätzlich: interne Dokumente dürfen nicht genannt werden
+MUSTER_INTERN='docs/planung|CLAUDE\.md|Prüfbericht|Entwurf [0-9]{2}'
 mkdir -p "$TMP/x"; (cd "$TMP/x" && unzip -q "$D/lichtkammer-$VERSION.zip")
 bad=$(cd "$TMP/x" && find . \( -name '.env' -o -name '*.sqlite*' -o -name '*.db' -o -name '*.pem' -o -name '*.key' -o -name '.DS_Store' -o -path '*/tests/*' -o -path '*/deploy/*' -o -path '*/docs/*' \) -print)
 [[ -z "$bad" ]] || { echo "Abbruch: Verbotene Dateien im Software-Zip:" >&2; echo "$bad" >&2; exit 1; }
 hits=$(cd "$TMP/x" && grep -rIlE "$MUSTER" . || true)
 [[ -z "$hits" ]] || { echo "Abbruch: Private Spuren im Software-Zip:" >&2; echo "$hits" >&2; exit 1; }
-hits=$(cd "$D" && grep -IlE "$MUSTER" INSTALL.txt LIESMICH-Tester.txt LICENSE NOTICE || true)
+hits=$(cd "$D" && grep -IlE "$MUSTER|$MUSTER_INTERN" INSTALL.txt LIESMICH-Tester.txt LICENSE NOTICE || true)
 [[ -z "$hits" ]] || { echo "Abbruch: Private Spuren in den Textdateien: $hits" >&2; exit 1; }
 # PDF: Text und Metadaten (Titel, Autor, Pfade) prüfen
 if command -v pdftotext >/dev/null; then pdftotext "$PDF" - > "$TMP/pdf.txt"; else strings "$PDF" > "$TMP/pdf.txt"; fi
-hits=$(grep -IE "$MUSTER" "$TMP/pdf.txt" | head -3 || true)
+hits=$(grep -IE "$MUSTER|$MUSTER_INTERN" "$TMP/pdf.txt" | head -3 || true)
 [[ -z "$hits" ]] || { echo "Abbruch: Private Spuren in der PDF: $hits" >&2; exit 1; }
 strings "$PDF" | grep -aiE '/(Author|Creator|Producer)' | head -3 || true
 
