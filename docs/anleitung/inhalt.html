@@ -44,7 +44,7 @@ Windows:         certutil -hashfile lichtkammer-X.Y.Z.zip SHA256</pre>
 <fig s="s_zip">Inhalt des Zip-Archivs.</fig>
 
 <h2>Schritt 2: Zwei Ordner über dem Webroot</h2>
-<p>Lichtkammer braucht zwei Ordner, die <strong>nicht</strong> aus dem Internet erreichbar sind: einen für die Datenbank (<code>LK_DATA_DIR</code>) und einen für die Originalfotos (<code>LK_ORIGINALS_DIR</code>). Originale enthalten alle Aufnahmedaten, auch den Standort. Liegt einer der beiden Ordner im Webroot, <strong>startet der Admin nicht</strong> (das habe ich ausprobiert: Er meldet „Der Datenordner liegt im öffentlichen Webroot“ bzw. „Der Ordner der Originale liegt im öffentlichen Webroot“).</p>
+<p>Lichtkammer braucht zwei Ordner, die <strong>nicht</strong> aus dem Internet erreichbar sind: einen für die Datenbank (<code>LK_DATA_DIR</code>) und einen für die Originalfotos (<code>LK_ORIGINALS_DIR</code>). Originale enthalten alle Aufnahmedaten, auch den Standort. Liegt einer der beiden Ordner im Webroot, <strong>startet der Admin nicht</strong> (er meldet „Der Datenordner liegt im öffentlichen Webroot“ bzw. „Der Ordner der Originale liegt im öffentlichen Webroot“).</p>
 <p>Die Ordner legt Lichtkammer beim ersten Start selbst an, du musst nur den <strong>vollen Pfad</strong> kennen. Bei all-inkl sieht er so aus: <code>/www/htdocs/vXXXXXX/lichtkammer-data</code> (das „vXXXXXX“ ist deine Kundennummer; der Webroot ist der Ordner deiner Domain darunter). Bei anderen Anbietern steht der Pfad in der Hilfe oder im Kundenmenü des Anbieters.</p>
 
 <h2>Schritt 3: Per FTP hochladen</h2>
@@ -141,7 +141,7 @@ LK_TRUSTED_PROXIES=&lt;Adresse des Reverse-Proxys&gt;</pre>
 
 <h2>Schritt 4: Ersteinrichtung</h2>
 <p>Öffne <code>/admin/setup</code> (lokal: <code>http://localhost:8080/admin/setup</code>) und gehe vor wie im Kapitel 2, <strong>Schritt 5</strong> (Konto, App koppeln, Wiederherstellungscodes). Entferne anschließend die Zeile <code>LK_SETUP_TOKEN</code> aus der <code>.env</code> und starte neu: <code>docker compose up -d</code>. Danach antwortet <code>/admin/setup</code> mit „nicht gefunden“, und der Hinweis im Admin ist weg. In der Systemprüfung stehen bei lokalem Test noch „Adresse“ (kein HTTPS) und „.user.ini“ (bei Docker normal) als Hinweis.</p>
-<p class="hint">Ich habe diesen Weg aus dem entpackten Software-Zip praktisch ausprobiert (<code>docker compose up -d --build</code>, <code>/health</code>, Einrichtung mit Token, Token entfernen, Neustart): Er funktioniert.</p>
+
 
 <h1 id="k4" class="neu"><em>Aktualisieren</em> und Sicherung</h1>
 <p class="lead">Neue Versionen ersetzen nur das Programm. Deine Einstellungen, Daten, Originale und erzeugten Bilder bleiben unberührt.</p>
@@ -178,7 +178,7 @@ LK_TRUSTED_PROXIES=&lt;Adresse des Reverse-Proxys&gt;</pre>
 <h2>Wiederherstellung auf einem neuen Server</h2>
 <ol>
 <li>Dieselbe (oder eine neuere) Version installieren wie in Kapitel 2 oder 3, mit dem <strong>alten</strong> <code>LK_APP_KEY</code> in der <code>.env</code> (nicht neu erzeugen), dazu ein neues <code>LK_SETUP_TOKEN</code>.</li>
-<li>Den Sicherungsordner per FTPS in den Bereitstellungsordner legen: Webspace <code>restore/</code> im Webroot (dann <code>LK_RESTORE_DIR</code> auf diesen Ordner setzen), Docker <code>data/restore</code> im Volume <code>lk-data</code>. Er ist für Besucher gesperrt.</li>
+<li>Den Sicherungsordner per FTPS in den Bereitstellungsordner legen: Webspace <code>restore/</code> im Webroot (dann <code>LK_RESTORE_DIR</code> auf diesen Ordner setzen), Docker <code>data/restore</code> im Volume <code>lk-data</code> (zum Beispiel mit <code>docker compose cp ./sicherung lichtkammer:/var/lib/lichtkammer/data/restore</code>, danach <code>docker compose exec lichtkammer chown -R www-data /var/lib/lichtkammer/data/restore</code>). Er ist für Besucher gesperrt.</li>
 <li><code>/admin/setup</code> öffnen und den Link <strong>„Stattdessen eine Sicherung einspielen“</strong> nehmen, das Einrichtungs-Token eingeben. Lichtkammer prüft die Datenbank und den Schlüssel, bevor es etwas übernimmt. Alle bisherigen Sitzungen sind danach beendet; du meldest dich mit deinem Konto neu an.</li>
 <li>Unter <code>/admin/wiederherstellung</code> die <strong>Originale zurückholen</strong>: „Weiter“ drücken, bis nichts mehr wartet. Jede Datei wird gegen eine Prüfsumme kontrolliert.</li>
 <li>Unter <strong>Verwaltung → Bildvarianten</strong> auf <strong>„Fehlende Bildvarianten erzeugen“</strong> klicken. Die erzeugten Bilder sind nicht in der Sicherung; ohne sie zeigt die Seite keine Fotos. Das Fenster offen lassen, bis „Fertig“ steht. Bricht es ab, geht „Weiter“ an derselben Stelle weiter.</li>
@@ -199,11 +199,11 @@ LK_TRUSTED_PROXIES=&lt;Adresse des Reverse-Proxys&gt;</pre>
 <li><strong>Verwaltung</strong>: Logos, Einstellungen, Papierkorb, dazu nur für Administratoren Konten, Import, Sicherung, Bildvarianten und Systemprüfung; für alle Protokoll und Mein Konto.</li>
 <li><strong>Darstellung</strong>: Umschalter für das Design und hell/dunkel. Der Browser merkt sich deine Wahl.</li>
 </ol>
-<p>Es gibt zwei Rollen: <strong>Administrator</strong> (alles) und <strong>Redaktion</strong> (Inhalte: Medien, Fotos, Galerien, Seiten). Das <strong>Hinweisband</strong> oben auf jeder Seite sagt dir, wenn Änderungen gespeichert, aber noch nicht online sind (zum Beispiel „2 Änderungen sind noch nicht online“), mit den Knöpfen „Jetzt veröffentlichen“ und „Ansehen“.</p>
+<p>Es gibt zwei Rollen: <strong>Administrator</strong> (alles) und <strong>Redaktion</strong> (Inhalte und Seiten, dazu Logos, Einstellungen, Papierkorb, Protokoll und Mein Konto; ohne Konten, Import, Sicherung, Bildvarianten und Systemprüfung). Das <strong>Hinweisband</strong> oben auf jeder Seite sagt dir, wenn Änderungen gespeichert, aber noch nicht online sind (zum Beispiel „2 Änderungen sind noch nicht online“), mit den Knöpfen „Jetzt veröffentlichen“ und „Ansehen“.</p>
 <fig b="t_pubband">Das Hinweisband: Änderungen sind gespeichert, aber noch nicht online.</fig>
 
 <h2>Sechs Designs</h2>
-<p>Unten in der Seitenleiste wählst du das Design der <strong>Verwaltung</strong>: Warm, Klar, Studio, Blau, Rot oder Grün, jeweils hell (☀) oder dunkel (☾). Das gilt nur für dich in diesem Browser. Das Design der <strong>öffentlichen Seite</strong> ist etwas anderes: Das stellst du unter Verwaltung → Einstellungen ein (siehe Kapitel „Einstellungen, Logos und Designs“).</p>
+<p>Unten in der Seitenleiste wählst du das Design der <strong>Verwaltung</strong>: Warm, Klar, Studio, Blau, Rot oder Grün, jeweils hell oder dunkel (zwei Knöpfe daneben). Das gilt nur für dich in diesem Browser. Das Design der <strong>öffentlichen Seite</strong> ist etwas anderes: Das stellst du unter Verwaltung → Einstellungen ein (siehe Kapitel „Einstellungen, Logos und Designs“).</p>
 <fig b="t_designs">Die sechs Designs der Verwaltung (hell).</fig>
 
 <h1 id="k6" class="neu">Medien, Fotos und <em>Galerien</em></h1>
@@ -272,7 +272,7 @@ LK_TRUSTED_PROXIES=&lt;Adresse des Reverse-Proxys&gt;</pre>
 <p>Oben stehen Titel und Adresse. Das Häkchen „Seitentitel oben auf der Seite anzeigen“ schaltet den sichtbaren Titel aus; für Suchmaschinen bleibt er erhalten. Darunter der Inhalt:</p>
 <ul>
 <li>Die <strong>Bausteinleiste</strong> zeigt alle Bausteine. <strong>Ziehe</strong> einen Baustein auf die Seite, oder tippe ihn an und klicke dann bei einem <strong>„+ hier einfügen“</strong> zwischen den Blöcken (das geht auch ohne Maus). „+ Block hinzufügen“ hängt ans Ende an.</li>
-<li>Jeder Block hat Pfeile <strong>↑ ↓</strong>, einen Griff (⠿) zum Ziehen, „Zuklappen“, „Duplizieren“ und „Löschen“.</li>
+<li>Jeder Block hat Pfeile <strong>↑ ↓</strong>, einen Griff zum Ziehen (die Punktereihe am Rand), „Zuklappen“, „Duplizieren“ und „Löschen“.</li>
 <li><strong>Rückgängig</strong> (Knopf oder Strg/Cmd+Z) holt Gelöschtes und Verschobenes zurück, bis du speicherst. Beim Löschen gibt es keine Rückfrage, dafür kurz die Leiste „Block gelöscht. Rückgängig“.</li>
 <li><strong>Zwei Spalten</strong>: In die Spalten kommen Überschrift, Text, Bild, Zitat oder Knopf. Bausteine lassen sich zwischen Seite und Spalten ziehen oder mit „Verschieben nach …“ bewegen.</li>
 </ul>

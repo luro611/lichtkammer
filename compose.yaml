@@ -10,7 +10,7 @@ services:
     # Alternative: ein veröffentlichtes Image verwenden (Update dann: docker compose pull && docker compose up -d).
     # Dazu "build" und die Zeile "image" oben ersetzen durch z. B.: image: ghcr.io/luro611/lichtkammer:<Version>
     restart: unless-stopped
-    # Härtung (Entwurf 20, 4.2; auf dem Testserver noch zu prüfen, Schritt 8c): keine neuen Rechte, nur die Fähigkeiten, die Apache
+    # Härtung (noch nicht in allen Umgebungen getestet): keine neuen Rechte, nur die Fähigkeiten, die Apache
     # braucht, Speichergrenze (Bildverarbeitung), Protokolle mit Obergrenze.
     security_opt:
       - no-new-privileges:true
@@ -27,14 +27,14 @@ services:
       options:
         max-size: "10m"
         max-file: "5"
-    # Noch zu testen (8c): schreibgeschütztes Wurzeldateisystem. Wenn es ohne Umbau läuft, die drei Zeilen einschalten.
+    # Noch zu testen: schreibgeschütztes Wurzeldateisystem. Wenn es ohne Umbau läuft, die drei Zeilen einschalten.
     #read_only: true
     #tmpfs:
     #  - /tmp
     #  - /run/apache2
     # Nur lokal erreichbar (Proxy auf demselben Host). Läuft der Proxy im selben Docker-Netz, die Zeilen
     # "ports" ganz weglassen. Nie auf allen Schnittstellen veröffentlichen: sonst kann jeder im Netz
-    # X-Forwarded-For/-Proto fälschen. OFFEN: Lutz bestätigt die Form nach dem Test auf dem Testserver.
+    # X-Forwarded-For/-Proto fälschen.
     ports:
       - "127.0.0.1:8080:80"
     env_file:

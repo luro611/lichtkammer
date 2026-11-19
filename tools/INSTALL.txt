@@ -27,8 +27,8 @@ Die .env ausfüllen
   Mit Konsole geht es auch: openssl rand -base64 32 (für den Schlüssel) und openssl rand -hex 24 (für den Token).
   Den Schlüssel BEWAHRST DU SICHER AUF (Passwort-Manager), getrennt von der Datensicherung. Ohne ihn sind
   gespeicherte Anmeldedaten nicht mehr lesbar.
-- LK_DATA_DIR (empfohlen): ein Ordner ÜBER dem Webroot für Datenbank und Originale, falls dein Anbieter das erlaubt,
-  siehe die Hinweise in .env.example. Der Ordner wird beim ersten Start selbst angelegt.
+- LK_DATA_DIR und LK_ORIGINALS_DIR (Pflicht): zwei Ordner ÜBER dem Webroot, einer für die Datenbank, einer für die Originalfotos
+  (siehe .env.example). Liegt einer im Webroot, startet der Admin nicht. Die Ordner werden beim ersten Start selbst angelegt.
 
 Docker (eigener Rechner oder Server)
 -----------------------------------

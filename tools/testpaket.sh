@@ -33,7 +33,7 @@ for f in $(cd "$D" && ls -A); do
 done
 for f in $erlaubt; do [[ -f "$D/$f" ]] || { echo "Abbruch: $f fehlt." >&2; exit 1; }; done
 # Verbotene Muster in den Textdateien und in der PDF (entpackt gelesen) sowie im Software-Zip (entpackt)
-MUSTER='v119013|/Users/|pve10|pve01|luroPVE|@g(oogle)?mail\.|\.local>|BEGIN [A-Z ]*PRIVATE KEY|/htdocs/v[0-9]{3,}|otpauth://totp/[^ ]*secret=[A-Z2-7]{16}|printhero|lutz\.rothe'
+MUSTER='\bv[0-9]{6}\b|/Users/|pve10|pve01|luroPVE|@g(oogle)?mail\.|\.local>|BEGIN [A-Z ]*PRIVATE KEY|/htdocs/v[0-9]{3,}|otpauth://totp/[^ ]*secret=[A-Z2-7]{16}|printhero|lutz\.rothe'
 # Nur für Texte und PDF zusätzlich: interne Dokumente dürfen nicht genannt werden
 MUSTER_INTERN='docs/planung|CLAUDE\.md|Prüfbericht|Entwurf [0-9]{2}'
 mkdir -p "$TMP/x"; (cd "$TMP/x" && unzip -q "$D/lichtkammer-$VERSION.zip")

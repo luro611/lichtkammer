@@ -25,7 +25,4 @@ Das Image wird selbst gebaut; es ist nichts außer Docker nötig. Zum Ausprobier
 danach http://localhost:8080/health und http://localhost:8080/admin/setup. Update: neues Zip über denselben Ordner entpacken
 und noch einmal "docker compose up -d --build".
 
-Vorabversion noch nicht öffentlich: Frage bei
-info@lurohome.de nach dem Zugang.
-
 Vorabversion, nicht für den Echtbetrieb. Lizenz: AGPL-3.0-or-later (Datei LICENSE).
