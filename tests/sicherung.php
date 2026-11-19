@@ -351,6 +351,26 @@ $no = (string) file_get_contents(__DIR__ . '/../NOTICE');
 check('NOTICE: Lizenz, vier Schriften (OFL-1.1), eigene Passwortliste und QR-Code, Image-Bestandteile', str_contains($no, 'AGPL-3.0-or-later') && str_contains($no, 'OFL-1.1') && str_contains($no, 'Inter') && str_contains($no, 'Instrument Serif') && str_contains($no, 'Archivo') && str_contains($no, 'Geist Mono') && str_contains($no, 'common-passwords') && str_contains($no, 'Qr.php') && str_contains($no, 'ImageMagick') && !str_contains($no, '@'));
 $rz = (string) file_get_contents(__DIR__ . '/../tools/release-zip.sh');
 check('Zip: NOTICE, .user.ini und Fehlerseite gehören zum Paket', str_contains($rz, 'LICENSE NOTICE README.md') && str_contains($rz, 'public/.user.ini') && str_contains($rz, 'public/fehler.html'));
+// Prüfung 39: Release-Zip prüft den Inhalt auf private Spuren; das Muster greift und der heutige Paketinhalt ist sauber.
+check('Docker: dist/ (Release-Zips) bleibt aus dem Build-Kontext', in_array('dist', array_map('trim', explode("\n", $di)), true));
+$pm = preg_match("/^\s*PRIVAT_MUSTER='([^']+)'/m", $rz, $mm) ? '~' . $mm[1] . '~' : '';
+check('Zip: --pruefen sucht private Spuren mit PRIVAT_MUSTER', $pm !== '' && str_contains($rz, 'grep -rIlE "$PRIVAT_MUSTER"'));
+$treffer = static fn(string $t): bool => $pm !== '' && preg_match($pm, $t) === 1;
+check('Zip-Muster: erkennt Mac-Pfad, Gmail, Rechner-Adresse, Kundennummer, privaten Schlüssel, TOTP mit Schlüssel',
+    $treffer('/Users/jemand/x') && $treffer('a.b@gmail.com') && $treffer('<x@Rechner.local>') && $treffer('/www/htdocs/v123456/data')
+    && $treffer('-----BEGIN OPENSSH PRIVATE KEY-----') && $treffer('otpauth://totp/L:x?secret=ABCDEFGHIJKLMNOP'));
+check('Zip-Muster: lässt Platzhalter und Beispiele durch', !$treffer('/www/htdocs/vXXXXXX/data') && !$treffer('/www/htdocs/v1/x') && !$treffer('info@lurohome.de')
+    && !$treffer("'otpauth://totp/' . \$label . '?secret=' . \$s") && !$treffer('128689439+luro611@users.noreply.github.com'));
+$spuren = [];
+foreach ([__DIR__ . '/../app', __DIR__ . '/../public'] as $wurzel) {
+    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($wurzel, FilesystemIterator::SKIP_DOTS)) as $f) {
+        $p = $f->getPathname();
+        if (str_contains($p, '/public/media/') || preg_match('~\.(png|jpe?g|webp|gif|woff2?|ttf|otf|ico)$~i', $p)) { continue; }
+        if ($treffer((string) file_get_contents($p))) { $spuren[] = $p; }
+    }
+}
+foreach (['.env.example', 'README.md', 'NOTICE', 'tools/INSTALL.txt'] as $d) { if ($treffer((string) file_get_contents(__DIR__ . '/../' . $d))) { $spuren[] = $d; } }
+check('Zip-Inhalt (app, public, .env.example, README, NOTICE, INSTALL): keine privaten Spuren', $spuren === []);
 $lp = (string) file_get_contents(__DIR__ . '/../tools/livepruefung.sh');
 check('Livepruefung: prüft COOP/CORP, Sicherungswege ohne Anmeldung, Fehlerseite', str_contains($lp, 'Cross-Origin-Opener-Policy') && str_contains($lp, '/admin/sicherung/paket') && str_contains($lp, '/fehler.html'));
 

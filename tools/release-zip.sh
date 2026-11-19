@@ -30,6 +30,11 @@ if (( PRUEFEN )); then
   bad=$(cd "$TMP/$NAME" && find . \( -name '.env' -o -name '*.sqlite' -o -name '*.sqlite3' -o -name '*.db' -o -name '*.pem' -o -name '*.key' -o -name '.DS_Store' \) -print; \
         find . -path './data/*' -o -path './originals/*' -o -path './tests/*' -o -path './docs/*' -o -path './deploy/*' -o -path './public/media/*' ! -name '.htaccess' 2>/dev/null | grep -v '^./public/media/.htaccess$' || true)
   [[ -z "$bad" ]] || { echo "Abbruch: Verbotene Dateien im Paket:" >&2; echo "$bad" >&2; exit 1; }
+  # Private Spuren im Inhalt (Prüfung 39): lokale Mac-Pfade, Gmail, Rechnername als Adresse, private Schlüssel,
+  # echte all-inkl-Kundennummer im Pfad (Platzhalter vXXXXXX geht durch), TOTP-Adresse mit festem Schlüssel.
+  PRIVAT_MUSTER='/Users/|@g(oogle)?mail\.|\.local>|BEGIN [A-Z ]*PRIVATE KEY|/htdocs/v[0-9]{3,}|otpauth://totp/[^ ]*secret=[A-Z2-7]{16}'
+  spuren=$(cd "$TMP/$NAME" && grep -rIlE "$PRIVAT_MUSTER" . || true)
+  [[ -z "$spuren" ]] || { echo "Abbruch: Private Spuren im Paket (Muster PRIVAT_MUSTER):" >&2; echo "$spuren" >&2; exit 1; }
   for must in app/src/App.php public/index.php public/media/.htaccess public/.user.ini public/fehler.html .env.example INSTALL.txt LICENSE NOTICE VERSION; do
     [[ -e "$TMP/$NAME/$must" ]] || { echo "Abbruch: $must fehlt im Paket." >&2; exit 1; }
   done
