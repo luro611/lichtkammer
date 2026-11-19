@@ -23,6 +23,8 @@ In 5 Schritten installieren (Webspace)
 3. /admin aufrufen, die zwei Zeilen für LK_APP_KEY und LK_SETUP_TOKEN in die .env kopieren.
 4. /admin/setup: Konto, Passwort, Authenticator-App, Wiederherstellungscodes.
 5. LK_SETUP_TOKEN aus der .env löschen, Verwaltung → Systemprüfung öffnen.
+Wichtig: Vor dem ersten Veröffentlichen zeigt die öffentliche Startseite „Diese Seite ist noch nicht veröffentlicht“
+(Statuscode 503). Das ist normal. Erst nach „Speichern und veröffentlichen“ bzw. unter Veröffentlichen erscheint die Seite.
 Alles ausführlich: Lichtkammer-Anleitung.pdf, Kapitel 2. Mit Docker (Kapitel 3): Zip entpacken, .env anlegen,
 "docker compose up -d --build", dann /admin/setup.
 
