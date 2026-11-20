@@ -287,3 +287,15 @@ Jede Stufe lässt Admin und Seite lauffähig; nach jeder kann man **stoppen**. V
 2. **Warnung beim Privatstellen und Löschen nur als Bestätigung oder als Sperre?** *Empfehlung:* **Bestätigung** („Trotzdem ausführen“). Eine Sperre würde Aufräumen und Papierkorb behindern; der Probelauf fängt den Rest ab.
 3. **Bilddateien (PNG, SVG, JPEG, WebP) in Seiten nur als Download-Block?** *Empfehlung:* **Ja.** Einbinden als Bild bleibt Fotos vorbehalten (Bildpipeline, GPS-Entfernen); es gibt keinen zweiten neuen Blocktyp. Logos kommen über die Logo-Einstellung (Stufe 5).
 4. **Stufe 6 (Einzel-Upload ohne Skript) mitbauen oder streichen?** *Empfehlung:* **Zunächst streichen**, bei Bedarf später; sie ist die einzige Stufe mit neuer Annahmestelle und hat für Matthias kaum Nutzen.
+
+## 15. Entscheidungen von Lutz (20.11.2026)
+
+Alle vier Fragen aus Abschnitt 14 sind **wie empfohlen** entschieden:
+
+1. Fehlt beim Veröffentlichen eine benutzte Datei: **Stoppen** mit klarer Meldung (Probelauf), nie ein Block still weglassen.
+2. Warnung beim Privatstellen und Löschen als **Bestätigung** („Trotzdem ausführen“), keine Sperre.
+3. Bilddateien (PNG, SVG, JPEG, WebP) in Seiten **nur als Download-Block**; Bilder in Seiten bleiben den Fotos vorbehalten; Logos über die Logo-Einstellung (Stufe 5).
+4. **Stufe 6 (Einzel-Upload ohne Skript) entfällt** vorerst.
+
+**Bauplan:** Block 1 = Stufen 1a, 1b und 2 (Server: Datenformat, Bau, Reparatur, „Verwendet in“, Warnungen; Editor noch unverändert). Block 2 = Stufen 3, 4 und 5 (Detailfeld, Editor, Logo). Je Block eine Opus-Prüfung; **Fable prüft vor dem Hochladen des Codes** (Dateiauslieferung, Datenformat). Auflagen B1 bis B5 aus Bericht 45 gelten vor dem Bau von Stufe 1.
+
