@@ -25,6 +25,7 @@ trait MedienPages
         'papierkorb' => '{n} Eintrag/Einträge in den Papierkorb gelegt. Dort sind sie 30 Tage wiederherstellbar.',
         'papierkorb_live' => '{n} Eintrag/Einträge in den Papierkorb gelegt (30 Tage wiederherstellbar). Darunter sind Fotos, die auf der Live-Seite sichtbar sind: bitte neu veröffentlichen, sonst fehlen dort Bilder.',
         'zurueck' => 'Zurückgeholt ({n} Einträge). Fotos werden gleich neu aufbereitet.',
+        'zurueck_benutzt' => 'Zurückgeholt ({n} Einträge). Mindestens eine Datei wird in Seiten verwendet, ist aber nach dem Zurückholen wieder privat: bitte in Medien bei der Datei „Öffentlich schalten“ wählen, sonst stoppt das Veröffentlichen.',
         'geloescht' => '{n} Eintrag/Einträge endgültig gelöscht.',
         'oeffentlich' => 'Die Datei ist öffentlich. Sichtbar auf der Seite wird sie, wo du sie verlinkt hast.',
         'privat' => 'Die Datei ist wieder privat, die öffentliche Kopie ist gelöscht.',
@@ -98,6 +99,7 @@ trait MedienPages
             'folderNames' => $q !== '' ? $this->folderNamesFor($contents['rows']) : [],
             'engine' => $engine === null ? null : $engine->name(),
             'maxMb' => max(1, $this->config->int('LK_MAX_UPLOAD_MB', 100)), 'maxFileMb' => max(1, $this->config->int('LK_MAX_FILE_MB', 50)),
+            'fileUse' => array_map(static fn (array $u): int => count(array_unique(array_column($u, 'label'))), $this->usage()->files()),
             'files' => $this->s->files, 'isAdmin' => ($sess['role'] ?? '') === 'admin',
             'legacyOpen' => $this->legacyPdfCount() > 0,
         ], 200, $sess);
@@ -130,6 +132,44 @@ trait MedienPages
         $this->s->folders->finishTrashWithin($this->config->mediaDir(), 3.0);
         $this->s->files->unpublishTrashed();
         $this->s->files->repairPublicCopies(); // fehlende öffentliche Kopien nachziehen (nach Wiederherstellung)
+    }
+
+    private function usage(): \Lichtkammer\Media\Usage
+    {
+        return new \Lichtkammer\Media\Usage($this->s->db, $this->s->builder);
+    }
+
+    /**
+     * Bestätigungsseite „Das wird noch verwendet“ (Entwurf 44, 4.2): nur wenn von den Dateien welche in Seiten stehen und noch nicht
+     * bestätigt wurde. Die Seite ist eine Antwort auf einen POST, ändert aber nichts: kein Hinweisband „Veröffentlichen nötig“ (B5).
+     *
+     * @param list<int> $fileIds @param array<string,string|list<string>> $fields Felder, mit denen derselbe Aufruf wiederholt wird
+     */
+    private function usageConfirm(Request $req, ?array $sess, array $fileIds, string $action, string $what, array $fields, string $cancel): ?Response
+    {
+        if ($req->input('bestaetigt') === '1' || $fileIds === []) {
+            return null;
+        }
+        $used = $this->usage()->files($fileIds);
+        if ($used === []) {
+            return null;
+        }
+        $live = $this->usage()->liveFileIds();
+        $rows = [];
+        $more = 0;
+        foreach ($used as $id => $uses) {
+            if (count($rows) >= 50) {
+                $more++;
+                continue;
+            }
+            $rows[] = [
+                'name' => (string) ($this->s->db->value('SELECT name FROM files WHERE id = ?', [$id]) ?? ('Datei ' . $id)),
+                'uses' => array_map(static fn (array $u): string => $u['label'] . ($u['pos'] !== '' ? ', ' . $u['pos'] : ($u['linked'] ? '' : ' (Adresse, nicht verknüpft)')), array_slice($uses, 0, 20)),
+                'live' => isset($live[$id]),
+            ];
+        }
+        $this->dirtyHandled = true;
+        return $this->page('admin/medien_confirm', ['title' => 'Noch verwendet', 'action' => $action, 'what' => $what, 'rows' => $rows, 'more' => $more, 'fields' => $fields, 'cancel' => $cancel], 200, $sess);
     }
 
     // --- Ordner und Einträge ---
@@ -204,6 +244,12 @@ trait MedienPages
         if ($fo === [] && $ph === [] && $fi === []) {
             return $this->medienBack($from, 'nothing');
         }
+        $cancel = '/admin/medien' . ($from > 0 ? '?ordner=' . $from : '');
+        $inFolders = $this->usage()->fileIdsInFolders($this->s->folders, $fo); // Menge aus dem Unterbaum (Prüfung 45, N1)
+        if (($c = $this->usageConfirm($req, $sess, array_values(array_unique(array_merge($fi, $inFolders))), '/admin/medien/loeschen', 'Die Auswahl soll in den Papierkorb.',
+            ['ordner' => (string) $from, 'ordner_id' => array_map('strval', $fo), 'foto' => array_map('strval', $ph), 'datei' => array_map('strval', $fi)], $cancel)) !== null) {
+            return $c;
+        }
         $n = 0;
         $photoIds = $ph; // für den Hinweis „auf der Live-Seite sichtbar“ (Entwurf 16, 4; Prüfung 19)
         foreach ($fo as $id) {
@@ -252,6 +298,11 @@ trait MedienPages
         $purge = $req->input('aktion') === 'loeschen';
         $count = 0;
         if ($purge) {
+            $inRoots = $rootIds === [] ? [] : array_map(static fn (array $r): int => (int) $r['id'], $this->s->db->all('SELECT id FROM files WHERE trash_root_id IN (' . implode(',', array_map('intval', $rootIds)) . ')'));
+            if (($c = $this->usageConfirm($req, $sess, array_values(array_unique(array_merge($fileIds, $inRoots))), '/admin/medien/papierkorb', 'Die Auswahl soll endgültig gelöscht werden.',
+                ['aktion' => 'loeschen', 'ordner_id' => array_map('strval', $rootIds), 'datei' => array_map('strval', $fileIds)], '/admin/medien/papierkorb')) !== null) {
+                return $c;
+            }
             $deadline = microtime(true) + 15.0; // große Zweige in Stapeln bis zum Ende, unter dem Zeitlimit von all-inkl (Prüfung 19)
             foreach ($rootIds as $id) {
                 do {
@@ -265,6 +316,8 @@ trait MedienPages
             }
             return $this->done('/admin/medien/papierkorb', 'geloescht', $count);
         }
+        $inRoots = $rootIds === [] ? [] : array_map(static fn (array $r): int => (int) $r['id'], $this->s->db->all('SELECT id FROM files WHERE trash_root_id IN (' . implode(',', array_map('intval', $rootIds)) . ')'));
+        $usedBack = $this->usage()->files(array_values(array_unique(array_merge($fileIds, $inRoots)))) !== [];
         foreach ($rootIds as $id) {
             try {
                 $r = $this->s->folders->restore($id);
@@ -279,7 +332,7 @@ trait MedienPages
             $this->auditLog('media_restored', $sess, 'count=' . $n, $req);
         }
         // Zurückgeholte Fotos warten auf neue Varianten; die Medienseite bereitet sie auf (Prüfung 19), der Papierkorb nicht
-        return $this->done($this->s->browser->pendingCount() > 0 ? '/admin/medien' : '/admin/medien/papierkorb', 'zurueck', $count + $n);
+        return $this->done($this->s->browser->pendingCount() > 0 ? '/admin/medien' : '/admin/medien/papierkorb', $usedBack ? 'zurueck_benutzt' : 'zurueck', $count + $n);
     }
 
     // --- Dateien: Auslieferung und öffentlich ---
@@ -345,6 +398,10 @@ trait MedienPages
         $folder = $this->folderParam($req);
         if ($id === null || $this->s->files->get($id) === null) {
             return $this->missing($sess);
+        }
+        if (!$on && ($c = $this->usageConfirm($req, $sess, [$id], '/admin/medien/datei/' . $id . '/oeffentlich', 'Die Datei soll wieder privat werden.',
+            ['ordner' => (string) $folder, 'an' => '0'], '/admin/medien' . ($folder > 0 ? '?ordner=' . $folder : ''))) !== null) {
+            return $c;
         }
         try {
             $this->s->files->setPublic($id, $on);

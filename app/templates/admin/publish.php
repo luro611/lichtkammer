@@ -63,6 +63,9 @@ $fmt = static fn (string $id): string => preg_match('/^(\d{4})(\d{2})(\d{2})-(\d
     <li class="row">
       <div class="rowmain"><strong><?= $e($fmt($r['id'])) ?></strong>
         <span class="mono small muted"><?= (int) $r['galleries'] ?> Galerie(n) · <?= (int) $r['photos'] ?> Foto(s) · <?= (int) $r['files'] ?> Dateien<?= $r['active'] ? ' · live' : '' ?></span></div>
+<?php if (!$r['active'] && (int) ($r['gone_files'] ?? 0) > 0): ?>
+      <p class="small muted"><?= (int) $r['gone_files'] ?> <?= (int) $r['gone_files'] === 1 ? 'Datei dieser Fassung ist' : 'Dateien dieser Fassung sind' ?> inzwischen nicht mehr öffentlich. Links dorthin laufen ins Leere. Zurückholen geht trotzdem.</p>
+<?php endif; ?>
 <?php if (!$r['active']): ?>
       <form method="post" action="/admin/veroeffentlichen/zuruecksetzen"><input type="hidden" name="_csrf" value="<?= $e($csrf) ?>"><input type="hidden" name="fassung" value="<?= $e($r['id']) ?>"><button class="btn small ghost" type="submit" data-confirm="Diese Fassung wieder live schalten?">Diese Fassung zurückholen</button></form>
 <?php endif; ?>

@@ -182,6 +182,7 @@ $total = $usage['photos'] + $usage['files'];
               <?= (int) $fr['public'] === 1 ? 'öffentlich: <a class="mono" href="' . $e($files->publicUrl($fr)) . '" target="_blank" rel="noopener">' . $e($files->publicUrl($fr)) . '</a>' : '<span class="muted">privat</span>' ?>
               <?php if ($fr['legacy_public_path'] === ''): ?><button class="btn small ghost" type="submit" form="mpublic-<?= (int) $r['id'] ?>"><?= (int) $fr['public'] === 1 ? 'Wieder privat' : 'Öffentlich schalten' ?></button><?php endif; ?>
               <a href="/admin/medien/datei/<?= (int) $r['id'] ?>">Herunterladen</a>
+              <?php if (($fileUse[(int) $r['id']] ?? 0) > 0): ?><span class="small muted">· in <?= (int) $fileUse[(int) $r['id']] ?> <?= $fileUse[(int) $r['id']] === 1 ? 'Seite' : 'Seiten' ?></span><?php endif; ?>
 <?php endif; ?>
             </td>
           </tr>

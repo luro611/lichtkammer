@@ -86,11 +86,24 @@ final class Builder
             $m = $this->manifest($id);
             if ($m !== null) {
                 $out[] = ['id' => $id, 'at' => (int) ($m['at'] ?? 0), 'user' => (int) ($m['user'] ?? 0), 'galleries' => (int) ($m['galleries'] ?? 0),
-                    'photos' => (int) ($m['photos'] ?? 0), 'files' => count($m['files'] ?? []), 'active' => $id === $cur];
+                    'photos' => (int) ($m['photos'] ?? 0), 'files' => count($m['files'] ?? []), 'active' => $id === $cur, 'gone_files' => $this->goneFiles($m)];
             }
         }
         usort($out, static fn (array $a, array $b): int => strcmp($b['id'], $a['id']));
         return $out;
+    }
+
+    /** Dateien dieser Fassung, deren Adresse heute nicht mehr ausgeliefert wird (privat gestellt, gelöscht, andere Adresse). Alte Fassungen ohne file_urls: 0. @param array<string,mixed> $m */
+    private function goneFiles(array $m): int
+    {
+        $n = 0;
+        foreach (is_array($m['file_urls'] ?? null) ? $m['file_urls'] : [] as $url) {
+            if (!is_string($url) || preg_match('#^/media/(dateien/[0-9a-f]{8}-[a-z0-9-]*\.[a-z]{3,4}|dokumente/[A-Za-z0-9][A-Za-z0-9._-]{0,120}\.pdf)$#D', $url) !== 1
+                || !is_file($this->config->mediaDir() . substr($url, 6))) {
+                $n++;
+            }
+        }
+        return $n;
     }
 
     /** Ohne Versionsnummern der Dateien (?v=…), damit ein neues Design nicht jede Seite „geändert“ meldet. */
