@@ -148,7 +148,7 @@ final class Blocks
                     $photos[] = ['photo' => self::photoId($p['photo'] ?? null, $db, $where),
                         'alt' => isset($p['alt']) && is_string($p['alt']) ? Galleries::clip($p['alt'], 250) : '', 'decor' => false]; // jedes Rasterbild ist ein Link in die Lightbox und braucht einen Namen
                 }
-                $cols = (int) ($b['cols'] ?? 3);
+                $cols = self::num($b['cols'] ?? null, 3);
                 return ['t' => 'gallery', 'photos' => $photos, 'cols' => in_array($cols, [2, 3, 4], true) ? $cols : 3];
             case 'imagetext':
                 $text = $s('text', 20000);
@@ -182,13 +182,13 @@ final class Blocks
                         'alt' => isset($p['alt']) && is_string($p['alt']) ? Galleries::clip($p['alt'], 250) : '', 'decor' => ($p['decor'] ?? false) === true,
                         'fx' => self::focus($p['fx'] ?? 50), 'fy' => self::focus($p['fy'] ?? 50)];
                 }
-                $iv = (int) ($b['interval'] ?? 6);
+                $iv = self::num($b['interval'] ?? null, 6);
                 $ratio = $b['ratio'] ?? '3-2';
                 return ['t' => 'carousel', 'photos' => $photos, 'auto' => ($b['auto'] ?? false) === true, 'interval' => max(self::MIN_INTERVAL, min(self::MAX_INTERVAL, $iv)),
                     'ratio' => in_array($ratio, self::RATIOS, true) ? $ratio : '3-2', 'span' => self::pick($b['span'] ?? null, self::SPAN)];
             case 'homephotos':
                 $mode = self::pick($b['mode'] ?? null, ['karussell', 'raster', 'titelbild']);
-                $iv = (int) ($b['interval'] ?? 6);
+                $iv = self::num($b['interval'] ?? null, 6);
                 $ratio = $b['ratio'] ?? '3-2';
                 $focus = [];
                 foreach (is_array($b['focus'] ?? null) ? array_slice($b['focus'], 0, 100, true) : [] as $k => $f) {
@@ -197,10 +197,10 @@ final class Blocks
                     }
                 }
                 return ['t' => 'homephotos', 'focus' => (object) $focus, 'mode' => $mode, 'span' => self::pick($b['span'] ?? null, self::SPAN), 'ratio' => in_array($ratio, self::RATIOS, true) ? $ratio : '3-2',
-                    'auto' => ($b['auto'] ?? false) === true, 'interval' => max(self::MIN_INTERVAL, min(self::MAX_INTERVAL, $iv)), 'limit' => max(1, min(self::MAX_PHOTOS, (int) ($b['limit'] ?? 8))),
+                    'auto' => ($b['auto'] ?? false) === true, 'interval' => max(self::MIN_INTERVAL, min(self::MAX_INTERVAL, $iv)), 'limit' => max(1, min(self::MAX_PHOTOS, self::num($b['limit'] ?? null, 8))),
                     'height' => self::pick($b['height'] ?? null, self::HERO_HEIGHTS)];
             case 'galleries':
-                return ['t' => 'galleries', 'title' => $s('title', 100), 'limit' => max(0, min(24, (int) ($b['limit'] ?? 0)))];
+                return ['t' => 'galleries', 'title' => $s('title', 100), 'limit' => max(0, min(24, self::num($b['limit'] ?? null, 0)))];
             case 'columns':
                 $sides = [];
                 foreach (['left', 'right'] as $side) {
@@ -222,6 +222,18 @@ final class Blocks
     }
 
     /** Wert aus der Liste, sonst der erste Eintrag (Vorgabe). @param list<string> $list */
+    /** Zahl aus der Eingabe: nur endliche Zahlen in vernünftiger Größe, sonst der Vorgabewert (keine Warnung bei riesigen Fließkommazahlen). */
+    private static function num(mixed $v, int $default): int
+    {
+        if (is_int($v)) {
+            return max(-1_000_000, min(1_000_000, $v));
+        }
+        if ((is_float($v) || (is_string($v) && is_numeric($v))) && is_finite((float) $v)) {
+            return (int) max(-1_000_000.0, min(1_000_000.0, (float) $v));
+        }
+        return $default;
+    }
+
     private static function pick(mixed $v, array $list): string
     {
         return is_string($v) && in_array($v, $list, true) ? $v : $list[0];

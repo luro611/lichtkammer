@@ -168,3 +168,35 @@ $jsM = (string) file_get_contents(dirname(__DIR__) . '/public/assets/js/page-mat
 $jsE = (string) file_get_contents(dirname(__DIR__) . '/public/assets/js/page-editor.js');
 check('Material-Skript: Weg ohne Maus („Wohin?“, Enter/Leertaste auf der Kachel)', str_contains($jsM, 'Wohin?') && str_contains($jsM, "e.key === 'Enter'") && str_contains($jsM, 'aria-label'));
 check('Editor-Skript: nur eigene Zieh-Daten gelten (Kennung), Fremddateien werden ignoriert', str_contains($jsE, "indexOf.call(e.dataTransfer.types || [], MIME)"));
+
+// --- Prüfung Fable (Bericht 43): Angriffsversuche gegen die Vorschau-Route und die Auswahl-Routen ---
+$db->run("UPDATE photos SET original_name = 'GEHEIMNAME.jpg', original_path = 'orig/GEHEIMPFAD', exif_json = '{\"gps\":\"48.137,11.575\"}', place = 'GEHEIMORT', title = ?, alt_text = ?, caption = ? WHERE id = ?", ['T"><img src=x onerror=alert(1)>', 'A"><svg onload=alert(2)>', 'C<script>alert(3)</script>', $ids[5]]);
+$atk = $live($b, ['blocks' => $J([
+    ['t' => 'heading', 'level' => 2, 'text' => '<img src=x onerror=alert(1)> [l](javascript:alert(1)) [d](data:text/html,x) [e](&#106;avascript:alert(1))'],
+    ['t' => 'text', 'text' => "[b](/x\"onmouseover=\"alert(1)) [c](https://e.com/\"><script>alert(1)</script>)\n\n> <b>q</b>"],
+    ['t' => 'quote', 'text' => '<script>alert(2)</script>', 'by' => '"><script>alert(3)</script>'],
+    ['t' => 'image', 'photo' => $ids[5], 'alt' => '"><script>alert(4)</script>', 'caption' => '<img src=x onerror=1>', 'href' => '/ok'],
+    ['t' => 'gallery', 'photos' => [['photo' => $ids[5], 'alt' => '"onfocus="alert(5)', 'decor' => false]], 'cols' => 3],
+    ['t' => 'columns', 'left' => [['t' => 'text', 'text' => '<script>l</script>']], 'right' => [['t' => 'button', 'label' => '<b>L</b>', 'href' => 'https://e.com/']]],
+]), 'ziel' => "page:$pgId"]);
+$noTags = preg_replace('~<script src="[^"]*"[^>]*></script>~', '', $atk->body) ?? '';
+check('Fable: bösartige Blöcke → keine eigene Skript- oder Ereignis-Markierung, kein javascript:/data:-Link, kein ausgebrochenes Attribut', $atk->status === 200 && !preg_match('~<script|<img src=x|<svg~i', $noTags) && !preg_match('~href\s*=\s*"\s*(javascript|data|vbscript):~i', $atk->body) && !preg_match('~<[a-z][^>]*\s(on[a-z]+)\s*=~i', preg_replace('~="[^"]*"~', '=""', $atk->body) ?? ''));
+foreach (['javascript:alert(1)', ' javascript:alert(1)', "java\tscript:alert(1)", 'data:text/html;base64,PHNjcmlwdD4=', '//evil.example', '/\\evil.example', 'vbscript:x', '&#106;avascript:1'] as $badHref) {
+    check('Fable: Knopf-Adresse ' . json_encode($badHref) . ' wird abgelehnt', $live($b, ['blocks' => $J([['t' => 'button', 'label' => 'K', 'href' => $badHref]]), 'ziel' => "page:$pgId"])->status === 422);
+}
+$leak = $live($b, ['blocks' => $J([['t' => 'gallery', 'photos' => [['photo' => $ids[5], 'alt' => '', 'decor' => true]], 'cols' => 3], ['t' => 'image', 'photo' => $ids[5], 'alt' => 'a']]), 'ziel' => "page:$pgId"]);
+check('Fable: Antwort enthält nie Originalname, Originalpfad, GPS/EXIF, Ort', $leak->status === 200 && !preg_match('~GEHEIMNAME|GEHEIMPFAD|GEHEIMORT|48\.137|orig/~', $leak->body));
+$pw = new TestBrowser($m['app'], $m['config']);
+$pwS = $svc->sessions->create(1, 'password_ok', ClientIp::forms('203.0.113.7')['prefix'], 'x');
+$pw->jar[$svc->cookies->name('lk_sid')] = $pwS['id'];
+$xr = $pw->post('/admin/vorschau-live', ['blocks' => $J([['t' => 'text', 'text' => 'GEHEIM']]), 'ziel' => "page:$pgId", '_csrf' => (string) ($pwS['csrf_token'] ?? 'x')]);
+check('Fable: Sitzung nur nach dem Passwort (ohne zweiten Schritt) wird abgewiesen', $xr->status === 303 && !str_contains($xr->body, 'GEHEIM') && $pw->get('/admin/fotos/auswahl')->status === 303);
+check('Fable: Zahlen in Blöcken: riesige Werte werden begrenzt, ungültige ergeben die Vorgabe, keine Warnung', Blocks::parse($J([['t' => 'galleries', 'title' => '', 'limit' => 1.5e308], ['t' => 'galleries', 'title' => '', 'limit' => '7'], ['t' => 'galleries', 'title' => '', 'limit' => [1]]]), null, true) === [['t' => 'galleries', 'title' => '', 'limit' => 24], ['t' => 'galleries', 'title' => '', 'limit' => 7], ['t' => 'galleries', 'title' => '', 'limit' => 0]]);
+// Auswahl-Routen: Einspritzungs- und Randwerte
+$inj = $gj($b, '/admin/fotos/auswahl?n=60&q=' . rawurlencode("' OR 1=1 --"));
+check('Fable: Auswahl: SQL-Zeichen in der Suche ergeben keine Treffer (nur Text)', $inj['status'] === 200 && $inj['d']['rows'] === []);
+check('Fable: Auswahl: % und _ in der Suche sind keine Platzhalter', $gj($b, '/admin/fotos/auswahl?n=60&q=' . rawurlencode('%'))['d']['rows'] === [] && $gj($b, '/admin/fotos/auswahl-galerien?q=' . rawurlencode('%'))['d']['rows'] === []);
+check('Fable: Auswahl: Seitenzahl unsinnig (-5, abc, riesig) → 200 und leer/erste Seite', $gj($b, '/admin/fotos/auswahl?seite=-5')['status'] === 200 && $gj($b, '/admin/fotos/auswahl?seite=abc')['status'] === 200 && $gj($b, '/admin/fotos/auswahl?seite=99999999999999999999')['d']['rows'] === [] && $gj($b, '/admin/fotos/auswahl-galerien?seite=99999999999999999999')['d']['rows'] === []);
+check('Fable: Auswahl: unbekannte oder ungültige Galerie-Nummer → 404 ohne Daten', $gj($b, '/admin/fotos/auswahl-galerie/999999')['status'] === 404 && $b->get('/admin/fotos/auswahl-galerie/abc')->status === 404);
+$ar = $b->get('/admin/fotos/auswahl?n=60&q=' . rawurlencode('Foto 5'))->body . $b->get('/admin/fotos/auswahl-galerien')->body . $b->get('/admin/fotos/auswahl-galerie/' . $g1)->body;
+check('Fable: Auswahl-Antworten enthalten nie Originalpfad, Sicherungssumme, Token, EXIF', !preg_match('~GEHEIMPFAD|orig/|"sha|"token|exif|48\.137~i', $ar) && str_starts_with($b->get('/admin/fotos/auswahl')->headers['Content-Type'] ?? '', 'application/json'));
