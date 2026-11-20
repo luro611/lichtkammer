@@ -96,7 +96,11 @@ window.LKPreview = function (api) {
     inflight = false;
     panel.removeAttribute('aria-busy');
     var d = new Date();
-    status.textContent = 'Aktualisiert um ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + ':' + ('0' + d.getSeconds()).slice(-2) + ' Uhr.';
+    // Fehlerseiten der Route tragen data-lk-fehler am <body>: dann die Meldung oben zeigen, nicht „Aktualisiert“ (Prüfung 42, N3)
+    var err = '';
+    try { var bd = frame.contentDocument && frame.contentDocument.body; err = bd && bd.hasAttribute('data-lk-fehler') ? (bd.textContent || '').trim() : ''; } catch (e) { err = ''; }
+    status.textContent = err ? 'Vorschau nicht aktualisiert: ' + err : 'Aktualisiert um ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + ':' + ('0' + d.getSeconds()).slice(-2) + ' Uhr.';
+    if (err) { say(status.textContent); }
     if (queued) { queued = false; schedule(); }
   }
   frame.addEventListener('load', function () {
@@ -106,6 +110,8 @@ window.LKPreview = function (api) {
   });
 
   api.onChange(schedule);
-  api.form.addEventListener('input', schedule);
-  api.form.addEventListener('change', schedule);
+  // Suche im Seitenstreifen und Knöpfe der Vorschau selbst ändern die Seite nicht (Prüfung 42, N2)
+  var fromPage = function (e) { var t = e.target; if (!(t && t.closest && t.closest('.emat,.epreview'))) { schedule(); } };
+  api.form.addEventListener('input', fromPage);
+  api.form.addEventListener('change', fromPage);
 };

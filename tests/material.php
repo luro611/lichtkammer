@@ -144,6 +144,7 @@ $rx = $live($b, ['blocks' => $J([['t' => 'text', 'text' => '<img src=x onerror=a
 check('Vorschau live: Skript-Adressen und HTML in Blöcken kommen nicht roh in die Seite', !str_contains($rx->body, '<img src=x') && !str_contains($rx->body, 'href="javascript:'));
 check('Vorschau live: Fehlerseiten tragen ebenfalls die strenge CSP', str_contains((string) ($ru->headers['Content-Security-Policy'] ?? ''), "default-src 'none'") && ($ru->headers['X-Frame-Options'] ?? '') === 'SAMEORIGIN');
 check('Vorschau live: auch die Fehlfälle schreiben nichts', $snapshot() === $before);
+check('Prüfung 42 N3: Fehlerseiten tragen data-lk-fehler (der Editor zeigt die Meldung oben statt „Aktualisiert“), normale Vorschau nicht', str_contains($ru->body, '<body data-lk-fehler>') && str_contains($live($b, ['blocks' => '', 'ziel' => "page:$pgId"])->body, 'data-lk-fehler') && !str_contains($r->body, 'data-lk-fehler'));
 // Ratenbegrenzung (300 je 15 Minuten und Konto)
 $lim = null;
 for ($i = 0; $i < 310 && $lim === null; $i++) {
@@ -152,7 +153,7 @@ for ($i = 0; $i < 310 && $lim === null; $i++) {
         $lim = $x;
     }
 }
-check('Vorschau live: Ratenbegrenzung greift (429 mit Retry-After und sandbox), Administrator nicht betroffen', $lim !== null && isset($lim->headers['Retry-After']) && str_contains((string) ($lim->headers['Content-Security-Policy'] ?? ''), 'sandbox') && $live($b, ['blocks' => $neu, 'ziel' => "page:$pgId"])->status === 200);
+check('Vorschau live: Ratenbegrenzung greift (429 mit Retry-After und sandbox), Administrator nicht betroffen', $lim !== null && str_contains($lim->body, 'data-lk-fehler') && isset($lim->headers['Retry-After']) && str_contains((string) ($lim->headers['Content-Security-Policy'] ?? ''), 'sandbox') && $live($b, ['blocks' => $neu, 'ziel' => "page:$pgId"])->status === 200);
 
 // --- Editor-Seiten und Skripte ---
 $pageHtml = $b->get("/admin/seiten/$pgId")->body;
@@ -168,6 +169,10 @@ $jsM = (string) file_get_contents(dirname(__DIR__) . '/public/assets/js/page-mat
 $jsE = (string) file_get_contents(dirname(__DIR__) . '/public/assets/js/page-editor.js');
 check('Material-Skript: Weg ohne Maus („Wohin?“, Enter/Leertaste auf der Kachel)', str_contains($jsM, 'Wohin?') && str_contains($jsM, "e.key === 'Enter'") && str_contains($jsM, 'aria-label'));
 check('Editor-Skript: nur eigene Zieh-Daten gelten (Kennung), Fremddateien werden ignoriert', str_contains($jsE, "indexOf.call(e.dataTransfer.types || [], MIME)"));
+// Prüfung 42 (im Browser nachgestellt, hier nur als Wächter gegen Rückbau): Rückgängig nach „Foto einsetzen“, „Mehr laden“, Vorschau-Auslöser
+check('Prüfung 42 B1: Foto einsetzen markiert den Block (_r) für Rückgängig, keepContent überspringt ihn', str_contains($jsE, "b._r = 1;\n    pushUndo();\n    delete b._r;") && str_contains($jsE, 'if (b && b._r) { delete b._r; c = null; }'));
+check('Prüfung 42 N1: „Mehr laden“ gesperrt, solange geladen wird; keine doppelten Kacheln', str_contains($jsM, 'if (!reset && more.disabled) { return; }') && str_contains($jsM, 'if (shown[r.id]) { return; }'));
+check('Prüfung 42 N2/N3: Suche im Streifen löst keine Vorschau aus; Fehlerseiten werden erkannt', str_contains($jsP, "closest('.emat,.epreview')") && str_contains($jsP, "hasAttribute('data-lk-fehler')"));
 
 // --- Prüfung Fable (Bericht 43): Angriffsversuche gegen die Vorschau-Route und die Auswahl-Routen ---
 $db->run("UPDATE photos SET original_name = 'GEHEIMNAME.jpg', original_path = 'orig/GEHEIMPFAD', exif_json = '{\"gps\":\"48.137,11.575\"}', place = 'GEHEIMORT', title = ?, alt_text = ?, caption = ? WHERE id = ?", ['T"><img src=x onerror=alert(1)>', 'A"><svg onload=alert(2)>', 'C<script>alert(3)</script>', $ids[5]]);

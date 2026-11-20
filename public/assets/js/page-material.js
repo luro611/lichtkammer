@@ -101,21 +101,32 @@ window.LKMaterial = function (api) {
     return li;
   }
 
+  var shown = {}; // Ids, die schon als Kachel stehen (neue Fotos verschieben die Seiten; keine Doppelten)
   function load(reset) {
-    if (reset) { page = 1; grid.textContent = ''; } else { page++; }
+    // „Mehr laden“ nur, wenn gerade nichts lädt: ein Doppelklick würde sonst eine Seite überspringen (Prüfung 42, N1)
+    if (!reset && more.disabled) { return; }
+    var want = reset ? 1 : page + 1;
+    if (reset) { page = 1; grid.textContent = ''; shown = {}; }
     var my = ++seq;
+    more.disabled = true;
     info.textContent = 'Lädt …';
-    var url = (mode === 'photos' ? photoUrl + '?n=60&' : galUrl + '?') + 'q=' + encodeURIComponent(q.value) + '&seite=' + page;
+    var url = (mode === 'photos' ? photoUrl + '?n=60&' : galUrl + '?') + 'q=' + encodeURIComponent(q.value) + '&seite=' + want;
     var isGal = mode === 'galleries';
     fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
       .then(function (r) { if (!r.ok) { throw new Error('x'); } return r.json(); })
       .then(function (d) {
         if (my !== seq) { return; }
-        (d.rows || []).forEach(function (r) { grid.appendChild(card(r, isGal)); });
+        page = want;
+        more.disabled = false;
+        (d.rows || []).forEach(function (r) {
+          if (shown[r.id]) { return; }
+          shown[r.id] = true;
+          grid.appendChild(card(r, isGal));
+        });
         more.hidden = !d.more;
         info.textContent = grid.children.length ? '' : (isGal ? 'Keine passenden Galerien gefunden.' : 'Keine passenden Fotos gefunden.');
       })
-      .catch(function () { if (my === seq) { info.textContent = 'Das Material konnte nicht geladen werden. Bitte noch einmal versuchen.'; } });
+      .catch(function () { if (my === seq) { more.disabled = false; info.textContent = 'Das Material konnte nicht geladen werden. Bitte noch einmal versuchen.'; } });
   }
   q.addEventListener('input', function () { clearTimeout(timer); timer = setTimeout(function () { load(true); }, 250); });
 

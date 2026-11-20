@@ -504,7 +504,7 @@ trait SitePages
 
     private function previewFrame(string $message, int $status): Response
     {
-        $html = '<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Vorschau</title></head><body><p>' . htmlspecialchars($message, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</p></body></html>';
+        $html = '<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Vorschau</title></head><body data-lk-fehler><p>' . htmlspecialchars($message, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</p></body></html>';
         return Response::html($html, $status)->withHeaders($this->previewHeaders());
     }
 

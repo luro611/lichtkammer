@@ -187,6 +187,8 @@
   function keepContent(list, m) {
     list.forEach(function (b) {
       var c = b && b._id ? m[b._id] : null;
+      // _r: Block, in den ein Foto eingesetzt wurde (setPhoto); hier gilt der alte Inhalt, sonst wäre Rückgängig wirkungslos (Prüfung 42, B1)
+      if (b && b._r) { delete b._r; c = null; }
       if (c && c.t === b.t) {
         Object.keys(c).forEach(function (k) { if (k !== 'left' && k !== 'right' && k !== '_c') { b[k] = c[k]; } });
       }
@@ -202,6 +204,8 @@
     keepContent(prev, byId(state, {}));
     state = prev;
     dirty = true;
+    stickyHint = '';
+    hint('');
     hideBar();
     renderAll();
     updateUndoBtn();
@@ -317,7 +321,9 @@
   // Foto in einen vorhandenen Block einsetzen. Alt-Text und Bildunterschrift folgen dem neuen Foto, wenn sie noch die des alten waren oder leer sind.
   function setPhoto(b, ph) {
     if (!b || PHOTO_TYPES.indexOf(b.t) < 0) { return; }
+    b._r = 1;
     pushUndo();
+    delete b._r;
     var old = photos[b.photo] || null;
     remember(ph);
     if (!b.alt || (old && b.alt === old.a)) { b.alt = ph.a || ''; }
@@ -335,7 +341,8 @@
     insertAt(list, idx, 'gallery', allowed, function (nb) {
       rows.slice(0, 12).forEach(function (r) { remember(r); nb.photos.push({ photo: r.id, alt: r.a || '', decor: false }); });
     });
-    if ((g.total || rows.length) > 12) { say('Die Galerie hat ' + g.total + ' Fotos. Ein Raster fasst höchstens 12: die ersten 12 wurden übernommen.'); }
+    // sichtbar und angesagt; stickyHint, damit das Ende des Ziehens (dragend) den Hinweis nicht gleich löscht (Prüfung 42, N4)
+    if ((g.total || rows.length) > 12) { stickyHint = 'Die Galerie hat ' + g.total + ' Fotos. Ein Raster fasst höchstens 12: die ersten 12 wurden übernommen.'; hint(stickyHint); }
   }
   // Lebt die Liste noch im Zustand? (Nach Rückgängig oder Neuzeichnen gehört eine alte Liste nicht mehr dazu.)
   function listAlive(list) {
