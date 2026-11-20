@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-// Entwurf 29, Teil D: Seitenstreifen „Material“ (Fotos und Galerien).
+// Entwurf 29, Teile D und F: Seitenstreifen „Material“ (Fotos und Galerien) und Vorschau neben dem Editor (Route ohne Speichern).
 
 use Lichtkammer\Auth\ClientIp;
 use Lichtkammer\Site\Blocks;
@@ -85,15 +85,85 @@ try {
 }
 check('Ablegen: unbekannte Foto-Nummer wird abgelehnt', $nope !== null && str_contains($nope, 'gibt es nicht'));
 
+// --- Teil F: Vorschau neben dem Editor ---
 $b->post('/admin/seiten', ['_csrf' => $csrf, 'vorlage' => 'impressum']);
 $pgId = (int) $db->value("SELECT id FROM pages WHERE slug = 'impressum'");
+$saved = $J([['t' => 'text', 'text' => 'Gespeicherter Text']]);
+$b->post("/admin/seiten/$pgId/speichern", ['_csrf' => $csrf, 'title' => 'Impressum', 'slug' => 'impressum', 'body' => '', 'blocks' => $saved, 'status' => 'draft', 'nav' => 'footer']);
+$live = static fn (TestBrowser $br, array $post, ?string $tok = null) => $br->post('/admin/vorschau-live', $post + ['_csrf' => $tok ?? TestBrowser::csrf($br->get('/admin/seiten'))]);
+$snapshot = static function () use ($db): string {
+    $out = '';
+    foreach (['pages', 'photos', 'galleries', 'gallery_photos', 'photo_variants', 'meta', 'settings', 'audit_log', 'users', 'sessions'] as $t) {
+        if ($db->value("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?", [$t]) === null) {
+            continue;
+        }
+        $cols = array_column($db->all("PRAGMA table_info($t)"), 'name');
+        $skip = $t === 'sessions' ? ['last_seen_at', 'last_used_at', 'expires_at', 'idle_expires_at'] : [];
+        $cols = array_values(array_diff($cols, $skip));
+        $out .= $t . ':' . md5(json_encode($db->all('SELECT ' . implode(',', $cols) . " FROM $t ORDER BY 1")) ?: '') . ';';
+    }
+    return $out;
+};
+$before = $snapshot();
+$dirtyBefore = $db->value("SELECT v FROM meta WHERE k = 'site_dirty'");
+$storedBefore = (string) $db->value('SELECT blocks FROM pages WHERE id = ?', [$pgId]);
+$neu = $J([['t' => 'heading', 'level' => 2, 'text' => 'Nur in der Vorschau'], ['t' => 'text', 'text' => 'Ungespeicherter Text <script>x</script>'], ['t' => 'image', 'photo' => $ids[1], 'alt' => 'Alt 2', 'width' => 'normal']]);
+$r = $live($b, ['blocks' => $neu, 'ziel' => "page:$pgId"]);
+check('Vorschau live: 200, zeigt den ungespeicherten Stand (Überschrift, Text maskiert, Foto)', $r->status === 200 && str_contains($r->body, 'Nur in der Vorschau') && str_contains($r->body, 'Ungespeicherter Text') && !str_contains($r->body, '<script>x</script>') && str_contains($r->body, "v/{$ids[1]}-300.jpg") && !str_contains($r->body, 'Gespeicherter Text'));
+check('Vorschau live: schreibt nichts (Seiten, Fotos, Einstellungen, Protokoll, Merker „nicht veröffentlicht“ unverändert)', $snapshot() === $before && $db->value("SELECT v FROM meta WHERE k = 'site_dirty'") === $dirtyBefore && (string) $db->value('SELECT blocks FROM pages WHERE id = ?', [$pgId]) === $storedBefore);
+check('Vorschau live: öffentliche Seite unberührt (Entwurf nicht online)', $anon->get('/impressum/')->status !== 200 && !str_contains($anon->get('/impressum/')->body, 'Nur in der Vorschau'));
+$h = $r->headers;
+$csp = (string) ($h['Content-Security-Policy'] ?? '');
+check('Vorschau live: Kopfzeilen (kein Cache, nosniff, Rahmen nur eigene Herkunft, kein Referrer, noindex)', ($h['Cache-Control'] ?? '') === 'no-store' && ($h['X-Content-Type-Options'] ?? '') === 'nosniff' && ($h['X-Frame-Options'] ?? '') === 'SAMEORIGIN' && ($h['Referrer-Policy'] ?? '') === 'no-referrer' && str_contains((string) ($h['X-Robots-Tag'] ?? ''), 'noindex'));
+check('Vorschau live: CSP mit sandbox, ohne Skripterlaubnis, Bilder/Stile nur von sich, Rahmen nur eigene Herkunft', str_contains($csp, "default-src 'none'") && str_contains($csp, 'sandbox') && !str_contains($csp, 'allow-scripts') && !str_contains($csp, 'script-src') && str_contains($csp, "img-src 'self' data:") && str_contains($csp, "style-src 'self'") && str_contains($csp, "frame-ancestors 'self'") && !preg_match('~https?://|\*|unsafe~', $csp));
+check('Vorschau live: Links öffnen nirgends (base target), kein fremdes Ziel eingebaut', str_contains($r->body, '<base target="_blank">') && !preg_match('~(src=|<link[^>]*href=)["\']https?://~', $r->body));
+check('Vorschau live: Titel und Adresse nicht aus der Eingabe (Zusatzfelder werden nicht beachtet)', !str_contains($live($b, ['blocks' => $neu, 'ziel' => "page:$pgId", 'title' => 'ZZtitelZZ', 'slug' => '../../etc'])->body, 'ZZtitelZZ'));
+$gesp = $b->get('/admin/vorschau/impressum');
+check('Vorschau live: gleicher Renderer wie die gespeicherte Vorschau (gespeicherte Blöcke ergeben dieselbe Seite)', $gesp->status === 200 && str_replace('<base target="_blank">', '', $live($b, ['blocks' => $saved, 'ziel' => "page:$pgId"])->body) === $gesp->body);
+// Startseite
+$hs = $J([['t' => 'heading', 'level' => 2, 'text' => 'Startseite live'], ['t' => 'hero', 'photo' => $ids[2], 'alt' => 'Alt 3', 'decor' => false, 'title' => 'Titel live']]);
+$rh = $live($b, ['blocks' => $hs, 'ziel' => 'home']);
+check('Vorschau live: Startseite (Titelbild nur dort erlaubt), nichts gespeichert', $rh->status === 200 && str_contains($rh->body, 'Startseite live') && str_contains($rh->body, 'Titel live') && $snapshot() === $before);
+check('Vorschau live: Titelbild-Block auf einer normalen Seite wird abgelehnt', $live($b, ['blocks' => $hs, 'ziel' => "page:$pgId"])->status === 422);
+$b->post('/admin/startseite', ['_csrf' => $csrf, 'blocks' => $hs]);
+$hs2 = $b->get('/admin/vorschau');
+check('Vorschau live: Startseite = gespeicherte Vorschau, wenn dieselben Blöcke (alte Seiten byte-gleich)', str_replace('<base target="_blank">', '', $live($b, ['blocks' => $hs, 'ziel' => 'home'])->body) === $hs2->body);
+$before = $snapshot();
+// Rechte und Schutz
+check('Vorschau live: ohne Anmeldung 303 zur Anmeldung', ($x = $anon->post('/admin/vorschau-live', ['blocks' => $neu, 'ziel' => "page:$pgId", '_csrf' => 'x']))->status === 303 && str_contains($x->headers['Location'] ?? '', '/admin/login') && !str_contains($x->body, 'Nur in der Vorschau'));
+check('Vorschau live: Redaktion erlaubt (wie die gespeicherte Vorschau)', $live($ed, ['blocks' => $neu, 'ziel' => "page:$pgId"], $csrfEd)->status === 200 && $ed->get('/admin/vorschau/impressum')->status === 200);
+check('Vorschau live: ohne CSRF-Token 403', $b->post('/admin/vorschau-live', ['blocks' => $neu, 'ziel' => "page:$pgId"])->status === 403 && $b->post('/admin/vorschau-live', ['blocks' => $neu, 'ziel' => "page:$pgId", '_csrf' => 'falsch'])->status === 403);
+check('Vorschau live: nur POST (GET gibt es nicht)', $b->get('/admin/vorschau-live')->status === 404);
+$big = $J([['t' => 'text', 'text' => str_repeat('a', 20000)], ['t' => 'text', 'text' => str_repeat('b', 20000)]]) . str_repeat(' ', Blocks::MAX_JSON);
+$rb = $live($b, ['blocks' => $big, 'ziel' => "page:$pgId"]);
+check('Vorschau live: zu große Eingabe abgelehnt (413), ohne Rendern', $rb->status === 413 && !str_contains($rb->body, 'aaaa') && str_contains((string) ($rb->headers['Content-Security-Policy'] ?? ''), 'sandbox'));
+check('Vorschau live: kaputtes JSON, fehlende Blöcke, falsches Ziel → Meldung ohne Absturz', $live($b, ['blocks' => '{kaputt', 'ziel' => "page:$pgId"])->status === 422 && $live($b, ['blocks' => '', 'ziel' => "page:$pgId"])->status === 400 && $live($b, ['blocks' => $neu, 'ziel' => 'x'])->status === 400 && $live($b, ['blocks' => $neu, 'ziel' => 'page:../1'])->status === 400 && $live($b, ['blocks' => $neu, 'ziel' => 'page:99999'])->status === 404);
+$ru = $live($b, ['blocks' => $J([['t' => 'image', 'photo' => 999999, 'alt' => 'x']]), 'ziel' => "page:$pgId"]);
+check('Vorschau live: unbekannte Foto-Nummer → Meldung, kein Bild, nichts gebaut', $ru->status === 422 && str_contains($ru->body, 'gibt es nicht') && !str_contains($ru->body, '/media/'));
+$rx = $live($b, ['blocks' => $J([['t' => 'text', 'text' => '<img src=x onerror=alert(1)>'], ['t' => 'button', 'label' => 'k', 'href' => 'javascript:alert(1)']]), 'ziel' => "page:$pgId"]);
+check('Vorschau live: Skript-Adressen und HTML in Blöcken kommen nicht roh in die Seite', !str_contains($rx->body, '<img src=x') && !str_contains($rx->body, 'href="javascript:'));
+check('Vorschau live: Fehlerseiten tragen ebenfalls die strenge CSP', str_contains((string) ($ru->headers['Content-Security-Policy'] ?? ''), "default-src 'none'") && ($ru->headers['X-Frame-Options'] ?? '') === 'SAMEORIGIN');
+check('Vorschau live: auch die Fehlfälle schreiben nichts', $snapshot() === $before);
+// Ratenbegrenzung (300 je 15 Minuten und Konto)
+$lim = null;
+for ($i = 0; $i < 310 && $lim === null; $i++) {
+    $x = $live($ed, ['blocks' => $J([['t' => 'text', 'text' => 'x']]), 'ziel' => "page:$pgId"], $csrfEd);
+    if ($x->status === 429) {
+        $lim = $x;
+    }
+}
+check('Vorschau live: Ratenbegrenzung greift (429 mit Retry-After und sandbox), Administrator nicht betroffen', $lim !== null && isset($lim->headers['Retry-After']) && str_contains((string) ($lim->headers['Content-Security-Policy'] ?? ''), 'sandbox') && $live($b, ['blocks' => $neu, 'ziel' => "page:$pgId"])->status === 200);
+
 // --- Editor-Seiten und Skripte ---
 $pageHtml = $b->get("/admin/seiten/$pgId")->body;
-check('Editor-Seite: Skript und Quellen eingebunden', str_contains($pageHtml, '/assets/js/page-material.js') && str_contains($pageHtml, 'data-gal-url="/admin/fotos/auswahl-galerien"') && str_contains($pageHtml, 'data-gal-photos-url="/admin/fotos/auswahl-galerie"'));
-foreach (['page-material.js', 'page-editor.js'] as $jsFile) {
+check('Editor-Seite: Skripte, Quellen und Vorschau-Ziel eingebunden', str_contains($pageHtml, '/assets/js/page-material.js') && str_contains($pageHtml, '/assets/js/page-preview.js') && str_contains($pageHtml, 'data-gal-url="/admin/fotos/auswahl-galerien"') && str_contains($pageHtml, 'data-gal-photos-url="/admin/fotos/auswahl-galerie"') && str_contains($pageHtml, 'data-preview-url="/admin/vorschau-live"') && str_contains($pageHtml, 'data-preview-target="page:' . $pgId . '"'));
+check('Startseiten-Editor: Ziel „home“', str_contains($b->get('/admin/startseite')->body, 'data-preview-target="home"'));
+foreach (['page-material.js', 'page-preview.js', 'page-editor.js'] as $jsFile) {
     $js = (string) file_get_contents(dirname(__DIR__) . '/public/assets/js/' . $jsFile);
     check("Skript $jsFile: kein innerHTML, kein eval, keine fremden Adressen", !preg_match('~innerHTML|outerHTML|insertAdjacentHTML|eval\(|document\.write~i', $js) && !preg_match('~(src|href)\s*=\s*[\'"]https?://~i', $js));
 }
+$jsP = (string) file_get_contents(dirname(__DIR__) . '/public/assets/js/page-preview.js');
+check('Vorschau-Skript: Rahmen ohne Skripterlaubnis (sandbox nur allow-same-origin), kein allow-scripts/allow-top-navigation/allow-popups', str_contains($jsP, "setAttribute('sandbox', 'allow-same-origin')") && !preg_match('~allow-(scripts|top-navigation|popups|forms|modals)~', $jsP));
 $jsM = (string) file_get_contents(dirname(__DIR__) . '/public/assets/js/page-material.js');
 $jsE = (string) file_get_contents(dirname(__DIR__) . '/public/assets/js/page-editor.js');
 check('Material-Skript: Weg ohne Maus („Wohin?“, Enter/Leertaste auf der Kachel)', str_contains($jsM, 'Wohin?') && str_contains($jsM, "e.key === 'Enter'") && str_contains($jsM, 'aria-label'));

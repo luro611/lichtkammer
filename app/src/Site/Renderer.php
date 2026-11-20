@@ -467,9 +467,13 @@ final class Renderer
         return $this->view->fragment('site/' . $tpl, ['h' => $this] + $vars);
     }
 
-    public function home(): string
+    /** @param list<array<string,mixed>>|null $override Blöcke statt der gespeicherten Startseite (Vorschau neben dem Editor, nichts wird gespeichert) */
+    public function home(?array $override = null): string
     {
         $d = $this->data();
+        if ($override !== null) {
+            $d['home'] = $override;
+        }
         $name = (string) $d['settings']['site_name'];
         $image = $d['hero'];
         if ($d['home'] !== null) {

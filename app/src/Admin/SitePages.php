@@ -445,6 +445,70 @@ trait SitePages
     }
 
     /**
+     * Vorschau neben dem Editor (Entwurf 29, Teil F): zeigt die Blöcke aus der Anfrage so, wie sie online aussähen, ohne etwas zu speichern.
+     * Kein Schreiben in Datenbank oder Dateien (nur der Ratenzähler), keine Pfade aus der Eingabe: Titel und Adresse kommen aus der Datenbank,
+     * Fotos werden nur über ihre Nummer aufgelöst. Die Antwort darf nur in einem Rahmen derselben Adresse stehen und führt kein Skript aus.
+     */
+    public function previewLive(Request $req, array $p, ?array $sess): Response
+    {
+        $g = $this->s->limiter->gate([['kind' => 'preview_live', 'key' => $this->s->limiter->key('preview_live', (string) (int) $sess['user_id']), 'lock' => 300, 'delay' => false]], false, 1, 1);
+        if (!$g['ok']) {
+            return $this->previewFrame('Zu viele Aktualisierungen in kurzer Zeit. In etwa ' . max(1, (int) ceil($g['retry'] / 60)) . ' Minute(n) geht es weiter.', 429)->withHeaders(['Retry-After' => (string) max(1, $g['retry'])]);
+        }
+        $raw = $req->input('blocks');
+        if ($raw === '' || strlen($raw) > Blocks::MAX_JSON) {
+            return $this->previewFrame($raw === '' ? 'Es wurden keine Blöcke übermittelt.' : 'Die Seite ist zu groß für die Vorschau (höchstens 200 KB Inhalt).', $raw === '' ? 400 : 413);
+        }
+        $target = $req->input('ziel');
+        $home = $target === 'home';
+        $id = preg_match('/^page:([0-9]{1,9})$/', $target, $m) === 1 ? (int) $m[1] : 0;
+        if (!$home && $id <= 0) {
+            return $this->previewFrame('Unbekanntes Ziel für die Vorschau.', 400);
+        }
+        try {
+            $list = Blocks::parse($raw, $this->s->db, $home);
+        } catch (MediaException $e) {
+            return $this->previewFrame('Vorschau nicht möglich: ' . $e->getMessage(), 422);
+        }
+        $r = $this->s->builder->renderer(true, '/admin/vorschau');
+        if ($home) {
+            $html = $r->home($list);
+        } else {
+            $pg = null;
+            foreach ($r->data()['pages'] as $cand) {
+                if ((int) $cand['id'] === $id) {
+                    $pg = $cand;
+                }
+            }
+            if ($pg === null) {
+                return $this->previewFrame('Diese Seite gibt es nicht (mehr).', 404);
+            }
+            $pg['block_list'] = $list;
+            $html = $r->page($pg);
+        }
+        // Links in der Vorschau führen nirgends hin (der Rahmen erlaubt keine neuen Fenster): neues Ziel „_blank“ ohne Erlaubnis dazu.
+        $html = preg_replace('/<head>/', '<head><base target="_blank">', $html, 1) ?? $html;
+        return Response::html($html)->withHeaders($this->previewHeaders());
+    }
+
+    /** @return array<string,string> */
+    private function previewHeaders(): array
+    {
+        return [
+            'Cache-Control' => 'no-store', 'Pragma' => 'no-cache', 'Referrer-Policy' => 'no-referrer', 'X-Robots-Tag' => 'noindex, nofollow',
+            'X-Content-Type-Options' => 'nosniff', 'X-Frame-Options' => 'SAMEORIGIN',
+            // kein Skript, keine fremden Quellen, nur Bilder, Stile und Schriften von der eigenen Herkunft; als Rahmeninhalt nur in der eigenen Verwaltung
+            'Content-Security-Policy' => "default-src 'none'; img-src 'self' data:; style-src 'self'; font-src 'self'; sandbox allow-same-origin; base-uri 'none'; form-action 'none'; frame-ancestors 'self'",
+        ];
+    }
+
+    private function previewFrame(string $message, int $status): Response
+    {
+        $html = '<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Vorschau</title></head><body><p>' . htmlspecialchars($message, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</p></body></html>';
+        return Response::html($html, $status)->withHeaders($this->previewHeaders());
+    }
+
+    /**
      * Was beim Veröffentlichen außer der eigenen Änderung mit online geht (aus dem Probelauf). Nur wenn es überhaupt noch nicht Veröffentlichtes
      * gibt, damit normale Seitenaufrufe nicht jedes Mal die ganze Seite durchrechnen.
      *

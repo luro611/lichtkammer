@@ -134,6 +134,7 @@ final class AdminController
         $r('GET', '/admin/vorschau', 'preview');
         $r('GET', '/admin/vorschau/{a}', 'preview');
         $r('GET', '/admin/vorschau/{a}/{b}', 'preview');
+        $r('POST', '/admin/vorschau-live', 'previewLive');
         $r('GET', '/admin/papierkorb', 'trash');
         $r('POST', '/admin/papierkorb', 'trashAction');
         $r('GET', '/admin/fotografen', 'photographers');
