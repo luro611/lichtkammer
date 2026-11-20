@@ -51,6 +51,8 @@ Vorher bereithalten: die Sicherung (Ordner), `LK_APP_KEY` aus dem Passwort-Manag
 - **Einspielen auf einem Server mit Konten:** nicht möglich (nur bei der Ersteinrichtung). Wer eine laufende Installation ersetzen will, setzt sie vorher zurück (Datenordner leeren) und beginnt bei Schritt 2.
 - **Docker:** gleiche Schritte; Bereitstellungsordner und Datenordner liegen im Volume `lk-data`, die Originale im Volume `lk-originals`.
 
+**Öffentliche Dateikopien (Entwurf 44):** Die Kopien unter `media/dateien/` und `media/dokumente/` sind abgeleitete Daten und stehen nicht im Paket. Nach dem Einspielen werden sie aus den privaten Originalen (`files/`) automatisch nachgezogen: beim ersten Öffnen von Medien, beim Öffnen der Seite „Veröffentlichen“ und vor jedem Veröffentlichen. `/admin/system` zeigt den Stand („Öffentliche Dateikopien“). Zeilen werden dabei nie geändert; fehlt das Original, wird nur gemeldet. In den Proben A und C zusätzlich prüfen: eine Seite mit Datei-Download öffnet die PDF.
+
 ## Wiederherstellungsprobe (Pflicht vor dem Livegang)
 
 1. Sicherung der Testinstallation ziehen (Verwaltung → Sicherung: Paket und alle Teile der Originale in **einen** Ordner legen, die `.tar`-Dateien müssen nicht entpackt werden).
