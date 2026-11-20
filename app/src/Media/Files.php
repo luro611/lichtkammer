@@ -335,6 +335,113 @@ HT;
         }
     }
 
+    // --- Öffentliche Kopien nachziehen (Entwurf 44, Stufe 1b) ---
+
+    /**
+     * Prüft alle öffentlichen Dateien: Name streng nach Muster, Kopie vorhanden? Nur Lesen.
+     *
+     * @param list<int>|null $onlyIds nur diese Dateien
+     * @return list<array{row:array<string,mixed>,rel:?string,state:string}> state: ok | bad_name | missing
+     */
+    private function scanPublic(?array $onlyIds = null): array
+    {
+        $sql = "SELECT * FROM files WHERE public = 1 AND deleted_at IS NULL";
+        $args = [];
+        if ($onlyIds !== null) {
+            if ($onlyIds === []) {
+                return [];
+            }
+            $sql .= ' AND id IN (' . implode(',', array_fill(0, count($onlyIds), '?')) . ')';
+            $args = array_map('intval', $onlyIds);
+        }
+        $out = [];
+        foreach ($this->db->all($sql . ' ORDER BY id', $args) as $row) {
+            $rel = self::publicRelOrNull($row);
+            $out[] = ['row' => $row, 'rel' => $rel, 'state' => $rel === null ? 'bad_name' : (is_file($this->mediaDir . '/' . $rel) ? 'ok' : 'missing')];
+        }
+        return $out;
+    }
+
+    /**
+     * Zustand der öffentlichen Kopien (nur Lesen, für die Systemprüfung).
+     *
+     * @return array{total:int,missing:int,no_original:int,bad_name:int}
+     */
+    public function publicCopyStatus(): array
+    {
+        $st = ['total' => 0, 'missing' => 0, 'no_original' => 0, 'bad_name' => 0];
+        foreach ($this->scanPublic() as $x) {
+            $st['total']++;
+            if ($x['state'] === 'bad_name') {
+                $st['bad_name']++;
+            } elseif ($x['state'] === 'missing') {
+                $st['missing']++;
+                $st['no_original'] += $this->absolute($x['row']) === null ? 1 : 0;
+            }
+        }
+        return $st;
+    }
+
+    /**
+     * Fehlende öffentliche Kopien aus den privaten Originalen nachziehen (nach einer Wiederherstellung auf einem neuen Server fehlen sie,
+     * weil die Sicherung nur die privaten Originale enthält). Ändert NUR Dateien, nie Zeilen: Fehlt das Original, bleibt die Zeile wie sie ist
+     * und wird nur gezählt (Prüfung 45, B1). Namen nur nach Muster (nie ein Pfad aus der Datenbank ohne Prüfung), SVG nur, wenn der Webserver den
+     * Schutzkopf bestätigt (E13), geschrieben wird atomar über eine Temporärdatei.
+     *
+     * @param list<int>|null $onlyIds nur diese Dateien
+     * @return array{repaired:int,no_original:int,bad_name:int,svg_skipped:int,failed:int}
+     */
+    public function repairPublicCopies(int $limit = 100, ?array $onlyIds = null): array
+    {
+        $r = ['repaired' => 0, 'no_original' => 0, 'bad_name' => 0, 'svg_skipped' => 0, 'failed' => 0];
+        $svgOk = null;
+        foreach ($this->scanPublic($onlyIds) as $x) {
+            if ($x['state'] === 'bad_name') {
+                $r['bad_name']++;
+                continue;
+            }
+            if ($x['state'] === 'ok') {
+                continue;
+            }
+            if ($r['repaired'] >= $limit) {
+                break;
+            }
+            $row = $x['row'];
+            $src = $this->absolute($row);
+            if ($src === null) {
+                $r['no_original']++;
+                continue;
+            }
+            if ($row['kind'] === 'svg') {
+                $svgOk ??= $this->svgHeadersWork();
+                if (!$svgOk) {
+                    $r['svg_skipped']++;
+                    continue;
+                }
+            }
+            $target = $this->mediaDir . '/' . $x['rel'];
+            $dir = dirname($target);
+            try {
+                if (str_starts_with((string) $x['rel'], 'dateien/')) {
+                    $this->prepareCopyDir($dir); // legt auch die .htaccess an (kein PHP, feste Typen, SVG-Schutzkopf)
+                } elseif (!is_dir($dir) && !@mkdir($dir, 0755, true) && !is_dir($dir)) {
+                    throw new MediaException('Ordner fehlt');
+                }
+                // media/dokumente hat keine eigene .htaccess; es gilt die allgemeine in public/media (kein PHP), und das Muster lässt nur .pdf zu.
+                $tmp = $dir . '/.tmp' . bin2hex(random_bytes(4));
+                if (!@copy($src, $tmp) || (is_file($target) ? !@unlink($tmp) : !@rename($tmp, $target))) {
+                    @unlink($tmp);
+                    throw new MediaException('Kopie fehlgeschlagen');
+                }
+                @chmod($target, 0644);
+                $r['repaired']++;
+            } catch (MediaException) {
+                $r['failed']++;
+            }
+        }
+        return $r;
+    }
+
     /** Selbsttest: liefert der Webserver für SVG in media/dateien/ den Schutzkopf? Ergebnis eine Stunde lang gemerkt. */
     public function svgHeadersWork(): bool
     {

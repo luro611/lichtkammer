@@ -129,6 +129,7 @@ trait MedienPages
         }
         $this->s->folders->finishTrashWithin($this->config->mediaDir(), 3.0);
         $this->s->files->unpublishTrashed();
+        $this->s->files->repairPublicCopies(); // fehlende öffentliche Kopien nachziehen (nach Wiederherstellung)
     }
 
     // --- Ordner und Einträge ---

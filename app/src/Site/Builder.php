@@ -6,6 +6,7 @@ namespace Lichtkammer\Site;
 use Lichtkammer\Auth\Clock;
 use Lichtkammer\Auth\Database;
 use Lichtkammer\Config;
+use Lichtkammer\Media\Files;
 use Lichtkammer\View;
 
 /**
@@ -30,6 +31,7 @@ final class Builder
         private readonly View $view,
         private readonly Settings $settings,
         private readonly string $dataDir,
+        private readonly ?Files $files = null,
     ) {
     }
 
@@ -169,6 +171,7 @@ final class Builder
             foreach (glob($site . '/building-*', GLOB_ONLYDIR) ?: [] as $stale) {
                 self::removeDir($stale);
             }
+            $this->files?->repairPublicCopies(200); // fehlende öffentliche Kopien (z. B. nach einer Wiederherstellung) selbst nachziehen, bevor geprüft wird
             $r = $this->renderer();
             $files = $r->all();
             if ($r->errors !== []) {

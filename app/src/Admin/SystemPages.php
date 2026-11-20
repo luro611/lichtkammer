@@ -11,7 +11,7 @@ trait SystemPages
 {
     public function systemPage(Request $req, array $p, ?array $sess): Response
     {
-        $items = SystemCheck::run($this->config, $this->s->db, $this->s->clock, $this->s->dataDir);
+        $items = SystemCheck::run($this->config, $this->s->db, $this->s->clock, $this->s->dataDir, $this->s->files);
         $st = $this->variants()->status(); // volle Prüfung der Dateien, nicht der Zwischenspeicher des Warnbands
         $items[] = ['level' => $st['ok'] === $st['total'] ? 'ok' : 'warn', 'title' => 'Bildvarianten', 'text' => $st['ok'] . ' von ' . $st['total'] . ' Fotos haben Bildvarianten'
             . ($st['ok'] === $st['total'] ? '' : '. Die übrigen erscheinen nicht auf der Seite: Verwaltung → Bildvarianten (/admin/varianten) erzeugt sie neu.')];

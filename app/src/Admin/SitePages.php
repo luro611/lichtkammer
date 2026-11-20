@@ -386,6 +386,7 @@ trait SitePages
     private function publishView(?array $sess, ?string $error = null, ?string $ok = null, int $status = 200): Response
     {
         $b = $this->s->builder;
+        $this->s->files->repairPublicCopies(200); // fehlende öffentliche Kopien nachziehen, bevor der Probelauf sie als Fehler meldet
         $plan = $b->plan();
         // Zähler bleibt „Speichervorgänge“ (wie im Band); der Probelauf entscheidet nur, ob überhaupt etwas offen ist.
         $open = $plan['changes'] !== [] || $b->current() === null;

@@ -116,7 +116,9 @@ foreach ($bad as $label => $break) {
     $pvx = $b->get('/admin/vorschau/preise')->body;
     $text = implode(' ', $plan['errors']);
     check("Bau ($label): harter Fehler mit Seite und Block, Vorschau ohne Link", str_contains($text, 'Seite „Preise“, Block 2:') && str_contains($pvx, 'Datei nicht verfügbar') && !str_contains($pvx, 'href="/media/dateien/' . $pubName) && !str_contains($pvx, '../') && !str_contains($pvx, 'dokumente/'));
-    check("Bau ($label): Veröffentlichen wird verweigert, die aktive Fassung bleibt", $svc->builder->publish(1)['code'] === 'fehler' && $svc->builder->current() === $rel);
+    if ($label !== 'Kopie fehlt') { // fehlende Kopien zieht das Veröffentlichen selbst nach (Stufe 1b, tests/dateikopien.php)
+        check("Bau ($label): Veröffentlichen wird verweigert, die aktive Fassung bleibt", $svc->builder->publish(1)['code'] === 'fehler' && $svc->builder->current() === $rel);
+    }
 }
 // Wieder heil machen
 $db->run('DELETE FROM files WHERE id = ?', [$idPub]);

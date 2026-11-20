@@ -8,6 +8,7 @@ use Lichtkammer\Auth\Database;
 use Lichtkammer\Auth\Preflight;
 use Lichtkammer\Auth\Schema;
 use Lichtkammer\Config;
+use Lichtkammer\Media\Files;
 
 /**
  * Systemprüfung (Entwurf 20, 1.6): dieselben Grundlagen wie die Startprüfung, als Liste für Administratoren. Zeigt nur
@@ -22,7 +23,7 @@ final class SystemCheck
     private const DISK_CACHE = 86400;
 
     /** @return list<array{level:string,title:string,text:string}> */
-    public static function run(Config $config, Database $db, Clock $clock, ?string $dataDirReal): array
+    public static function run(Config $config, Database $db, Clock $clock, ?string $dataDirReal, ?Files $files = null): array
     {
         $o = [];
         $add = static function (string $level, string $title, string $text) use (&$o): void {
@@ -95,6 +96,15 @@ final class SystemCheck
         $add($diskWarn === null ? 'ok' : 'warn', 'Speicherplatz', 'Daten, Originale und Bilder belegen ' . self::human($used)
             . ($free !== false && $total !== false && $total > 0 ? '; auf dem Laufwerk sind ' . self::human((int) $free) . ' von ' . self::human((int) $total) . ' frei (auf geteilten Servern zeigt das oft das ganze Laufwerk, nicht Ihren Anteil)' : '')
             . ($config->int('LK_DISK_WARN_GB', 0) > 0 ? '; Warnung ab ' . $config->int('LK_DISK_WARN_GB', 0) . ' GB' : ''));
+
+        // Öffentliche Dateikopien (Entwurf 44): nach einer Wiederherstellung fehlen sie, bis sie nachgezogen werden
+        if ($files !== null) {
+            $c = $files->publicCopyStatus();
+            $bad = $c['missing'] + $c['bad_name'];
+            $add($bad === 0 ? 'ok' : 'warn', 'Öffentliche Dateikopien', $c['total'] === 0 ? 'keine öffentlichen Dateien' : ($c['total'] - $bad) . ' von ' . $c['total'] . ' öffentlichen Dateien sind vorhanden'
+                . ($c['missing'] > 0 ? '; ' . $c['missing'] . ' fehlen und werden beim Öffnen von Medien oder beim Veröffentlichen ergänzt' . ($c['no_original'] > 0 ? ' (bei ' . $c['no_original'] . ' fehlt auch das private Original: bitte neu hochladen oder aus der Sicherung holen)' : '') : '')
+                . ($c['bad_name'] > 0 ? '; ' . $c['bad_name'] . ' haben einen ungültigen Namen in der Datenbank (werden nie ausgeliefert, bitte neu öffentlich schalten)' : ''));
+        }
 
         // Sicherung
         $last = $db->value("SELECT v FROM meta WHERE k = 'last_backup_at'");

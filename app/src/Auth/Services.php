@@ -85,7 +85,7 @@ final class Services
         $catalog = new Catalog($db, $clock, $library, $config->originalsDir(), $config->mediaDir());
         $pages = new Pages($db, $clock);
         $settings = new Settings($db, $config);
-        $builder = new Builder($db, $config, $clock, new View($config->appDir . '/templates', $config), $settings, $dataDir);
+        $builder = new Builder($db, $config, $clock, new View($config->appDir . '/templates', $config), $settings, $dataDir, $files);
         $importer = new Importer($db, $clock, $library, $galleries, $catalog, $pages, $settings, $config->importDir(), $config->mediaDir());
         $branch = new Branch($db, $clock, $folders, $catalog, $files);
         $browser = new Browser($db);
