@@ -412,7 +412,7 @@ HT;
                 $r['no_original']++;
                 continue;
             }
-            if ($row['kind'] === 'svg') {
+            if ($row['kind'] === 'svg' || str_ends_with((string) $x['rel'], '.svg')) { // auch nach der Endung: handveränderte Art darf den Schutzkopf-Test nicht umgehen
                 $svgOk ??= $this->svgHeadersWork();
                 if (!$svgOk) {
                     $r['svg_skipped']++;

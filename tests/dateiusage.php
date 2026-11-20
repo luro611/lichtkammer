@@ -21,6 +21,12 @@ $put = static function (string $tag, string $name, int $folder = 0) use ($svc, $
     file_put_contents($p, $pdf($tag));
     return $svc->files->ingest(1, $p, $name, $folder)['file_id'];
 };
+// Felder der Bestätigungsseite so zurückschicken, wie es ein Browser tut (PHP-Regeln für Namen mit []): Prüfung 46, B1
+$again = static function (string $body): array {
+    preg_match_all('/<input type="hidden" name="([^"]+)" value="([^"]*)">/', html_entity_decode($body, ENT_QUOTES), $m, PREG_SET_ORDER);
+    parse_str(implode('&', array_map(static fn (array $x): string => $x[1] . '=' . rawurlencode($x[2]), $m)), $out);
+    return $out;
+};
 $dirty = static fn (): string => (string) ($db->value("SELECT v FROM meta WHERE k = 'site_dirty_n'") ?? '');
 
 $fo = $svc->folders->create(0, 'Dokumente');
@@ -77,10 +83,12 @@ $svc->files->setPublic($used, true);
 // Papierkorb einer Auswahl und eines Ordners (Menge aus dem Unterbaum)
 $r = $b->post('/admin/medien/loeschen', ['_csrf' => $cs(), 'ordner' => '0', 'ordner_id' => [(string) $fo]]);
 check('Papierkorb: Ordner mit benutzter Datei im Unterordner fragt nach, nichts geändert (N1)', $r->status === 200 && str_contains($r->body, 'Das wird noch') && $db->value('SELECT deleted_at FROM files WHERE id = ?', [$used]) === null && $db->value('SELECT deleted_at FROM folders WHERE id = ?', [$fo]) === null);
-check('Papierkorb: Bestätigungsseite wiederholt die Auswahl', str_contains($r->body, 'name="ordner_id" value="' . $fo . '"'));
+check('Papierkorb: Bestätigungsseite wiederholt die Auswahl', str_contains($r->body, 'name="ordner_id[]" value="' . $fo . '"'));
+$back = $again($r->body);
+check('Papierkorb: Bestätigungsseite schickt die Auswahl als Liste zurück (Browser-Regeln)', ($back['ordner_id'] ?? null) === [(string) $fo] && ($back['bestaetigt'] ?? '') === '1');
 $r = $b->post('/admin/medien/loeschen', ['_csrf' => $cs(), 'ordner' => '0', 'datei' => [(string) $unused]]);
 check('Papierkorb: unbenutzte Datei sofort', $r->status === 303 && $db->value('SELECT deleted_at FROM files WHERE id = ?', [$unused]) !== null);
-$r = $b->post('/admin/medien/loeschen', ['_csrf' => $cs(), 'ordner' => '0', 'ordner_id' => [(string) $fo], 'bestaetigt' => '1']);
+$r = $b->post('/admin/medien/loeschen', ['_csrf' => $cs()] + $back);
 check('Papierkorb: bestätigt wird der Ordner samt benutzter Datei gelöscht', $r->status === 303 && $db->value('SELECT deleted_at FROM files WHERE id = ?', [$used]) !== null);
 
 // Wiederherstellen einer benutzten Datei: Meldung
@@ -96,7 +104,9 @@ $svc->files->setPublic($used, true);
 $svc->files->trash([$used]);
 $r = $b->post('/admin/medien/papierkorb', ['_csrf' => $cs(), 'aktion' => 'loeschen', 'datei' => [(string) $used]]);
 check('Endgültig löschen: benutzte Datei fragt nach, nichts gelöscht', $r->status === 200 && str_contains($r->body, 'Das wird noch') && $db->value('SELECT 1 FROM files WHERE id = ?', [$used]) !== null);
-$r = $b->post('/admin/medien/papierkorb', ['_csrf' => $cs(), 'aktion' => 'loeschen', 'datei' => [(string) $used], 'bestaetigt' => '1']);
+$back = $again($r->body);
+check('Endgültig löschen: Bestätigungsseite schickt „aktion“ und Liste zurück (Browser-Regeln)', ($back['aktion'] ?? '') === 'loeschen' && ($back['datei'] ?? null) === [(string) $used]);
+$r = $b->post('/admin/medien/papierkorb', ['_csrf' => $cs()] + $back);
 check('Endgültig löschen: bestätigt wird gelöscht', $r->status === 303 && $db->value('SELECT 1 FROM files WHERE id = ?', [$used]) === null);
 $svc->files->trash([$unused]);
 $r = $b->post('/admin/medien/papierkorb', ['_csrf' => $cs(), 'aktion' => 'loeschen', 'datei' => [(string) $unused]]);
@@ -119,3 +129,15 @@ check('Rollback: Seite „Veröffentlichen“ zeigt den Hinweis, Zurückholen bl
 file_put_contents($svc->dataDir . '/site/releases/' . $r1['id'] . '/manifest.json', json_encode(array_diff_key((array) $man, ['file_ids' => 1, 'file_urls' => 1])));
 check('Rollback: Fassung ohne file_urls (vor diesem Stand) ohne Hinweis', array_column($svc->builder->releases(), null, 'id')[$r1['id']]['gone_files'] === 0);
 check('Rollback: Zurücksetzen klappt trotz Hinweis', $svc->builder->rollback($r1['id']) === true);
+
+// Prüfung 46: weitere Fundstellen (Satzende, Weiterleitung, maskierte Schrägstriche), damit nie fälschlich „nicht verwendet“ gemeldet wird
+$tail = $put('tail', 'Ende.pdf');
+$svc->files->setPublic($tail, true);
+$tailName = (string) $db->value('SELECT public_name FROM files WHERE id = ?', [$tail]);
+$svc->pages->save(null, ['title' => 'Satzende', 'body' => "Hier gibt es die Datei: /media/dateien/$tailName.", 'status' => 'published', 'nav' => 'none', 'slug' => 'satzende']);
+check('Verwendet in: Adresse am Satzende mit Punkt wird gefunden', in_array('Seite „Satzende“', array_column((new Usage($db, $svc->builder))->forFile($tail), 'label'), true));
+$tail2 = $put('tail2', 'Weiter.pdf');
+$svc->files->setPublic($tail2, true);
+$db->run("INSERT INTO redirects(from_path, kind, to_path, created_at) VALUES('/wp-content/uploads/x.pdf', 'path', ?, 1)", ['/media/dateien/' . (string) $db->value('SELECT public_name FROM files WHERE id = ?', [$tail2])]);
+$wf = (new Usage($db, $svc->builder))->forFile($tail2);
+check('Verwendet in: Ziel einer Weiterleitung zählt als Verwendung (nicht verknüpft)', count($wf) === 1 && str_contains($wf[0]['label'], 'Weiterleitung') && !$wf[0]['linked']);

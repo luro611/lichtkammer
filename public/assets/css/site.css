@@ -179,7 +179,7 @@ body.lb-open{overflow:hidden}
 @media (max-width:700px){.bcols{grid-template-columns:1fr;gap:0}.bgrid.c3,.bgrid.c4{grid-template-columns:repeat(2,1fr)}}
 
 /* Datei-Download (Entwurf 44): ganze Zeile ist der Link, Haarlinie, Rundung wie die übrigen Blöcke */
-.bfile{margin-block:0}.bfile-link{display:flex;justify-content:space-between;align-items:baseline;gap:16px;padding:14px 18px;border:1px solid var(--line);border-radius:var(--r-img);color:var(--ink);text-decoration:none}
+.bfile-link{display:flex;justify-content:space-between;align-items:baseline;gap:16px;padding:14px 18px;border:1px solid var(--line);border-radius:var(--r-img);color:var(--ink);text-decoration:none}
 .bfile-link:hover{border-color:var(--accent)}.bfile-link:hover .bfile-title{color:var(--accent)}
 .bfile-title{font-weight:600;overflow-wrap:anywhere}.bfile-meta{color:var(--muted);font-size:14px;white-space:nowrap}
 .bfile.s-flaeche .bfile-link{background:var(--soft);border-color:transparent;border-radius:var(--r-card)}

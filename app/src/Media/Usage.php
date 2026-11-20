@@ -54,10 +54,13 @@ final class Usage
                     // unlesbare Blöcke meldet der Probelauf
                 }
             }
-            $text = $blocksJson !== '' ? $blocksJson : $body; // Seitentext zählt nur, wenn er die Seite ist (Blockmodus: body ist nur Sicherung)
+            $text = str_replace('\\/', '/', $blocksJson !== '' ? $blocksJson : $body); // Seitentext zählt nur, wenn er die Seite ist (Blockmodus: body ist nur Sicherung); JSON-Schrägstriche „\/“ gleichgestellt
             if ($byUrl !== [] && $text !== '' && preg_match_all('#/media/(?:dateien|dokumente)/[A-Za-z0-9._-]+#', $text, $m) > 0) {
                 foreach (array_unique($m[0]) as $url) {
-                    $id = $byUrl[$url] ?? null;
+                    $id = $byUrl[$url] ?? $byUrl[rtrim($url, '.')] ?? null; // „… siehe /media/dokumente/x.pdf.“ am Satzende (Prüfung 46)
+                    if ($id === null && preg_match('#^(/media/(?:dateien|dokumente)/[A-Za-z0-9._-]*?[A-Za-z0-9])[._-]*$#', $url, $t) === 1) {
+                        $id = $byUrl[$t[1]] ?? null;
+                    }
                     if ($id !== null && !isset($linked[$id])) {
                         $out[$id][] = ['label' => $label, 'link' => $link, 'pos' => '', 'linked' => false];
                     }
@@ -66,6 +69,14 @@ final class Usage
         };
         foreach ($this->db->all('SELECT id, title, blocks, body FROM pages ORDER BY title, id') as $pg) {
             $scan('Seite „' . $pg['title'] . '“', '/admin/seiten/' . (int) $pg['id'], (string) $pg['blocks'], (string) $pg['body']);
+        }
+        // Weitere Stellen, die auf eine Datei zeigen können: Galerietexte und Weiterleitungen alter WordPress-Adressen (Importer: /wp-content/… → /media/dokumente/…).
+        // Eine Falschmeldung „nicht verwendet“ wäre gefährlich (keine Warnung, Datei gelöscht), darum lieber eine Stelle zu viel nennen.
+        foreach ($this->db->all("SELECT id, title, description FROM galleries WHERE description LIKE '%/media/%'") as $g) {
+            $scan('Galerie „' . $g['title'] . '“', '/admin/galerien/' . (int) $g['id'], '', (string) $g['description']);
+        }
+        foreach ($this->db->all("SELECT from_path, to_path FROM redirects WHERE to_path LIKE '/media/%'") as $rd) {
+            $scan('Weiterleitung von ' . $rd['from_path'], '/admin/import', '', (string) $rd['to_path']);
         }
         $home = (string) ($this->db->value("SELECT v FROM site_settings WHERE k = 'home_blocks'") ?? '');
         if (trim($home) !== '') {

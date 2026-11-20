@@ -13,7 +13,7 @@
   <form class="card form" method="post" action="<?= $e($action) ?>">
     <input type="hidden" name="_csrf" value="<?= $e($csrf) ?>">
     <input type="hidden" name="bestaetigt" value="1">
-    <?php foreach ($fields as $k => $v): foreach ((array) $v as $one): ?><input type="hidden" name="<?= $e($k) ?>" value="<?= $e((string) $one) ?>"><?php endforeach; endforeach; ?>
+    <?php /* Listenfelder brauchen "[]", sonst behält PHP nur den letzten Wert als Text und inputList() liefert nichts (Prüfung 46, B1) */ foreach ($fields as $k => $v): foreach ((array) $v as $one): ?><input type="hidden" name="<?= $e(is_array($v) ? $k . '[]' : $k) ?>" value="<?= $e((string) $one) ?>"><?php endforeach; endforeach; ?>
     <div class="actions"><button class="btn" type="submit">Trotzdem ausführen</button> <a class="btn ghost" href="<?= $e($cancel) ?>">Abbrechen</a></div>
   </form>
 </section>
