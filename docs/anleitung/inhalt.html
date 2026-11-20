@@ -238,6 +238,7 @@ LK_TRUSTED_PROXIES=&lt;Adresse des Reverse-Proxys&gt;</pre>
 <h3>PDF und Logos, öffentlich oder privat</h3>
 <p>PDF (bis 50 MB), SVG-Grafiken (bis 1 MB) und PNG/JPEG/WebP als Datei (bis 5 MB, unverändert) legst du genauso ab. Sie sind zuerst <strong>privat</strong>: nur im Admin zu öffnen. Mit <strong>„Öffentlich schalten“</strong> bekommt die Datei eine Adresse, die jeder aufrufen kann (zum Beispiel eine Preisliste als PDF); „Wieder privat“ nimmt sie zurück. Für ein Logo oder Titelbild brauchst du das nicht.</p>
 <fig b="t_medien_dateien">Ein PDF in Medien, öffentlich geschaltet.</fig>
+<p>Zu jeder Datei und jedem Foto gibt es in der Liste den Link <strong>„Details“</strong>. Er öffnet ein Feld mit Vorschau, Größe, Ort, Datum, dem Schalter „Öffentlich / privat“, der Adresse zum Kopieren und der Liste <strong>„Verwendet in“</strong>: auf welchen Seiten, in welchem Block oder in welcher Galerie das steht. Willst du eine Datei wieder privat stellen oder löschen, die noch auf einer Seite steht, fragt Lichtkammer vorher nach („Das wird noch verwendet“); du kannst trotzdem fortfahren, aber das Veröffentlichen stoppt dann, bis die Seite wieder stimmt.</p>
 
 <h2>Fotos beschriften</h2>
 <p>Ein Klick auf ein Foto öffnet die Bearbeitung: Titel, Bildunterschrift, <strong>Alt-Text</strong>, Fotograf, Ort und Jahr. Unten siehst du, in welchen Galerien das Foto liegt, und kannst es in weitere aufnehmen oder in den Papierkorb legen.</p>
@@ -277,9 +278,12 @@ LK_TRUSTED_PROXIES=&lt;Adresse des Reverse-Proxys&gt;</pre>
 <li>Die <strong>Bausteinleiste</strong> zeigt alle Bausteine. <strong>Ziehe</strong> einen Baustein auf die Seite, oder tippe ihn an und klicke dann bei einem <strong>„+ hier einfügen“</strong> zwischen den Blöcken (das geht auch ohne Maus). „+ Block hinzufügen“ hängt ans Ende an.</li>
 <li>Jeder Block hat Pfeile <strong>↑ ↓</strong>, einen Griff zum Ziehen (die Punktereihe am Rand), „Zuklappen“, „Duplizieren“ und „Löschen“.</li>
 <li><strong>Rückgängig</strong> (Knopf oder Strg/Cmd+Z) holt Gelöschtes und Verschobenes zurück, bis du speicherst. Beim Löschen gibt es keine Rückfrage, dafür kurz die Leiste „Block gelöscht. Rückgängig“.</li>
-<li><strong>Zwei Spalten</strong>: In die Spalten kommen Überschrift, Text, Bild, Zitat oder Knopf. Bausteine lassen sich zwischen Seite und Spalten ziehen oder mit „Verschieben nach …“ bewegen.</li>
+<li><strong>Zwei Spalten</strong>: In die Spalten kommen Überschrift, Text, Bild, Zitat, Knopf oder Datei zum Herunterladen. Bausteine lassen sich zwischen Seite und Spalten ziehen oder mit „Verschieben nach …“ bewegen.</li>
 </ul>
 <fig b="t_editor">Der Seiten-Editor mit Bausteinleiste und Einfügepunkten.</fig>
+
+<h3>Dateien in Seiten</h3>
+<p>Im Seitenstreifen <strong>Material</strong> gibt es neben „Fotos“ und „Galerien“ den Reiter <strong>„Dateien“</strong>. Er zeigt nur <strong>öffentliche</strong> Dateien (in Medien bei der Datei „Öffentlich schalten“ wählen). Ziehe eine Datei auf einen <strong>Knopf</strong> oder auf einen <strong>Datei-Block</strong>, dann wird sie dort eingesetzt; auf eine freie Stelle gezogen, entsteht ein neuer Datei-Block. Ohne Maus: Kachel mit Enter oder Antippen wählen, dann unter „Wohin?“ das Ziel. Im Knopf-Block wählst du beim Ziel zwischen „Adresse eintippen“ und „Datei aus Medien“. Gespeichert wird nur die Nummer der Datei; die Adresse setzt Lichtkammer beim Veröffentlichen ein. Ist eine Datei dann nicht mehr öffentlich oder gelöscht, nennt „Veröffentlichen“ die Seite und den Block, mit Links zur Seite und zu Medien.</p>
 
 <h3>Die Bausteine</h3>
 <table class="tab">
@@ -292,7 +296,8 @@ LK_TRUSTED_PROXIES=&lt;Adresse des Reverse-Proxys&gt;</pre>
 <tr><td>Karussell</td><td>Mehrere Fotos zum Durchblättern, auf Wunsch automatisch.</td></tr>
 <tr><td>Zitat</td><td>Hervorgehobener Satz mit Quelle.</td></tr>
 <tr><td>Trennlinie</td><td>Eine dünne Linie zwischen Abschnitten.</td></tr>
-<tr><td>Knopf / Link</td><td>Ein Knopf zu einer eigenen Seite (<code>/galerien/</code>), einer <code>https://</code>-Adresse oder <code>mailto:</code>.</td></tr>
+<tr><td>Knopf / Link</td><td>Ein Knopf zu einer eigenen Seite (<code>/galerien/</code>), einer <code>https://</code>-Adresse, <code>mailto:</code> oder einer <strong>Datei aus Medien</strong> („Datei aus Medien“ beim Ziel wählen).</td></tr>
+<tr><td>Datei zum Herunterladen</td><td>Eine öffentliche Datei aus Medien (zum Beispiel eine Preisliste als PDF) als Zeile mit Titel, Art und Größe. Der Titel ist leer = Dateiname.</td></tr>
 <tr><td>Zwei Spalten</td><td>Zwei Spalten nebeneinander.</td></tr>
 <tr><td>Galerien-Kacheln</td><td>Die veröffentlichten Galerien als Kacheln.</td></tr>
 <tr><td>Startseiten-Fotos</td><td>Die Fotos, die in Galerien mit „Startseite“ markiert sind.</td></tr>
@@ -325,7 +330,7 @@ LK_TRUSTED_PROXIES=&lt;Adresse des Reverse-Proxys&gt;</pre>
 <div class="two"><fig b="t_oeffentlich_warm">Öffentliche Seite im Design Warm.</fig><fig b="t_oeffentlich_gruen">Dieselbe Seite im Design Grün.</fig></div>
 
 <h2>Logos</h2>
-<p>Unter <strong>Verwaltung → Logos</strong> lädst du ein oder mehrere Logos hoch (SVG am besten; auch PNG, WebP, JPEG bis 300 KB) und wählst, welches wo erscheint: in der Kopfzeile der Seite und im Admin, getrennt für hell und dunkel, dazu das Favicon. Ist nur eines gewählt, gilt es für beide. Ohne Logo erscheint der Seitenname als Schrift. Auf der öffentlichen Seite wird das Logo mit dem nächsten Veröffentlichen sichtbar.</p>
+<p>Unter <strong>Verwaltung → Logos</strong> lädst du ein oder mehrere Logos hoch (SVG am besten; auch PNG, WebP, JPEG bis 300 KB) und wählst, welches wo erscheint: in der Kopfzeile der Seite und im Admin, getrennt für hell und dunkel, dazu das Favicon. Ist nur eines gewählt, gilt es für beide. Ohne Logo erscheint der Seitenname als Schrift. Auf der öffentlichen Seite wird das Logo mit dem nächsten Veröffentlichen sichtbar. Statt eines Uploads kannst du auch eine Datei aus <strong>Medien</strong> wählen (Gruppe „Aus Medien“ im Auswahlfeld: SVG, PNG oder WebP bis 300 KB; die Datei darf privat bleiben). Wird sie später gelöscht, erscheint wieder der Seitenname, und „Veröffentlichen“ warnt.</p>
 <fig b="t_logos">Logos hochladen und zuordnen.</fig>
 
 <h2>Vorschau, Veröffentlichen und frühere Fassungen</h2>

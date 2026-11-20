@@ -815,8 +815,10 @@
     if (!fileUrl) { bf.disabled = true; }
     modes.appendChild(ba);
     modes.appendChild(bf);
-    body.appendChild(el('span', 'small muted', 'Ziel'));
-    body.appendChild(modes);
+    var tf = el('div', 'field');
+    tf.appendChild(el('span', null, 'Ziel'));
+    tf.appendChild(modes);
+    body.appendChild(tf);
     if (fileMode) {
       body.appendChild(fileRow(b, true));
     } else {

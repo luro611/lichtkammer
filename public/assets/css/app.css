@@ -406,3 +406,8 @@ body.app{padding-inline:0}
 .pfileempty{padding:10px 12px;border:1px dashed var(--line);border-radius:var(--r-input);margin:0 0 10px}
 .ematfile{cursor:grab}.ematfile .ematicon{display:flex;align-items:center;justify-content:center;aspect-ratio:4/3;background:var(--soft);border-radius:var(--r-input);font:600 12px var(--f-mono);letter-spacing:.1em;color:var(--muted)}
 .emgrid.ematfilelist{grid-template-columns:1fr;gap:6px;max-height:46vh}
+
+.picker [hidden]{display:none}
+.bfiletabs .btn[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.ematfile .small{white-space:normal;overflow-wrap:anywhere}
+.emgrid.ematfilelist{overflow-x:hidden}
