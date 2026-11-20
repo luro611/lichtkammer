@@ -553,4 +553,147 @@
     };
     window.setTimeout(loop, 300);
   }
+
+  // ---------- Detailfeld als Seitenleiste (Entwurf 44, Stufe 3) ----------
+  // Ohne Skript zeigt der Link „Details“ die Seite mit ?detail=…; mit Skript lädt er dieselben Angaben als JSON und baut sie hier auf.
+  // Ausgabe nur über textContent und Attribute. Esc schließt, der Fokus kehrt zum Link zurück. Der Server liefert nie einen Pfad zur privaten Datei.
+  (function () {
+    var panel = null, opener = null, seq = 0;
+    var csrfField = document.querySelector('input[name="_csrf"]');
+    var csrfTok = csrfField ? csrfField.value : '';
+    var folderField = document.querySelector('#msel input[name="ordner"]');
+    function el(tag, cls, text) { var n = document.createElement(tag); if (cls) { n.className = cls; } if (text !== undefined && text !== null) { n.textContent = text; } return n; }
+    function close() {
+      if (!panel) { return; }
+      panel.parentNode.removeChild(panel);
+      panel = null;
+      if (opener && document.body.contains(opener)) { try { opener.focus(); } catch (e) { /* weg */ } }
+      opener = null;
+    }
+    function row(dl, label, node) { dl.appendChild(el('dt', null, label)); var dd = el('dd'); dd.appendChild(node); dl.appendChild(dd); return dd; }
+    function link(href, text) { var a = el('a', null, text); a.setAttribute('href', href); return a; }
+    function copyBtn(input) {
+      var b = el('button', 'btn small ghost', 'Adresse kopieren');
+      b.type = 'button';
+      b.addEventListener('click', function () {
+        var done = function () { b.textContent = 'Kopiert'; setTimeout(function () { b.textContent = 'Adresse kopieren'; }, 2000); };
+        if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(input.value).then(done, function () { input.focus(); input.select(); }); } else { input.focus(); input.select(); }
+      });
+      return b;
+    }
+    function build(d) {
+      var p = el('aside', 'mdetail mdetailpanel');
+      p.id = 'mdetailpanel';
+      p.setAttribute('role', 'complementary');
+      p.setAttribute('aria-labelledby', 'mdtitle');
+      p.tabIndex = -1;
+      var x = el('button', 'btn small ghost mdclose', 'Schließen');
+      x.type = 'button';
+      x.addEventListener('click', close);
+      p.appendChild(x);
+      var h = el('h2', null, d.name);
+      h.id = 'mdtitle';
+      p.appendChild(h);
+      if (d.preview === 'image' && d.previewUrl) {
+        var pr = el('p', 'mdprev'), im = el('img');
+        im.src = d.previewUrl; im.alt = 'Vorschau: ' + d.name; im.width = 480;
+        pr.appendChild(im);
+        p.appendChild(pr);
+      } else if (d.preview === 'pdf') {
+        var pp = el('p', 'mdprev');
+        pp.appendChild(el('span', 'ph kind', 'PDF'));
+        pp.appendChild(document.createTextNode(' '));
+        var ol = link(d.openUrl, 'Öffnen'); ol.target = '_blank'; ol.rel = 'noopener';
+        pp.appendChild(ol);
+        p.appendChild(pp);
+      }
+      var dl = el('dl', 'mdl');
+      var t = el('span'); t.appendChild(document.createTextNode(d.type + ' ')); t.appendChild(el('span', 'muted mono small', d.mime));
+      row(dl, 'Art', t);
+      row(dl, 'Größe', document.createTextNode(d.size + (d.dims ? ' · ' + d.dims : '')));
+      row(dl, 'Datum', document.createTextNode(d.date));
+      if (d.by) { row(dl, 'Hochgeladen von', document.createTextNode(d.by)); }
+      row(dl, 'Ort', link('/admin/medien' + (d.folder > 0 ? '?ordner=' + d.folder : ''), d.place));
+      if (d.art === 'datei') {
+        var vis = el('span');
+        vis.appendChild(document.createTextNode((d.public ? 'öffentlich' : 'privat') + (d.live ? ' · steht auf der Live-Seite' : '')));
+        if (!d.legacy) {
+          // der vorhandene Schalter der Zeile (mit allen Prüfungen und der Rückfrage „wird noch verwendet“); sonst ein eigenes Formular
+          var f = document.createElement('form');
+          f.method = 'post'; f.action = '/admin/medien/datei/' + d.id + '/oeffentlich'; f.className = 'inline';
+          [['_csrf', csrfTok], ['ordner', folderField ? folderField.value : '0'], ['an', d.public ? '0' : '1']].forEach(function (kv) { var i = el('input'); i.type = 'hidden'; i.name = kv[0]; i.value = kv[1]; f.appendChild(i); });
+          var sb = el('button', 'btn small ghost', d.public ? 'Wieder privat' : 'Öffentlich schalten');
+          sb.type = 'submit';
+          f.appendChild(sb);
+          vis.appendChild(f);
+        }
+        row(dl, 'Sichtbarkeit', vis);
+        if (d.public && d.address) {
+          var ad = el('span'), inp = el('input', 'mdaddr');
+          inp.type = 'text'; inp.readOnly = true; inp.value = d.address;
+          inp.setAttribute('aria-label', 'Adresse der Datei');
+          ad.appendChild(inp);
+          ad.appendChild(copyBtn(inp));
+          row(dl, 'Adresse', ad);
+        }
+      }
+      var us = el('span');
+      if (!d.uses.length) { us.appendChild(el('span', 'muted', 'nirgends')); } else {
+        var ul = el('ul', 'mduses');
+        d.uses.forEach(function (u) {
+          var li = el('li');
+          li.appendChild(link(u.link, u.label));
+          if (u.pos) { li.appendChild(document.createTextNode(', ' + u.pos)); }
+          if (!u.linked) { li.appendChild(document.createTextNode(' ')); li.appendChild(el('span', 'muted', '(Adresse, nicht verknüpft)')); }
+          ul.appendChild(li);
+        });
+        us.appendChild(ul);
+      }
+      row(dl, 'Verwendet in', us);
+      p.appendChild(dl);
+      var act = el('p', 'mdactions');
+      if (d.art === 'datei') {
+        var o = link(d.openUrl, 'Öffnen'); o.className = 'btn small ghost'; o.target = '_blank'; o.rel = 'noopener'; act.appendChild(o);
+        var dw = link(d.downloadUrl, 'Herunterladen'); dw.className = 'btn small ghost'; act.appendChild(dw);
+      } else {
+        var ed = link(d.editUrl, 'Foto bearbeiten'); ed.className = 'btn small ghost'; act.appendChild(ed);
+      }
+      p.appendChild(act);
+      return p;
+    }
+    function open(art, id, from) {
+      var my = ++seq;
+      opener = from || null;
+      fetch('/admin/medien/detail?art=' + encodeURIComponent(art) + '&id=' + encodeURIComponent(id), { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+        .then(function (r) { if (!r.ok) { throw new Error('x'); } return r.json(); })
+        .then(function (d) {
+          if (my !== seq) { return; }
+          var old = panel; panel = null;
+          if (old && old.parentNode) { old.parentNode.removeChild(old); }
+          var st = document.getElementById('mdetail'); // die Seite ohne Skript wird ersetzt
+          if (st && st.parentNode) { st.parentNode.removeChild(st); }
+          panel = build(d);
+          document.body.appendChild(panel);
+          panel.focus();
+        })
+        .catch(function () { if (my === seq && from && from.href) { window.location.href = from.href; } }); // Rückfall: die Seite mit dem Feld
+    }
+    document.addEventListener('click', function (e) {
+      var a = e.target.closest ? e.target.closest('a.mdlink') : null;
+      if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) { return; }
+      var m = /^(datei|foto):(\d+)$/.exec(a.getAttribute('data-detail') || '');
+      if (!m) { return; }
+      e.preventDefault();
+      open(m[1], m[2], a);
+    });
+    if (form) {
+      form.addEventListener('dblclick', function (e) {
+        if (e.target.closest && e.target.closest('a, button, input, select, label')) { return; }
+        var r = e.target.closest ? e.target.closest('.mrow:not(.folder), .mcell:not(.folder)') : null;
+        var a = r ? r.querySelector('a.mdlink') : null;
+        if (a) { a.click(); }
+      });
+    }
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && panel && !document.querySelector('dialog[open]')) { e.preventDefault(); close(); } });
+  })();
 })();

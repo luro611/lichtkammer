@@ -6,6 +6,7 @@ namespace Lichtkammer\Media;
 use Lichtkammer\Auth\Database;
 use Lichtkammer\Site\Blocks;
 use Lichtkammer\Site\Builder;
+use Lichtkammer\Site\Settings;
 
 /**
  * „Verwendet in“ (Entwurf 44, Stufe 2). Nur lesend, eine Quelle der Wahrheit: ein Durchlauf über alle Seiten und die Startseite.
@@ -82,6 +83,12 @@ final class Usage
         if (trim($home) !== '') {
             $scan('Startseite', '/admin/startseite', $home, '');
         }
+        foreach (Settings::LOGO_ROLES as $role => $label) { // Logo aus Medien (Stufe 5): „f<Nummer>“ in der Einstellung
+            $v = (string) ($this->db->value('SELECT v FROM site_settings WHERE k = ?', ['logo_' . $role]) ?? '');
+            if (preg_match('/^f([1-9]\d{0,8})$/', $v, $lm) === 1 && ($want === null || isset($want[(int) $lm[1]]))) {
+                $out[(int) $lm[1]][] = ['label' => $label, 'link' => '/admin/logos', 'pos' => '', 'linked' => true];
+            }
+        }
         return $out;
     }
 
@@ -95,6 +102,43 @@ final class Usage
     public function forFile(int $id): array
     {
         return $this->files([$id])[$id] ?? [];
+    }
+
+    /**
+     * Wo ein Foto steht: Galerien (auch Titelbild), Seiten und Startseite (Blöcke), Startseiten-Titelbild, Startseiten-Fotos. Ein Durchlauf über die Seiten.
+     *
+     * @return list<array{label:string,link:string,pos:string}>
+     */
+    public function forPhoto(int $id): array
+    {
+        $out = [];
+        foreach ($this->db->all('SELECT g.id, g.title, g.status, g.cover_photo_id FROM galleries g WHERE g.id IN (SELECT gallery_id FROM gallery_photos WHERE photo_id = ?) OR g.cover_photo_id = ? ORDER BY g.title, g.id', [$id, $id]) as $g) {
+            $out[] = ['label' => 'Galerie „' . $g['title'] . '“ (' . ($g['status'] === 'published' ? 'veröffentlicht' : 'Entwurf') . ')' . ((int) $g['cover_photo_id'] === $id ? ', Titelbild' : ''), 'link' => '/admin/galerien/' . (int) $g['id'], 'pos' => ''];
+        }
+        $scan = function (string $label, string $link, string $json) use (&$out, $id): void {
+            if ($json === '' || !str_contains($json, (string) $id)) {
+                return;
+            }
+            try {
+                $list = Blocks::decode($json);
+            } catch (MediaException) {
+                return;
+            }
+            if (in_array($id, Blocks::photoIds($list), true)) {
+                $out[] = ['label' => $label, 'link' => $link, 'pos' => ''];
+            }
+        };
+        foreach ($this->db->all("SELECT id, title, blocks FROM pages WHERE blocks <> '' ORDER BY title, id") as $pg) {
+            $scan('Seite „' . $pg['title'] . '“', '/admin/seiten/' . (int) $pg['id'], (string) $pg['blocks']);
+        }
+        $scan('Startseite', '/admin/startseite', (string) ($this->db->value("SELECT v FROM site_settings WHERE k = 'home_blocks'") ?? ''));
+        if ((int) ($this->db->value("SELECT v FROM site_settings WHERE k = 'hero_photo_id'") ?? 0) === $id) {
+            $out[] = ['label' => 'Startseite: Titelbild', 'link' => '/admin/einstellungen', 'pos' => ''];
+        }
+        if ((int) $this->db->value('SELECT on_home FROM photos WHERE id = ?', [$id]) === 1) {
+            $out[] = ['label' => 'Startseiten-Fotos (Schalter „Startseite“)', 'link' => '/admin/fotos/' . $id, 'pos' => ''];
+        }
+        return $out;
     }
 
     /** Dateien (Nummern), die auf der aktiven Fassung verlinkt sind. @return array<int,true> */

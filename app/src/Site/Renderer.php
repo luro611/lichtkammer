@@ -23,6 +23,8 @@ final class Renderer
     public array $errors = [];
     /** @var list<string> */
     public array $warnings = [];
+    /** Links zu Meldungen (Meldung → Liste aus Beschriftung und Adresse), z. B. „Seite öffnen“ bei einer fehlenden Datei. @var array<string,list<array{0:string,1:string}>> */
+    public array $issueLinks = [];
     /** @var array<string,string> Adresse → Bezeichnung (für die Änderungsliste) */
     public array $labels = [];
     /** Weiterleitungen der zuletzt berechneten Fassung (alte Adresse → neue). @var array<string,string> */
@@ -67,6 +69,9 @@ final class Renderer
             return $this->data;
         }
         $set = $this->settings->all();
+        foreach ($this->settings->logoProblems() as $m) { // Logo aus Medien nicht mehr geeignet: Warnung, kein Stopp (es gibt einen Ersatz: den Seitennamen)
+            $this->issue($m, false);
+        }
         $gs = $this->db->all('SELECT * FROM galleries ' . ($this->preview ? '' : "WHERE status = 'published' ") . 'ORDER BY sort_order, id');
         $photoIds = [];
         $galleries = [];
@@ -156,7 +161,7 @@ final class Renderer
                         $this->issue("$label: Foto $pid ist nicht mehr verfügbar (gelöscht oder nicht fertig).", $hard);
                     }
                 }
-                $this->checkFileRefs($list, $label, $hard);
+                $this->checkFileRefs($list, $label, $hard, '/admin/seiten/' . (int) $pg['id']);
             } elseif (trim((string) $pg['body']) === '') {
                 $this->issue("$label hat keinen Text.", $hard);
             }
@@ -181,7 +186,7 @@ final class Renderer
                     $this->issue("Startseite: Foto $pid ist nicht mehr verfügbar (gelöscht oder nicht fertig).", true);
                 }
             }
-            $this->checkFileRefs($homeList, 'Startseite', true);
+            $this->checkFileRefs($homeList, 'Startseite', true, '/admin/startseite');
         }
         // Hero: gewähltes Foto, wenn es in einer angezeigten Galerie liegt, sonst Titelbild der ersten Galerie.
         $hero = null;
@@ -211,11 +216,16 @@ final class Renderer
     }
 
     /** @param list<array<string,mixed>> $blocks */
-    private function checkFileRefs(array $blocks, string $where, bool $hard): void
+    private function checkFileRefs(array $blocks, string $where, bool $hard, string $pageLink = ''): void
     {
         foreach (Blocks::fileRefs($blocks) as $ref) {
             if ($this->blockFile($ref['file']) === null) {
-                $this->issue(self::fileMessage($where, $ref['pos'], $ref['file'], $this->blockFiles[$ref['file']]), $hard);
+                $msg = self::fileMessage($where, $ref['pos'], $ref['file'], $this->blockFiles[$ref['file']]);
+                $this->issue($msg, $hard);
+                if ($pageLink !== '') { // Bequemlichkeit (Prüfung 46, H2): Seite öffnen, Datei in Medien ansehen
+                    $weg = $this->blockFiles[$ref['file']]['problem'] === 'weg';
+                    $this->issueLinks[$msg] = [['Seite öffnen', $pageLink], $weg ? ['Medien-Papierkorb', '/admin/medien/papierkorb'] : ['In Medien ansehen', '/admin/medien?detail=d' . $ref['file']]];
+                }
             }
         }
     }

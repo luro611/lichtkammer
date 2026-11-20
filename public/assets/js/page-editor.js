@@ -12,6 +12,8 @@
   try { init = JSON.parse(dataEl.textContent || '{}'); } catch (e) { init = {}; }
   var state = Array.isArray(init.blocks) ? init.blocks : [];
   var photos = init.photos && typeof init.photos === 'object' ? init.photos : {};
+  var files = init.files && typeof init.files === 'object' ? init.files : {}; // Dateien aus Medien: Id → { n: Name, k: Art, s: Größe, x: 0|1 (nicht verfügbar), r: Grund }; nur für die Anzeige
+  var fileUrl = root.getAttribute('data-file-url') || '';
   var isHome = !!init.home;
   var homePhotos = Array.isArray(init.homePhotos) ? init.homePhotos : [];
   var pickUrl = root.getAttribute('data-pick-url') || '';
@@ -24,7 +26,8 @@
     gallery: { name: 'Galerie-Raster', desc: 'Mehrere Fotos als Raster, Klick vergrößert' },
     quote: { name: 'Zitat', desc: 'Hervorgehobener Satz mit Quelle' },
     rule: { name: 'Trennlinie', desc: 'Eine dünne Linie zwischen Abschnitten' },
-    button: { name: 'Knopf / Link', desc: 'Ein Knopf zu einer anderen Seite oder Adresse' },
+    button: { name: 'Knopf / Link', desc: 'Ein Knopf zu einer anderen Seite, einer Adresse oder einer Datei aus Medien' },
+    download: { name: 'Datei zum Herunterladen', desc: 'Eine öffentliche Datei aus Medien (z. B. PDF) als Link mit Name und Größe' },
     columns: { name: 'Zwei Spalten', desc: 'Zwei Spalten nebeneinander, auf dem Handy untereinander' },
     imagetext: { name: 'Bild und Text', desc: 'Ein Foto neben einem Text, links oder rechts' },
     carousel: { name: 'Karussell', desc: 'Mehrere Fotos zum Durchblättern, auf Wunsch automatisch' },
@@ -32,8 +35,9 @@
     homephotos: { name: 'Startseiten-Fotos', desc: 'Zeigt die Fotos, die in der Galerie mit „Startseite“ markiert sind (Karussell, Raster oder ein Bild)' },
     galleries: { name: 'Galerien-Kacheln', desc: 'Die Galerien als Kacheln mit Titelbild' }
   };
-  var ALL = (isHome ? ['hero'] : []).concat(['heading', 'text', 'imagetext', 'image', 'homephotos', 'carousel', 'gallery', 'galleries', 'quote', 'rule', 'button', 'columns']);
-  var SIMPLE = ['heading', 'text', 'image', 'quote', 'button'];
+  var ALL = (isHome ? ['hero'] : []).concat(['heading', 'text', 'imagetext', 'image', 'homephotos', 'carousel', 'gallery', 'galleries', 'quote', 'rule', 'button', 'download', 'columns']);
+  var SIMPLE = ['heading', 'text', 'image', 'quote', 'button', 'download'];
+  var FILE_TYPES = ['button', 'download']; // Blöcke, in die sich eine Datei aus Medien einsetzen lässt
 
   function make(t) {
     switch (t) {
@@ -49,6 +53,7 @@
       case 'quote': return { t: t, text: '', by: '', style: 'normal' };
       case 'rule': return { t: t };
       case 'button': return { t: t, label: '', href: '', style: 'normal' };
+      case 'download': return { t: t, file: 0, title: '', style: 'normal' };
       default: return { t: 'columns', left: [], right: [] };
     }
   }
@@ -122,7 +127,7 @@
 
   // --- Zustand für Ziehen, Rückgängig, Hinweise ---
   var MIME = 'application/x-lichtkammer'; // nur selbst gesetzte Zieh-Daten gelten, alles andere (z. B. Dateien aus dem Finder) wird ignoriert
-  var drag = null;      // { kind: 'move', list, b }, { kind: 'new', type }, { kind: 'photo', photo } oder { kind: 'gallery', load } (die beiden letzten kommen aus dem Seitenstreifen „Material“)
+  var drag = null;      // { kind: 'move', list, b }, { kind: 'new', type }, { kind: 'photo', photo }, { kind: 'gallery', load } oder { kind: 'file', file } (die drei letzten kommen aus dem Seitenstreifen „Material“)
   var PHOTO_TYPES = ['image', 'imagetext', 'hero']; // Blöcke mit genau einem Foto: ein gezogenes Foto setzt sich dort ein
   var changeFns = [];   // Rückrufe bei jeder Änderung (Vorschau neben dem Editor)
   var armed = null;     // gewählter Baustein, der an einem Einfügepunkt abgelegt wird (Tastatur, Handy)
@@ -230,7 +235,7 @@
   }
   // Welcher Blocktyp entsteht oder wandert gerade? Ein Foto wird ein Bildblock, eine Galerie ein Galerie-Raster.
   function dragType() {
-    return drag.kind === 'new' ? drag.type : (drag.kind === 'photo' ? 'image' : (drag.kind === 'gallery' ? 'gallery' : drag.b.t));
+    return drag.kind === 'new' ? drag.type : (drag.kind === 'photo' ? 'image' : (drag.kind === 'gallery' ? 'gallery' : (drag.kind === 'file' ? 'download' : drag.b.t)));
   }
   function badText() {
     var t = dragType();
@@ -251,8 +256,8 @@
   // Gemeinsame Ablage-Logik für Karten, Einfügepunkte und Listenende
   function dropTarget(node, allowed, getIdx, list, mark, blk) {
     var mk = mark && mark !== 'card' ? mark : node;
-    // Ein Foto auf einen Block mit einem Foto: einsetzen statt davor/dahinter einfügen
-    var replaces = function () { return !!(blk && drag && drag.kind === 'photo' && PHOTO_TYPES.indexOf(blk.t) >= 0); };
+    // Ein Foto auf einen Block mit einem Foto (eine Datei auf Knopf oder Datei-Block): einsetzen statt davor/dahinter einfügen
+    var replaces = function () { return !!(blk && drag && ((drag.kind === 'photo' && PHOTO_TYPES.indexOf(blk.t) >= 0) || (drag.kind === 'file' && FILE_TYPES.indexOf(blk.t) >= 0))); };
     node.addEventListener('dragover', function (e) {
       var st = dragStatus(e, allowed);
       if (!st) { return; }
@@ -283,6 +288,7 @@
       endDrag();
       var at = typeof idx === 'number' ? idx : idx.at;
       if (d.kind === 'photo') { if (rp) { setPhoto(blk, d.photo); } else { insertPhoto(list, at, d.photo, allowed); } return; }
+      if (d.kind === 'file') { if (rp) { setFile(blk, d.file); } else { insertFile(list, at, d.file, allowed); } return; }
       if (d.kind === 'gallery') { insertGalleryLater(list, at, allowed, d); return; }
       if (d.kind === 'new') { insertAt(list, at, d.type, allowed); } else { moveBlock(d.b, d.list, list, at, allowed); }
     });
@@ -306,6 +312,7 @@
     say('Block „' + TYPES[type].name + '“ eingefügt auf Position ' + (idx + 1) + '.');
     renderAll();
     if (type === 'image' && !nb.photo) { choosePhoto(nb); }
+    if (type === 'download' && !nb.file) { chooseFile(nb); }
   }
 
   // --- Fotos und Galerien aus dem Seitenstreifen „Material“ (page-material.js) ---
@@ -344,6 +351,40 @@
     // sichtbar und angesagt; stickyHint, damit das Ende des Ziehens (dragend) den Hinweis nicht gleich löscht (Prüfung 42, N4)
     if ((g.total || rows.length) > 12) { stickyHint = 'Die Galerie hat ' + g.total + ' Fotos. Ein Raster fasst höchstens 12: die ersten 12 wurden übernommen.'; hint(stickyHint); }
   }
+  // --- Dateien aus Medien (Entwurf 44): im Block steht nur die Nummer, Adresse und Größe setzt der Server beim Bau ---
+  function rememberFile(f) { files[f.id] = { n: f.n, k: f.k, s: f.s, x: 0, r: '' }; }
+  function fileLabel(f) { return String(f.n || '').replace(/\.[A-Za-z0-9]{1,5}$/, '').slice(0, 80); }
+  function insertFile(list, idx, f, allowed) {
+    insertAt(list, idx, 'download', allowed, function (nb) { rememberFile(f); nb.file = f.id; });
+  }
+  // Datei in einen vorhandenen Knopf oder Datei-Block einsetzen. Beim Knopf wird die Adresse geleert und eine leere Beschriftung mit dem Dateinamen vorbelegt.
+  function setFile(b, f) {
+    if (!b || FILE_TYPES.indexOf(b.t) < 0) { return; }
+    b._r = 1; // Rückgängig stellt den alten Inhalt wieder her (wie bei setPhoto)
+    pushUndo();
+    delete b._r;
+    rememberFile(f);
+    b.file = f.id;
+    if (b.t === 'button') { b.href = ''; b._fm = true; if (!String(b.label || '').trim()) { b.label = fileLabel(f); } }
+    dirty = true;
+    focusId = b._id;
+    focusSel = '.bfilepick button';
+    say('Datei „' + f.n + '“ eingesetzt.');
+    renderAll();
+  }
+  function clearFile(b) {
+    b._r = 1;
+    pushUndo();
+    delete b._r;
+    delete b.file;
+    b._fm = false;
+    dirty = true;
+    focusId = b._id;
+    focusSel = '.btargets button';
+    renderAll();
+  }
+  function chooseFile(b) { pickFile(function (f) { setFile(b, f); }); }
+
   // Lebt die Liste noch im Zustand? (Nach Rückgängig oder Neuzeichnen gehört eine alte Liste nicht mehr dazu.)
   function listAlive(list) {
     if (list === state) { return true; }
@@ -558,6 +599,7 @@
       case 'homephotos': return 'Fotos mit Schalter „Startseite“';
       case 'carousel': case 'gallery': return (b.photos.length === 1 ? '1 Foto' : b.photos.length + ' Fotos');
       case 'button': return cut(b.label);
+      case 'download': return cut(b.title || (files[b.file] && files[b.file].n));
       case 'columns': return 'links ' + b.left.length + ', rechts ' + b.right.length + ' Blöcke';
       default: return '';
     }
@@ -687,9 +729,14 @@
         break;
       case 'button':
         body.appendChild(labelled('Beschriftung', input(b, 'label', 80)));
-        body.appendChild(labelled('Ziel', input(b, 'href', 500)));
+        fillTarget(body, b);
         body.appendChild(labelled('Stil', select(b, 'style', [['normal', 'Linksbündig'], ['mitte', 'Zentriert']])));
-        body.appendChild(el('p', 'small muted', 'Eigene Seite wie /galerien/ oder /ueber-uns/, eine Adresse mit https:// oder eine Mail-Adresse mit mailto:.'));
+        break;
+      case 'download':
+        body.appendChild(fileRow(b, false));
+        body.appendChild(labelled('Titel (optional, sonst der Dateiname)', input(b, 'title', 120)));
+        body.appendChild(labelled('Stil', select(b, 'style', [['normal', 'Normal'], ['flaeche', 'Auf heller Fläche']])));
+        body.appendChild(el('p', 'small muted', 'Zeigt Titel, Art und Größe der Datei als Link. Es gibt nur öffentliche Dateien; in Medien bei der Datei „Öffentlich schalten“ wählen. Wird die Datei später wieder privat oder gelöscht, lässt sich nicht mehr veröffentlichen, bis das behoben ist.'));
         break;
       case 'image': fillImage(body, b); break;
       case 'gallery': fillGallery(body, b); break;
@@ -749,6 +796,68 @@
         break;
       }
     }
+  }
+
+  // Ziel eines Knopfes: Adresse eintippen oder Datei aus Medien (zwei Knöpfe, per Tastatur erreichbar)
+  function fillTarget(body, b) {
+    var fileMode = Number(b.file) > 0 || !!b._fm;
+    var modes = el('div', 'bfiletabs btargets');
+    modes.setAttribute('role', 'group');
+    modes.setAttribute('aria-label', 'Ziel des Knopfes');
+    var ba = btn('Adresse eintippen', '', function () { if (fileMode) { if (Number(b.file) > 0) { clearFile(b); } else { b._fm = false; focusId = b._id; focusSel = '.btargets button'; renderAll(); } } });
+    var bf = btn('Datei aus Medien', '', function () {
+      if (fileMode) { return; }
+      b._fm = true; focusId = b._id; focusSel = '.btargets button:nth-of-type(2)'; renderAll();
+      if (fileUrl && !Number(b.file)) { chooseFile(b); }
+    });
+    ba.setAttribute('aria-pressed', fileMode ? 'false' : 'true');
+    bf.setAttribute('aria-pressed', fileMode ? 'true' : 'false');
+    if (!fileUrl) { bf.disabled = true; }
+    modes.appendChild(ba);
+    modes.appendChild(bf);
+    body.appendChild(el('span', 'small muted', 'Ziel'));
+    body.appendChild(modes);
+    if (fileMode) {
+      body.appendChild(fileRow(b, true));
+    } else {
+      body.appendChild(labelled('Adresse', input(b, 'href', 500)));
+      body.appendChild(el('p', 'small muted', 'Eigene Seite wie /galerien/ oder /ueber-uns/, eine Adresse mit https:// oder eine Mail-Adresse mit mailto:.'));
+    }
+  }
+
+  // Gewählte Datei: „PDF · Preisliste 2026 · 1,2 MB“ mit „Andere wählen“; nicht verfügbare Dateien rot
+  function fileRow(b, removable) {
+    var wrap = el('div', 'bfilepick');
+    var id = Number(b.file) || 0;
+    var f = id ? files[id] : null;
+    if (id) {
+      var sel = el('div', 'bfilesel');
+      if (f && f.n) {
+        sel.appendChild(el('strong', null, f.n));
+        sel.appendChild(el('span', 'mono small', (f.k ? f.k + ' · ' : '') + (f.s || '')));
+      } else {
+        sel.appendChild(el('strong', null, f ? 'Datei nicht mehr vorhanden' : 'Datei ' + id));
+      }
+      wrap.appendChild(sel);
+      if (f && f.x) {
+        var bad = el('p', 'warn small bfilebad', 'Diese Datei ist nicht verfügbar' + (f.r ? ' (' + f.r + ')' : '') + '. Bitte eine andere wählen oder die Datei in Medien wieder öffentlich schalten; sonst lässt sich die Seite nicht veröffentlichen.');
+        wrap.appendChild(bad);
+        var ml = el('a', 'small', 'Medien öffnen');
+        ml.href = '/admin/medien';
+        ml.target = '_blank';
+        ml.rel = 'noopener';
+        wrap.appendChild(ml);
+      }
+    } else {
+      wrap.appendChild(el('p', 'warn small', 'Bitte eine Datei auswählen.'));
+    }
+    var row = el('div', 'actions');
+    var cb = btn(id ? 'Andere wählen' : 'Datei auswählen', '', function () { chooseFile(b); });
+    if (!fileUrl) { cb.disabled = true; }
+    row.appendChild(cb);
+    if (removable && id) { row.appendChild(btn('Entfernen (zurück zur Adresse)', '', function () { clearFile(b); })); }
+    wrap.appendChild(row);
+    return wrap;
   }
 
   function thumb(id) {
@@ -1028,6 +1137,81 @@
     load(true);
   }
 
+  // --- Dateiauswahl (nur öffentliche Dateien; Quelle /admin/dateien/auswahl) ---
+  function pickFile(done) {
+    if (!fileUrl) { return; }
+    var opener = document.activeElement;
+    var dlg = el('dialog', 'picker');
+    dlg.setAttribute('aria-label', 'Datei auswählen');
+    var inner = el('div', 'pickin');
+    inner.appendChild(el('h2', null, 'Datei auswählen'));
+    var q = el('input');
+    q.type = 'search';
+    q.setAttribute('aria-label', 'Dateien suchen (Name oder Ordner)');
+    q.placeholder = 'Suchen …';
+    inner.appendChild(q);
+    var info = el('p', 'small muted');
+    info.setAttribute('role', 'status');
+    inner.appendChild(info);
+    var empty = el('div', 'pfileempty');
+    empty.hidden = true;
+    var emptyText = el('p', 'small', '');
+    empty.appendChild(emptyText);
+    var ml = el('a', 'small', 'Medien öffnen');
+    ml.href = '/admin/medien';
+    ml.target = '_blank';
+    ml.rel = 'noopener';
+    empty.appendChild(ml);
+    inner.appendChild(empty);
+    var list = el('ul', 'pfiles');
+    inner.appendChild(list);
+    var more = btn('Mehr laden', '', function () { load(false); });
+    more.hidden = true;
+    inner.appendChild(more);
+    var foot = el('div', 'actions');
+    foot.appendChild(btn('Abbrechen', '', function () { dlg.close(); }));
+    inner.appendChild(foot);
+    dlg.appendChild(inner);
+    var page = 1, timer = null, seq = 0;
+
+    function item(r) {
+      var li = el('li');
+      var b = el('button', 'pfile');
+      b.type = 'button';
+      b.appendChild(el('span', 'pn', r.n));
+      b.appendChild(el('span', 'pm mono', r.k + ' · ' + r.s));
+      if (r.o) { b.appendChild(el('span', 'po', r.o)); }
+      b.addEventListener('click', function () { dlg.close(); done(r); });
+      li.appendChild(b);
+      return li;
+    }
+    function load(reset) {
+      if (reset) { page = 1; list.textContent = ''; } else { page++; }
+      var my = ++seq;
+      info.textContent = 'Lädt …';
+      empty.hidden = true;
+      fetch(fileUrl + '?q=' + encodeURIComponent(q.value) + '&seite=' + page, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+        .then(function (r) { if (!r.ok) { throw new Error('x'); } return r.json(); })
+        .then(function (d) {
+          if (my !== seq) { return; }
+          (d.rows || []).forEach(function (r) { list.appendChild(item(r)); });
+          more.hidden = !d.more;
+          info.textContent = '';
+          if (!list.children.length) {
+            emptyText.textContent = (q.value ? 'Keine passende Datei gefunden. ' : '') + 'Hier erscheinen nur öffentliche Dateien. In Medien bei der Datei „Öffentlich schalten“ wählen.' + (d.svgHidden ? ' SVG-Dateien fehlen, weil der Webserver den Schutzkopf dafür nicht bestätigt hat.' : '');
+            empty.hidden = false;
+          }
+        })
+        .catch(function () { if (my === seq) { info.textContent = 'Die Dateien konnten nicht geladen werden. Bitte noch einmal versuchen.'; } });
+    }
+    q.addEventListener('input', function () { clearTimeout(timer); timer = setTimeout(function () { load(true); }, 250); });
+    dlg.addEventListener('close', function () { if (dlg.parentNode) { dlg.parentNode.removeChild(dlg); } if (opener && opener.focus && document.body.contains(opener)) { try { opener.focus(); } catch (e) { /* weg */ } } });
+    document.body.appendChild(dlg);
+    if (dlg.showModal) { dlg.showModal(); } else { dlg.setAttribute('open', ''); }
+    q.focus();
+    load(true);
+  }
+
   // --- Speichern, Verlassen ---
   function replacer(k, v) { return k.charAt(0) === '_' ? undefined : v; }
   function sync() { field.value = JSON.stringify({ v: 1, blocks: state }, replacer); }
@@ -1045,13 +1229,13 @@
   // Erweiterungen (page-material.js, page-preview.js) bekommen nur diese Hilfen; Daten nimmt weiter nur der Server an.
   var api = {
     root: root, wrap: wrapEl, side: sideEl, main: mainEl, form: form, toolbar: toolbar, el: el, btn: btn, say: say, hint: hint,
-    pickUrl: pickUrl, TYPES: TYPES, SIMPLE: SIMPLE, PHOTO_TYPES: PHOTO_TYPES, isHome: isHome,
+    pickUrl: pickUrl, fileUrl: fileUrl, FILE_TYPES: FILE_TYPES, TYPES: TYPES, SIMPLE: SIMPLE, PHOTO_TYPES: PHOTO_TYPES, isHome: isHome,
     state: function () { return state; },
     json: function () { return JSON.stringify({ v: 1, blocks: state }, replacer); },
     summary: summary,
     startDrag: function (e, d) { dropFocus = null; startDrag(e, d, 'copy'); },
     endDrag: dragEndRestoreFocus,
-    insertPhoto: insertPhoto, setPhoto: setPhoto, insertGallery: insertGallery,
+    insertPhoto: insertPhoto, setPhoto: setPhoto, insertGallery: insertGallery, insertFile: insertFile, setFile: setFile,
     colFull: colFull, onChange: function (f) { changeFns.push(f); }
   };
   if (typeof window.LKMaterial === 'function') { window.LKMaterial(api); }

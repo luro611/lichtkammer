@@ -237,6 +237,53 @@ HT;
         return preg_match(self::PUBLIC_NAME, $name) === 1 ? 'dateien/' . $name : null;
     }
 
+    /**
+     * Öffentliche Dateien für die Auswahl im Editor (Entwurf 44, 8.1): nur `public = 1`, nicht im Papierkorb, gültiger Name, SVG nur bei
+     * bestandenem Selbsttest des Schutzkopfes. Nur Metadaten, nie eine Adresse. Suche über Name und Name des Ordners.
+     *
+     * @return array{rows:list<array{id:int,n:string,k:string,s:string,o:string}>,more:bool,page:int,svgHidden:bool}
+     */
+    public function pickPublic(string $q, int $page, int $per, Folders $folders): array
+    {
+        $per = max(1, min(60, $per));
+        $page = max(1, min(100000, $page));
+        $w = 'f.public = 1 AND f.deleted_at IS NULL';
+        $args = [];
+        $q = trim($q);
+        if ($q !== '') {
+            $like = '%' . strtr(mb_substr($q, 0, 100), ['\\' => '\\\\', '%' => '\\%', '_' => '\\_']) . '%';
+            $w .= " AND (f.name LIKE :q ESCAPE '\\' OR f.folder_id IN (SELECT id FROM folders WHERE name LIKE :q ESCAPE '\\' AND deleted_at IS NULL))";
+            $args[':q'] = $like;
+        }
+        $rows = $this->db->all(
+            "SELECT f.id, f.name, f.kind, f.bytes, f.folder_id, f.public, f.public_name, f.legacy_public_path, f.deleted_at FROM files f WHERE $w ORDER BY f.name COLLATE NOCASE, f.id LIMIT " . ($per + 1) . ' OFFSET ' . (($page - 1) * $per),
+            $args,
+        );
+        $more = count($rows) > $per;
+        $rows = array_slice($rows, 0, $per);
+        $svgHidden = false;
+        $svgOk = null;
+        $out = [];
+        $paths = [];
+        foreach ($rows as $r) {
+            $url = self::publicUrlOrNull($r);
+            if ($url === null) {
+                continue;
+            }
+            if (strtolower(pathinfo($url, PATHINFO_EXTENSION)) === 'svg' || $r['kind'] === 'svg') {
+                $svgOk ??= $this->svgHeadersWork();
+                if (!$svgOk) {
+                    $svgHidden = true;
+                    continue;
+                }
+            }
+            $fid = (int) $r['folder_id'];
+            $paths[$fid] ??= $fid < 1 ? 'Medien' : (implode(' / ', array_column($folders->breadcrumb($fid), 'name')) ?: 'Medien');
+            $out[] = ['id' => (int) $r['id'], 'n' => (string) $r['name'], 'k' => self::kindLabel($url), 's' => self::formatBytes((int) $r['bytes']), 'o' => $paths[$fid]];
+        }
+        return ['rows' => $out, 'more' => $more, 'page' => $page, 'svgHidden' => $svgHidden];
+    }
+
     /** „1,2 MB“, „340 KB“, „900 Bytes“: feste Formatierung aus der Größe der Datenbank. */
     public static function formatBytes(int $bytes): string
     {

@@ -1,4 +1,4 @@
-// Seitenstreifen „Material“ im Seiten-Editor (Entwurf 29, Teil D): Fotos und Galerien suchen und auf die Seite ziehen.
+// Seitenstreifen „Material“ im Seiten-Editor (Entwurf 29, Teil D; Entwurf 44, Stufe 4): Fotos, Galerien und öffentliche Dateien suchen und auf die Seite ziehen.
 // Ohne Bibliothek. Läuft nur mit page-editor.js (das ruft window.LKMaterial(api) auf). Gespeichert wird weiter nur die Foto-Id;
 // der Server baut alles neu auf (Blocks::parse). Ausgabe nur über textContent und Attribute. Jede Zieh-Handlung hat einen Weg ohne Maus:
 // Enter oder Antippen auf der Kachel öffnet „Wohin?“.
@@ -6,6 +6,7 @@ window.LKMaterial = function (api) {
   'use strict';
   var root = api.root, el = api.el, btn = api.btn, say = api.say;
   var photoUrl = api.pickUrl;
+  var fileUrl = api.fileUrl || ''; // ohne Adresse gibt es den Reiter „Dateien“ nicht
   var galUrl = root.getAttribute('data-gal-url') || '';
   var galPhotosUrl = root.getAttribute('data-gal-photos-url') || '';
   if (!photoUrl || !galUrl || !galPhotosUrl) { return; }
@@ -28,7 +29,7 @@ window.LKMaterial = function (api) {
 
   var mode = 'photos', page = 1, seq = 0, timer = null;
   var tabBtns = {};
-  [['photos', 'Fotos'], ['galleries', 'Galerien']].forEach(function (t) {
+  [['photos', 'Fotos'], ['galleries', 'Galerien']].concat(fileUrl ? [['files', 'Dateien']] : []).forEach(function (t) {
     var b = el('button', 'etab', t[1]);
     b.type = 'button';
     b.setAttribute('role', 'tab');
@@ -48,7 +49,8 @@ window.LKMaterial = function (api) {
     mode = m;
     Object.keys(tabBtns).forEach(function (k) { tabBtns[k].setAttribute('aria-selected', k === m ? 'true' : 'false'); });
     q.value = '';
-    q.setAttribute('aria-label', m === 'photos' ? 'Fotos suchen (Titel, Ort, Alt-Text, Dateiname)' : 'Galerien suchen (Titel)');
+    q.setAttribute('aria-label', m === 'photos' ? 'Fotos suchen (Titel, Ort, Alt-Text, Dateiname)' : (m === 'files' ? 'Dateien suchen (Name oder Ordner)' : 'Galerien suchen (Titel)'));
+    grid.className = m === 'files' ? 'emgrid ematfilelist' : 'emgrid';
     load(true);
   }
 
@@ -101,6 +103,26 @@ window.LKMaterial = function (api) {
     return li;
   }
 
+  // Datei-Kachel: nur öffentliche Dateien, nur Metadaten; gezogen wird die Nummer (der Server setzt die Adresse beim Bau)
+  function fileCard(item) {
+    var li = el('li');
+    var c = el('div', 'ematcard ematfile');
+    c.tabIndex = 0;
+    c.setAttribute('role', 'button');
+    c.draggable = true;
+    c.setAttribute('aria-label', 'Datei „' + item.n + '“ (' + item.k + ', ' + item.s + '): Enter wählt das Ziel auf der Seite');
+    c.appendChild(el('span', 'small', item.n));
+    c.appendChild(el('span', 'small muted mono', item.k + ' · ' + item.s));
+    if (item.o) { c.appendChild(el('span', 'small muted', item.o)); }
+    c.addEventListener('dragstart', function (e) { api.startDrag(e, { kind: 'file', file: item }); });
+    c.addEventListener('dragend', api.endDrag);
+    var act = function () { whereFile(c, item); };
+    c.addEventListener('click', act);
+    c.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); act(); } });
+    li.appendChild(c);
+    return li;
+  }
+
   var shown = {}; // Ids, die schon als Kachel stehen (neue Fotos verschieben die Seiten; keine Doppelten)
   function load(reset) {
     // „Mehr laden“ nur, wenn gerade nichts lädt: ein Doppelklick würde sonst eine Seite überspringen (Prüfung 42, N1)
@@ -110,8 +132,9 @@ window.LKMaterial = function (api) {
     var my = ++seq;
     more.disabled = true;
     info.textContent = 'Lädt …';
-    var url = (mode === 'photos' ? photoUrl + '?n=60&' : galUrl + '?') + 'q=' + encodeURIComponent(q.value) + '&seite=' + want;
+    var url = (mode === 'photos' ? photoUrl + '?n=60&' : (mode === 'files' ? fileUrl + '?' : galUrl + '?')) + 'q=' + encodeURIComponent(q.value) + '&seite=' + want;
     var isGal = mode === 'galleries';
+    var isFile = mode === 'files';
     fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
       .then(function (r) { if (!r.ok) { throw new Error('x'); } return r.json(); })
       .then(function (d) {
@@ -121,10 +144,11 @@ window.LKMaterial = function (api) {
         (d.rows || []).forEach(function (r) {
           if (shown[r.id]) { return; }
           shown[r.id] = true;
-          grid.appendChild(card(r, isGal));
+          grid.appendChild(isFile ? fileCard(r) : card(r, isGal));
         });
         more.hidden = !d.more;
-        info.textContent = grid.children.length ? '' : (isGal ? 'Keine passenden Galerien gefunden.' : 'Keine passenden Fotos gefunden.');
+        info.textContent = grid.children.length ? '' : (isGal ? 'Keine passenden Galerien gefunden.' : (isFile ? 'Keine passende Datei gefunden. Hier erscheinen nur öffentliche Dateien. In Medien bei der Datei „Öffentlich schalten“ wählen.' + (d.svgHidden ? ' SVG-Dateien fehlen, weil der Webserver den Schutzkopf dafür nicht bestätigt hat.' : '') : 'Keine passenden Fotos gefunden.'));
+        if (isFile && !grid.children.length) { var ml = el('a', 'small', ' Medien öffnen'); ml.href = '/admin/medien'; ml.target = '_blank'; ml.rel = 'noopener'; info.appendChild(ml); }
       })
       .catch(function () { if (my === seq) { more.disabled = false; info.textContent = 'Das Material konnte nicht geladen werden. Bitte noch einmal versuchen.'; } });
   }
@@ -195,6 +219,63 @@ window.LKMaterial = function (api) {
     dlg.addEventListener('close', function () {
       if (dlg.parentNode) { dlg.parentNode.removeChild(dlg); }
       // Hat die Aktion den Fokus schon in den neuen Block gesetzt, bleibt er dort; sonst zurück auf die Kachel.
+      var a = document.activeElement;
+      if ((!a || a === document.body) && opener && opener.focus) { try { opener.focus({ preventScroll: true }); } catch (e) { /* weg */ } }
+    });
+    document.body.appendChild(dlg);
+    if (dlg.showModal) { dlg.showModal(); } else { dlg.setAttribute('open', ''); }
+    var first = list.querySelector('button');
+    if (first) { first.focus(); }
+  }
+
+  // „Wohin?“ für eine Datei: als Ziel eines Knopfes, in einem Datei-Block ersetzen oder als neuer Datei-Block
+  function whereFile(opener, item) {
+    var dlg = el('dialog', 'picker wohin');
+    dlg.setAttribute('aria-label', 'Wohin soll die Datei?');
+    var inner = el('div', 'pickin');
+    inner.appendChild(el('h2', null, 'Wohin?'));
+    inner.appendChild(el('p', 'small muted', 'Datei „' + item.n + '“ (' + item.k + ', ' + item.s + ')'));
+    var list = el('div', 'wohinlist');
+    inner.appendChild(list);
+    var foot = el('div', 'actions');
+    foot.appendChild(btn('Abbrechen', '', function () { dlg.close(); }));
+    inner.appendChild(foot);
+    dlg.appendChild(inner);
+    function add(label, run) {
+      var b = el('button', 'btn small ghost wohinbtn', label);
+      b.type = 'button';
+      b.addEventListener('click', function () { dlg.close(); run(); });
+      list.appendChild(b);
+    }
+    var state = api.state();
+    var each = function (fn) { // jeder Block, auch in Spalten, mit seiner Bezeichnung
+      state.forEach(function (b, i) {
+        fn(b, 'Block ' + (i + 1));
+        if (b.t === 'columns') {
+          [['left', 'links'], ['right', 'rechts']].forEach(function (s) {
+            (b[s[0]] || []).forEach(function (cb, k) { fn(cb, 'Block ' + (i + 1) + ', Spalte ' + s[1] + ', Block ' + (k + 1)); });
+          });
+        }
+      });
+    };
+    each(function (b, path) {
+      if (b.t === 'button') { add('Als Ziel von ' + blockLabel(path, b), function () { api.setFile(b, item); }); }
+      if (b.t === 'download') { add('Datei ersetzen in ' + blockLabel(path, b), function () { api.setFile(b, item); }); }
+    });
+    var newLabel = 'Neuer Datei-Block';
+    add(newLabel + ' am Ende der Seite', function () { api.insertFile(state, state.length, item, ['download']); });
+    state.forEach(function (b, i) {
+      add(newLabel + ' hinter ' + blockLabel('Block ' + (i + 1), b), function () { api.insertFile(state, i + 1, item, ['download']); });
+    });
+    state.forEach(function (b, i) {
+      if (b.t !== 'columns') { return; }
+      [['left', 'links'], ['right', 'rechts']].forEach(function (s) {
+        if (api.colFull(b[s[0]])) { return; }
+        add(newLabel + ' ans Ende der Spalte ' + s[1] + ' von Block ' + (i + 1), function () { api.insertFile(b[s[0]], b[s[0]].length, item, api.SIMPLE); });
+      });
+    });
+    dlg.addEventListener('close', function () {
+      if (dlg.parentNode) { dlg.parentNode.removeChild(dlg); }
       var a = document.activeElement;
       if ((!a || a === document.body) && opener && opener.focus) { try { opener.focus({ preventScroll: true }); } catch (e) { /* weg */ } }
     });

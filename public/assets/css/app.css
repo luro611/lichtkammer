@@ -374,3 +374,35 @@ body.app{padding-inline:0}
 .pubband form{margin:0}
 .notice form.inline{display:inline;margin-left:10px}
 .also{margin:4px 0 0}
+
+/* Detailfeld der Medienverwaltung (Entwurf 44, Stufe 3): ohne Skript unter der Liste, mit Skript als Seitenleiste */
+.mdetail{border:1px solid var(--line);border-radius:var(--r-card);background:var(--surface);padding:18px 20px;margin:20px 0}
+.mdetail h2{margin:0 0 10px;font-size:1.3rem;overflow-wrap:anywhere}
+.mdetail:focus{outline:2px solid var(--accent);outline-offset:2px}
+.mdprev{margin:0 0 12px}.mdprev img{max-width:100%;height:auto;border-radius:var(--r-input);background:var(--soft);display:block}
+.mdprev .ph{display:inline-flex;padding:10px 14px;background:var(--soft);border-radius:var(--r-input);font:600 13px var(--f-mono);letter-spacing:.1em}
+.mdl{display:grid;grid-template-columns:max-content 1fr;gap:6px 16px;margin:0 0 14px}
+.mdl dt{font:600 11px var(--f-label);text-transform:uppercase;letter-spacing:.1em;color:var(--muted);padding-top:3px}.mdl dd{margin:0;overflow-wrap:anywhere}
+.mdl dd form{display:inline-block;margin-left:8px}
+.mdaddr{width:100%;font:13px var(--f-mono)}
+.mduses{margin:0;padding-left:18px}.mduses li{margin:2px 0}
+.mdactions{display:flex;gap:8px;flex-wrap:wrap;margin:0}
+.mdetailpanel{position:fixed;top:0;right:0;bottom:0;width:min(26rem,100vw);z-index:60;overflow:auto;margin:0;border-radius:0;border-width:0 0 0 1px;margin:0}
+.mdetailpanel .mdclose{float:right}
+@media (max-width:520px){.mdl{grid-template-columns:1fr}.mdl dt{padding-top:6px}}
+@media print{.mdetailpanel{display:none}}
+
+/* Dateien im Seiten-Editor (Entwurf 44, Stufe 4) */
+.bfilepick{display:flex;flex-direction:column;gap:6px;align-items:flex-start;margin:0 0 10px}
+.bfilesel{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;padding:8px 12px;border:1px solid var(--line);border-radius:var(--r-input);background:var(--bg);overflow-wrap:anywhere}
+.bfilesel strong{font-weight:600}.bfilesel .mono{color:var(--muted)}
+.bfilebad{color:var(--accent-strong)}
+.bfiletabs{display:flex;gap:4px;margin:0 0 10px}
+.pfiles{list-style:none;margin:0;padding:0;max-height:52vh;overflow:auto;border:1px solid var(--line);border-radius:var(--r-input)}
+.pfiles li{border-bottom:1px solid var(--line)}.pfiles li:last-child{border:0}
+.pfile{display:flex;flex-wrap:wrap;gap:2px 14px;align-items:baseline;width:100%;padding:9px 12px;background:var(--bg);color:var(--ink);border:0;font:inherit;text-align:left;cursor:pointer}
+.pfile:hover{background:var(--soft)}.pfile:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.pfile .pn{font-weight:600;overflow-wrap:anywhere}.pfile .pm,.pfile .po{color:var(--muted);font-size:13px}
+.pfileempty{padding:10px 12px;border:1px dashed var(--line);border-radius:var(--r-input);margin:0 0 10px}
+.ematfile{cursor:grab}.ematfile .ematicon{display:flex;align-items:center;justify-content:center;aspect-ratio:4/3;background:var(--soft);border-radius:var(--r-input);font:600 12px var(--f-mono);letter-spacing:.1em;color:var(--muted)}
+.emgrid.ematfilelist{grid-template-columns:1fr;gap:6px;max-height:46vh}

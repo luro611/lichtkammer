@@ -1,7 +1,7 @@
 <?php /** @var callable $e @var callable $asset @var string $csrf @var int $folder @var ?array $folderRow @var ?array $linkedGallery @var list<array{id:int,name:string}> $crumbs
  * @var list<array<string,mixed>> $folders @var array{rows:list<array<string,mixed>>,total:int,page:int,pages:int} $contents @var list<array<string,mixed>> $tree
  * @var list<array{id:int,label:string,depth:int}> $options @var string $sort @var bool $desc @var string $view @var string $q @var ?array $edit @var int $trashCount
- * @var int $pending @var array{photos:int,files:int} $usage @var array<int,string> $folderNames @var ?string $engine @var int $maxMb @var int $maxFileMb @var \Lichtkammer\Media\Files $files @var bool $isAdmin @var bool $legacyOpen */
+ * @var int $pending @var array{photos:int,files:int} $usage @var array<int,string> $folderNames @var ?string $engine @var int $maxMb @var int $maxFileMb @var \Lichtkammer\Media\Files $files @var bool $isAdmin @var bool $legacyOpen @var ?array<string,mixed> $detail */
 $by = [];
 foreach ($tree as $t) {
     $by[(int) $t['parent_id']][] = $t;
@@ -148,6 +148,7 @@ $total = $usage['photos'] + $usage['files'];
           <a class="tilelink" href="/admin/medien/datei/<?= (int) $r['id'] ?>?ansicht=1" target="_blank" rel="noopener"><?php if ($r['kind'] === 'pdf'): ?><span class="ph kind">PDF</span><?php else: ?><img src="/admin/medien/datei/<?= (int) $r['id'] ?>" alt="" loading="lazy" width="240"><?php endif; ?></a>
 <?php endif; ?>
           <span class="mono small wrap"><?= $e((string) $r['name']) ?></span>
+          <a class="small mdlink" href="<?= $e($url(['detail' => ($isPhoto ? 'f' : 'd') . (int) $r['id']])) ?>#mdetail" data-detail="<?= $isPhoto ? 'foto' : 'datei' ?>:<?= (int) $r['id'] ?>" aria-label="Details zu <?= $e((string) $r['name']) ?>">Details</a>
         </li>
 <?php endforeach; ?>
       </ul>
@@ -177,11 +178,12 @@ $total = $usage['photos'] + $usage['files'];
 <?php if ($q !== ''): ?><br><span class="small muted">in <?= $e($folderNames[(int) $r['folder_id']] ?? 'Medien') ?></span><?php endif; ?></td>
             <td><?= $e($kindLabel[(string) $r['kind']] ?? 'Datei') ?></td><td class="mono small"><?= $e($size((int) $r['bytes'])) ?></td><td class="mono small"><?= $e(gmdate('Y-m-d', (int) $r['at'])) ?></td>
             <td class="small">
-<?php if ($isPhoto): ?><span class="muted">Foto bearbeiten: über den Namen.</span>
+<?php if ($isPhoto): ?><a class="mdlink" href="<?= $e($url(['detail' => 'f' . (int) $r['id']])) ?>#mdetail" data-detail="foto:<?= (int) $r['id'] ?>" aria-label="Details zu <?= $e((string) $r['name']) ?>">Details</a>
 <?php elseif ($fr !== null): ?>
               <?= (int) $fr['public'] === 1 ? 'öffentlich: <a class="mono" href="' . $e($files->publicUrl($fr)) . '" target="_blank" rel="noopener">' . $e($files->publicUrl($fr)) . '</a>' : '<span class="muted">privat</span>' ?>
               <?php if ($fr['legacy_public_path'] === ''): ?><button class="btn small ghost" type="submit" form="mpublic-<?= (int) $r['id'] ?>"><?= (int) $fr['public'] === 1 ? 'Wieder privat' : 'Öffentlich schalten' ?></button><?php endif; ?>
               <a href="/admin/medien/datei/<?= (int) $r['id'] ?>">Herunterladen</a>
+              <a class="mdlink" href="<?= $e($url(['detail' => 'd' . (int) $r['id']])) ?>#mdetail" data-detail="datei:<?= (int) $r['id'] ?>" aria-label="Details zu <?= $e((string) $r['name']) ?>">Details</a>
               <?php if (($fileUse[(int) $r['id']] ?? 0) > 0): ?><span class="small muted">· in <?= (int) $fileUse[(int) $r['id']] ?> <?= $fileUse[(int) $r['id']] === 1 ? 'Seite' : 'Seiten' ?></span><?php endif; ?>
 <?php endif; ?>
             </td>
@@ -191,6 +193,34 @@ $total = $usage['photos'] + $usage['files'];
       </table></div>
 <?php endif; ?>
     </form>
+<?php if ($detail !== null): $d = $detail; ?>
+    <section class="mdetail" id="mdetail" aria-labelledby="mdt" tabindex="-1">
+      <h2 id="mdt"><?= $e((string) $d['name']) ?></h2>
+<?php if ($d['preview'] === 'image' && $d['previewUrl'] !== ''): ?>      <p class="mdprev"><img src="<?= $e((string) $d['previewUrl']) ?>" alt="Vorschau: <?= $e((string) $d['name']) ?>" width="480"></p>
+<?php elseif ($d['preview'] === 'pdf'): ?>      <p class="mdprev"><span class="ph kind">PDF</span> <a href="<?= $e((string) $d['openUrl']) ?>" target="_blank" rel="noopener">Öffnen</a></p>
+<?php endif; ?>
+      <dl class="mdl">
+        <dt>Art</dt><dd><?= $e((string) $d['type']) ?> <span class="muted mono small"><?= $e((string) $d['mime']) ?></span></dd>
+        <dt>Größe</dt><dd><?= $e((string) $d['size']) ?><?= $d['dims'] !== '' ? ' · ' . $e((string) $d['dims']) : '' ?></dd>
+        <dt>Datum</dt><dd><?= $e((string) $d['date']) ?></dd>
+<?php if ($d['by'] !== ''): ?>        <dt>Hochgeladen von</dt><dd><?= $e((string) $d['by']) ?></dd>
+<?php endif; ?>
+        <dt>Ort</dt><dd><a href="/admin/medien<?= (int) $d['folder'] > 0 ? '?ordner=' . (int) $d['folder'] : '' ?>"><?= $e((string) $d['place']) ?></a></dd>
+<?php if ($d['art'] === 'datei'): ?>
+        <dt>Sichtbarkeit</dt><dd><?= $d['public'] ? 'öffentlich' : 'privat' ?><?= $d['live'] ? ' · steht auf der Live-Seite' : '' ?>
+<?php if (!$d['legacy']): ?>          <form class="inline" method="post" action="/admin/medien/datei/<?= (int) $d['id'] ?>/oeffentlich"><input type="hidden" name="_csrf" value="<?= $e($csrf) ?>"><input type="hidden" name="ordner" value="<?= (int) $folder ?>"><input type="hidden" name="an" value="<?= $d['public'] ? '0' : '1' ?>"><button class="btn small ghost" type="submit"><?= $d['public'] ? 'Wieder privat' : 'Öffentlich schalten' ?></button></form>
+<?php endif; ?></dd>
+<?php if ($d['public']): ?>        <dt>Adresse</dt><dd><input class="mdaddr" type="text" readonly value="<?= $e((string) $d['address']) ?>" aria-label="Adresse der Datei zum Markieren und Kopieren"></dd>
+<?php endif; ?>
+<?php endif; ?>
+        <dt>Verwendet in</dt><dd>
+<?php if ($d['uses'] === []): ?>          <span class="muted">nirgends</span>
+<?php else: ?>          <ul class="mduses"><?php foreach ($d['uses'] as $u): ?><li><a href="<?= $e((string) $u['link']) ?>"><?= $e((string) $u['label']) ?></a><?= $u['pos'] !== '' ? ', ' . $e((string) $u['pos']) : '' ?><?= !$u['linked'] ? ' <span class="muted">(Adresse, nicht verknüpft)</span>' : '' ?></li><?php endforeach; ?></ul>
+<?php endif; ?></dd>
+      </dl>
+      <p class="mdactions"><?php if ($d['art'] === 'datei'): ?><a class="btn small ghost" href="<?= $e((string) $d['openUrl']) ?>" target="_blank" rel="noopener">Öffnen</a> <a class="btn small ghost" href="<?= $e((string) $d['downloadUrl']) ?>">Herunterladen</a><?php else: ?><a class="btn small ghost" href="<?= $e((string) $d['editUrl']) ?>">Foto bearbeiten</a><?php endif; ?> <a class="btn small ghost" href="<?= $e($url(['detail' => null])) ?>">Schließen</a></p>
+    </section>
+<?php endif; ?>
 <?php if ($edit !== null): ?>
     <form id="mrename" method="post" action="/admin/medien/umbenennen"><input type="hidden" name="_csrf" value="<?= $e($csrf) ?>"><input type="hidden" name="ordner" value="<?= (int) $folder ?>"><input type="hidden" name="art" value="<?= $edit[0] === 'o' ? 'ordner' : 'datei' ?>"><input type="hidden" name="id" value="<?= (int) $edit[1] ?>"></form>
 <?php endif; ?>

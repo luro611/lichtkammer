@@ -84,6 +84,7 @@ trait MedienPages
         $q = trim($req->query('q'));
         $contents = $this->s->browser->contents($folder, $q, $sort, $desc, max(1, (int) $req->query('seite')));
         $edit = preg_match('/^([od])(\d{1,9})$/', $req->query('bearbeiten'), $em) === 1 ? [$em[1], (int) $em[2]] : null;
+        $detail = preg_match('/^([df])([1-9]\d{0,8})$/', $req->query('detail'), $dm) === 1 ? $this->detailData($dm[1] === 'd' ? 'datei' : 'foto', (int) $dm[2]) : null;
         $usage = $this->s->browser->usage();
         $engine = $this->s->library->engine();
         $folderRow = $folder > 0 ? $this->s->folders->get($folder) : null;
@@ -93,7 +94,7 @@ trait MedienPages
             'crumbs' => $this->s->folders->breadcrumb($folder),
             'folders' => $q === '' ? $this->s->folders->children($folder) : [],
             'contents' => $contents, 'tree' => $this->s->folders->all(), 'options' => $this->folderOptions(),
-            'sort' => $sort, 'desc' => $desc, 'view' => $view, 'q' => $q, 'edit' => $edit,
+            'sort' => $sort, 'desc' => $desc, 'view' => $view, 'q' => $q, 'edit' => $edit, 'detail' => $detail,
             'trashCount' => count($this->s->folders->trashedRoots()) + count($this->s->files->trashedSingles()),
             'pending' => $this->s->browser->pendingCount(), 'usage' => $usage,
             'folderNames' => $q !== '' ? $this->folderNamesFor($contents['rows']) : [],
@@ -170,6 +171,70 @@ trait MedienPages
         }
         $this->dirtyHandled = true;
         return $this->page('admin/medien_confirm', ['title' => 'Noch verwendet', 'action' => $action, 'what' => $what, 'rows' => $rows, 'more' => $more, 'fields' => $fields, 'cancel' => $cancel], 200, $sess);
+    }
+
+    // --- Detailfeld (Entwurf 44, Stufe 3; Teil D aus Entwurf 16) ---
+
+    /**
+     * Alle Angaben zu einem Eintrag für das Detailfeld, eine Quelle für die Seite ohne Skript und für die JSON-Antwort.
+     * Nie ein Pfad der privaten Datei; die Adresse nur, wenn die Datei öffentlich ist.
+     *
+     * @return array<string,mixed>|null
+     */
+    private function detailData(string $art, int $id): ?array
+    {
+        $by = fn (mixed $uid): string => $uid === null ? '' : (string) ($this->s->db->value('SELECT username FROM users WHERE id = ?', [(int) $uid]) ?? '');
+        $place = function (int $fid): string {
+            return $fid < 1 ? 'Medien' : (implode(' / ', array_column($this->s->folders->breadcrumb($fid), 'name')) ?: 'Medien');
+        };
+        $uses = static fn (array $list): array => array_map(static fn (array $u): array => ['label' => (string) $u['label'], 'link' => (string) $u['link'], 'pos' => (string) $u['pos'], 'linked' => (bool) ($u['linked'] ?? true)], $list);
+        if ($art === 'datei') {
+            $f = $this->s->files->get($id);
+            if ($f === null) {
+                return null;
+            }
+            $url = \Lichtkammer\Media\Files::publicUrlOrNull($f);
+            $base = $this->config->baseUrl();
+            $isPdf = $f['kind'] === 'pdf';
+            return [
+                'art' => 'datei', 'id' => (int) $f['id'], 'name' => (string) $f['name'],
+                'type' => $url !== null ? \Lichtkammer\Media\Files::kindLabel($url) : \Lichtkammer\Media\Files::kindLabel((string) $f['path']),
+                'mime' => (string) $f['mime'], 'size' => \Lichtkammer\Media\Files::formatBytes((int) $f['bytes']), 'dims' => '',
+                'date' => gmdate('Y-m-d', (int) $f['created_at']), 'by' => $by($f['uploaded_by']), 'place' => $place((int) $f['folder_id']),
+                'public' => $url !== null, 'legacy' => (string) $f['legacy_public_path'] !== '',
+                'address' => $url !== null ? $base . $url : '',
+                'preview' => $isPdf ? 'pdf' : 'image', 'previewUrl' => $isPdf ? '' : '/admin/medien/datei/' . (int) $f['id'],
+                'openUrl' => '/admin/medien/datei/' . (int) $f['id'] . '?ansicht=1', 'downloadUrl' => '/admin/medien/datei/' . (int) $f['id'],
+                'editUrl' => '', 'folder' => (int) $f['folder_id'],
+                'uses' => $uses($this->usage()->forFile((int) $f['id'])), 'live' => isset($this->usage()->liveFileIds()[(int) $f['id']]),
+            ];
+        }
+        if ($art === 'foto') {
+            $p = $this->s->db->one('SELECT p.id, p.title, p.original_name, p.mime, p.bytes, p.width, p.height, p.status, p.created_at, p.uploaded_by, p.folder_id, ' . \Lichtkammer\Media\Galleries::THUMB . ' AS thumb FROM photos p WHERE p.id = ? AND p.deleted_at IS NULL', [$id]);
+            if ($p === null) {
+                return null;
+            }
+            $v = $this->s->db->one("SELECT path FROM photo_variants WHERE photo_id = ? AND format = 'jpeg' ORDER BY ABS(width - 480), width LIMIT 1", [$id]);
+            return [
+                'art' => 'foto', 'id' => (int) $p['id'], 'name' => (string) ($p['title'] !== '' ? $p['title'] : $p['original_name']),
+                'type' => 'Foto', 'mime' => (string) $p['mime'], 'size' => \Lichtkammer\Media\Files::formatBytes((int) $p['bytes']),
+                'dims' => (int) $p['width'] > 0 ? (int) $p['width'] . ' × ' . (int) $p['height'] . ' Pixel' : '',
+                'date' => gmdate('Y-m-d', (int) $p['created_at']), 'by' => $by($p['uploaded_by']), 'place' => $place((int) ($p['folder_id'] ?? 0)),
+                'public' => false, 'legacy' => false, 'address' => '', 'preview' => 'image', 'previewUrl' => $v !== null ? '/media/' . $v['path'] : '',
+                'openUrl' => '', 'downloadUrl' => '', 'editUrl' => '/admin/fotos/' . (int) $p['id'], 'folder' => (int) ($p['folder_id'] ?? 0),
+                'uses' => $uses($this->usage()->forPhoto((int) $p['id'])), 'live' => false,
+            ];
+        }
+        return null;
+    }
+
+    /** Detailfeld als JSON (für die Seitenleiste mit Skript). Nur lesen, angemeldet, nie im Zwischenspeicher. */
+    public function medienDetail(Request $req, array $p, ?array $sess): Response
+    {
+        $art = $req->query('art');
+        $id = $this->idParam($req->query('id'));
+        $d = $id === null || !in_array($art, ['datei', 'foto'], true) ? null : $this->detailData($art, $id);
+        return $d === null ? Response::json(['error' => 'Nicht gefunden.'], 404) : Response::json($d);
     }
 
     // --- Ordner und Einträge ---

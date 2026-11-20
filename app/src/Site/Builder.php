@@ -147,7 +147,7 @@ final class Builder
         }
         return [
             'redirects' => $newRedirects,
-            'errors' => $r->errors, 'warnings' => $r->warnings, 'changes' => $changes, 'files' => count($files),
+            'errors' => $r->errors, 'warnings' => $r->warnings, 'links' => $r->issueLinks, 'changes' => $changes, 'files' => count($files),
             'galleries' => count($d['galleries']), 'photos' => count($r->photoIds()),
         ];
     }

@@ -5,6 +5,7 @@ namespace Lichtkammer\Site;
 
 use Lichtkammer\Auth\Database;
 use Lichtkammer\Config;
+use Lichtkammer\Media\Files;
 use Lichtkammer\Media\Galleries;
 use Lichtkammer\Media\MediaException;
 use Lichtkammer\Media\SvgCheck;
@@ -16,7 +17,8 @@ final class Settings
     public const DESIGNS = ['warm' => 'Warm', 'klar' => 'Klar', 'studio' => 'Studio', 'blau' => 'Blau', 'rot' => 'Rot', 'gruen' => 'Grün'];
     public const DESIGN_DEFAULT = 'warm';
 
-    public function __construct(private readonly Database $db, private readonly Config $config)
+    /** @param ?Files $files null = „Logo aus Medien“ ausgeschaltet (alte Aufrufe und Tests verhalten sich wie bisher) */
+    public function __construct(private readonly Database $db, private readonly Config $config, private readonly ?Files $files = null)
     {
     }
 
@@ -95,16 +97,68 @@ final class Settings
         return $out;
     }
 
-    /** @return array{light:string,dark:string,favicon:string} Logo-Kennungen je Zweck (leer = keines) */
+    /**
+     * Logo-Kennungen je Zweck (leer = keines). Eine Kennung ist entweder eine hochgeladene (16 Zeichen) oder „f<Nummer>“ für eine Datei aus Medien
+     * (Entwurf 44, Stufe 5); eine Datei, die nicht mehr geeignet ist, zählt als „keines“ (Seitenname als Schrift).
+     *
+     * @return array{light:string,dark:string,favicon:string}
+     */
     public function logoChoice(): array
     {
         $ids = array_column($this->logos(), 'id');
         $r = [];
         foreach (array_keys(self::LOGO_ROLES) as $role) {
             $v = (string) ($this->db->value('SELECT v FROM site_settings WHERE k = ?', ['logo_' . $role]) ?? '');
-            $r[$role] = in_array($v, $ids, true) ? $v : '';
+            $r[$role] = in_array($v, $ids, true) || $this->mediaLogo($v) !== null ? $v : '';
         }
         return $r;
+    }
+
+    /** Warnungen für den Probelauf: gewählte Logo-Datei aus Medien ist weg oder nicht mehr geeignet. @return list<string> */
+    public function logoProblems(): array
+    {
+        $out = [];
+        foreach (self::LOGO_ROLES as $role => $label) {
+            $v = (string) ($this->db->value('SELECT v FROM site_settings WHERE k = ?', ['logo_' . $role]) ?? '');
+            if ($this->files !== null && preg_match('/^f[1-9]\d{0,8}$/', $v) === 1 && $this->mediaLogo($v) === null) {
+                $out[] = $label . ': Die gewählte Datei aus Medien gibt es nicht mehr oder sie ist nicht mehr als Logo geeignet. Es erscheint der Seitenname als Schrift.';
+            }
+        }
+        return $out;
+    }
+
+    /** Endung und Typ der Dateien, die als Logo taugen (kein JPEG: ohne GPS-Entfernen, und jedes Logo steckt in jeder Seite). */
+    private const MEDIA_LOGO_TYPES = ['svg' => 'image/svg+xml', 'png' => 'image/png', 'webp' => 'image/webp'];
+
+    /** Datei aus Medien als Logo: `f<Nummer>`; nur svg/png/webp, nicht im Papierkorb, höchstens LOGO_MAX. @return array{id:int,name:string,mime:string,path:string}|null */
+    private function mediaLogo(string $v): ?array
+    {
+        if ($this->files === null || preg_match('/^f([1-9]\d{0,8})$/', $v, $m) !== 1) {
+            return null;
+        }
+        $f = $this->files->get((int) $m[1]);
+        if ($f === null || (int) $f['bytes'] > self::LOGO_MAX || $f['kind'] === 'pdf') {
+            return null;
+        }
+        $mime = self::MEDIA_LOGO_TYPES[strtolower(pathinfo((string) $f['path'], PATHINFO_EXTENSION))] ?? null;
+        $abs = $mime === null ? null : $this->files->absolute($f);
+        return $abs === null ? null : ['id' => (int) $f['id'], 'name' => (string) $f['name'], 'mime' => (string) $mime, 'path' => $abs];
+    }
+
+    /** Dateien aus Medien, die als Logo taugen (Auswahlgruppe auf der Logo-Seite). @return list<array{id:string,name:string}> */
+    public function mediaLogoCandidates(): array
+    {
+        if ($this->files === null) {
+            return [];
+        }
+        $out = [];
+        foreach ($this->db->all("SELECT id FROM files WHERE deleted_at IS NULL AND kind IN ('svg','image') AND bytes <= ? ORDER BY name COLLATE NOCASE, id LIMIT 200", [self::LOGO_MAX]) as $r) {
+            $l = $this->mediaLogo('f' . (int) $r['id']);
+            if ($l !== null) {
+                $out[] = ['id' => 'f' . $l['id'], 'name' => $l['name']];
+            }
+        }
+        return $out;
     }
 
     private function put(string $k, string $v): void
@@ -178,13 +232,17 @@ final class Settings
         $ids = array_column($this->logos(), 'id');
         foreach (array_keys(self::LOGO_ROLES) as $role) {
             $v = (string) ($choice[$role] ?? '');
-            $this->put('logo_' . $role, in_array($v, $ids, true) ? $v : '');
+            $this->put('logo_' . $role, in_array($v, $ids, true) || $this->mediaLogo($v) !== null ? $v : '');
         }
     }
 
     /** Data-URL eines Logos für <img src>, null wenn nicht vorhanden. */
     public function logoUri(string $id): ?string
     {
+        if (($ml = $this->mediaLogo($id)) !== null) { // Datei aus Medien: Pfad nur aus der Datenbank, Inhalt als Data-URL eingebettet (kein öffentlicher Link nötig)
+            $bytes = @file_get_contents($ml['path'], false, null, 0, self::LOGO_MAX + 1);
+            return $bytes === false || $bytes === '' || strlen($bytes) > self::LOGO_MAX ? null : 'data:' . $ml['mime'] . ';base64,' . base64_encode($bytes);
+        }
         foreach ($this->logos() as $l) {
             if ($l['id'] === $id) {
                 $bytes = @file_get_contents($this->logoDir() . '/' . $id);

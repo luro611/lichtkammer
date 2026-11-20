@@ -95,6 +95,23 @@ trait SitePages
                 ? ['t' => '', 'a' => '', 'c' => '', 'u' => '', 'x' => 1]
                 : ['t' => (string) $row['title'], 'a' => (string) $row['alt_text'], 'c' => (string) $row['caption'], 'u' => $row['thumb'] ? '/media/' . $row['thumb'] : '', 'x' => 0];
         }
+        $files = [];
+        $fids = [];
+        array_walk_recursive($data, static function ($v, $k) use (&$fids): void {
+            if ($k === 'file' && (is_int($v) || (is_string($v) && ctype_digit($v) && strlen($v) < 10)) && (int) $v > 0) {
+                $fids[(int) $v] = (int) $v;
+            }
+        });
+        foreach ($fids as $fid) { // Anzeige im Editor (Name, Art, Größe, „nicht verfügbar“); gesichert wird alles erst beim Bau (Entwurf 44, 8.1)
+            $row = $this->s->db->one('SELECT id, name, kind, bytes, public, public_name, legacy_public_path, deleted_at FROM files WHERE id = ?', [$fid]);
+            if ($row === null || $row['deleted_at'] !== null) {
+                $files[$fid] = ['n' => '', 'k' => '', 's' => '', 'x' => 1, 'r' => 'gelöscht'];
+                continue;
+            }
+            $rel = \Lichtkammer\Media\Files::publicRelOrNull($row);
+            $ok = $rel !== null && is_file($this->config->mediaDir() . '/' . $rel);
+            $files[$fid] = ['n' => (string) $row['name'], 'k' => $rel !== null ? \Lichtkammer\Media\Files::kindLabel($rel) : \Lichtkammer\Media\Files::kindLabel((string) $row['name']), 's' => \Lichtkammer\Media\Files::formatBytes((int) $row['bytes']), 'x' => $ok ? 0 : 1, 'r' => $ok ? '' : ((int) $row['public'] !== 1 ? 'privat' : 'Kopie fehlt')];
+        }
         $homePhotos = [];
         if ($home) { // markierte Startseiten-Fotos (Schalter in der Galerie), für den Ausschnitt je Foto
             foreach ($this->s->db->all('SELECT p.id, p.title, p.original_name, ' . Galleries::THUMB . " AS thumb FROM photos p WHERE p.on_home = 1 AND p.deleted_at IS NULL AND p.status = 'ready' ORDER BY p.id LIMIT 12") as $row) {
@@ -104,7 +121,7 @@ trait SitePages
                 }
             }
         }
-        $editor = json_encode(['blocks' => $data['blocks'], 'photos' => (object) $photos, 'home' => $home, 'homePhotos' => $homePhotos], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_PARTIAL_OUTPUT_ON_ERROR);
+        $editor = json_encode(['blocks' => $data['blocks'], 'photos' => (object) $photos, 'files' => (object) $files, 'home' => $home, 'homePhotos' => $homePhotos], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_PARTIAL_OUTPUT_ON_ERROR);
         return [(string) $editor, Blocks::encode($data['blocks'])];
     }
 
@@ -171,7 +188,7 @@ trait SitePages
             $l['uri'] = $set->logoUri($l['id']);
             $logos[] = $l;
         }
-        return $this->page('admin/logos', ['title' => 'Logos', 'logos' => $logos, 'choice' => $set->logoChoice(), 'roles' => \Lichtkammer\Site\Settings::LOGO_ROLES, 'error' => $error, 'also' => $this->alsoLive()], $status, $sess);
+        return $this->page('admin/logos', ['title' => 'Logos', 'logos' => $logos, 'choice' => $set->logoChoice(), 'mediaLogos' => $set->mediaLogoCandidates(), 'roles' => \Lichtkammer\Site\Settings::LOGO_ROLES, 'error' => $error, 'also' => $this->alsoLive()], $status, $sess);
     }
 
     public function logosPage(Request $req, array $p, ?array $sess): Response
@@ -246,6 +263,13 @@ trait SitePages
             }
         }
         return Response::json(['rows' => $rows, 'more' => $r['more'], 'page' => $r['page']]);
+    }
+
+    /** Öffentliche Dateien für den Editor (JSON, Entwurf 44, 8.1): nur Metadaten, nie eine Adresse. 60 je Seite. */
+    public function filePick(Request $req, array $p, ?array $sess): Response
+    {
+        $r = $this->s->files->pickPublic($req->query('q'), (int) $req->query('seite'), 60, $this->s->folders);
+        return Response::json(['rows' => $r['rows'], 'more' => $r['more'], 'page' => $r['page'], 'svgHidden' => $r['svgHidden']]);
     }
 
     /** @param array<string,mixed> $row @return array{id:int,t:string,a:string,c:string,u:string} */

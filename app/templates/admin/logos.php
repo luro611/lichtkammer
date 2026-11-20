@@ -1,4 +1,4 @@
-<?php /** @var callable $e @var callable $asset @var list<array<string,mixed>> $logos @var array<string,string> $choice @var array<string,string> $roles @var ?string $error @var string $csrf */ ?>
+<?php /** @var callable $e @var callable $asset @var list<array<string,mixed>> $logos @var array<string,string> $choice @var array<string,string> $roles @var ?string $error @var string $csrf @var list<array{id:string,name:string}> $mediaLogos */ ?>
 <section class="hero">
   <p class="eyebrow">Öffentliche Seite</p>
   <h1><em>Logos</em></h1>
@@ -14,9 +14,10 @@
   </form>
 </section>
 <section>
-<?php if ($logos === []): ?>
+<?php if ($logos === [] && $mediaLogos === []): ?>
   <p class="muted">Noch keine Logos hochgeladen.</p>
 <?php else: ?>
+<?php if ($logos !== []): ?>
   <h2 class="h2s">Hochgeladene Logos</h2>
   <ul class="logogrid">
 <?php foreach ($logos as $l): ?>
@@ -28,14 +29,19 @@
     </li>
 <?php endforeach; ?>
   </ul>
+<?php endif; ?>
   <form class="form card" method="post" action="/admin/logos/zuordnen" data-guard>
     <input type="hidden" name="_csrf" value="<?= $e($csrf) ?>">
 <?php foreach ($roles as $role => $label): ?>
     <label class="field"><span><?= $e($label) ?></span><select name="<?= $e($role) ?>"><option value="">– keines –</option>
+<?php if ($logos !== []): ?><optgroup label="Hochgeladene Logos">
 <?php foreach ($logos as $l): ?>      <option value="<?= $e((string) $l['id']) ?>"<?= $choice[$role] === $l['id'] ? ' selected' : '' ?>><?= $e((string) $l['name']) ?></option>
-<?php endforeach; ?></select></label>
+<?php endforeach; ?></optgroup><?php endif; ?>
+<?php if ($mediaLogos !== []): ?><optgroup label="Aus Medien">
+<?php foreach ($mediaLogos as $l): ?>      <option value="<?= $e($l['id']) ?>"<?= $choice[$role] === $l['id'] ? ' selected' : '' ?>><?= $e($l['name']) ?></option>
+<?php endforeach; ?></optgroup><?php endif; ?></select></label>
 <?php endforeach; ?>
-    <p class="small muted">Ist nur ein Logo für hell oder dunkel gewählt, gilt es für beide Modi. Ohne Auswahl erscheint der Seitenname als Schrift.</p>
+    <p class="small muted">Ist nur ein Logo für hell oder dunkel gewählt, gilt es für beide Modi. Ohne Auswahl erscheint der Seitenname als Schrift. „Aus Medien“ zeigt SVG-, PNG- und WebP-Dateien bis 300 KB aus der <a href="/admin/medien">Medienverwaltung</a>; sie müssen dafür nicht öffentlich sein. Wird so eine Datei später gelöscht, erscheint wieder der Seitenname.</p>
     <div class="actions"><button class="btn" type="submit" name="veroeffentlichen" value="1" data-busy="Wird veröffentlicht …">Auswahl speichern und veröffentlichen</button> <button class="btn ghost" type="submit">Nur speichern (noch nicht online)</button></div>
 <?php include __DIR__ . '/../partials/also.php'; ?>
   </form>

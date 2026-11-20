@@ -8,10 +8,10 @@ $fmt = static fn (string $id): string => preg_match('/^(\d{4})(\d{2})(\d{2})-(\d
 <?php if ($ok): ?><div class="notice" role="status"><?= $e($ok) ?> <a href="/" target="_blank" rel="noopener">Seite ansehen</a></div><?php endif; ?>
 <?php if ($error): ?><div class="notice error" role="alert"><?= $e($error) ?></div><?php endif; ?>
 <?php if ($plan['errors'] !== []): ?>
-  <div class="notice error" role="alert"><strong>Das muss vorher behoben werden:</strong><ul><?php foreach ($plan['errors'] as $m): ?><li><?= $e($m) ?></li><?php endforeach; ?></ul></div>
+  <div class="notice error" role="alert"><strong>Das muss vorher behoben werden:</strong><ul><?php foreach ($plan['errors'] as $m): ?><li><?= $e($m) ?><?php foreach ($plan['links'][$m] ?? [] as $lk): ?> <a class="small" href="<?= $e($lk[1]) ?>"><?= $e($lk[0]) ?></a><?php endforeach; ?></li><?php endforeach; ?></ul></div>
 <?php endif; ?>
 <?php if ($plan['warnings'] !== []): ?>
-  <div class="notice" role="note"><strong>Hinweise:</strong><ul><?php foreach ($plan['warnings'] as $m): ?><li><?= $e($m) ?></li><?php endforeach; ?></ul></div>
+  <div class="notice" role="note"><strong>Hinweise:</strong><ul><?php foreach ($plan['warnings'] as $m): ?><li><?= $e($m) ?><?php foreach ($plan['links'][$m] ?? [] as $lk): ?> <a class="small" href="<?= $e($lk[1]) ?>"><?= $e($lk[0]) ?></a><?php endforeach; ?></li><?php endforeach; ?></ul></div>
 <?php endif; ?>
   <h2 class="h2s">Änderungen</h2>
 <?php if ($plan['changes'] === []): ?>

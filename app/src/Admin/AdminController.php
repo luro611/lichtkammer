@@ -74,11 +74,13 @@ final class AdminController
         $r('GET', '/admin/fotos', 'library');
         $r('POST', '/admin/fotos/mehrfach', 'photosBulk');
         $r('GET', '/admin/fotos/auswahl', 'photoPick');
+        $r('GET', '/admin/dateien/auswahl', 'filePick');
         $r('GET', '/admin/fotos/auswahl-galerien', 'galleryPick');
         $r('GET', '/admin/fotos/auswahl-galerie/{id}', 'galleryPickPhotos');
         $r('GET', '/admin/fotos/{id}', 'photo');
         $r('POST', '/admin/fotos/{id}/speichern', 'photoSave');
         $r('GET', '/admin/medien', 'medien');
+        $r('GET', '/admin/medien/detail', 'medienDetail');
         $r('POST', '/admin/medien/ordner', 'medienFolderCreate');
         $r('POST', '/admin/medien/umbenennen', 'medienRename');
         $r('POST', '/admin/medien/verschieben', 'medienMove');
