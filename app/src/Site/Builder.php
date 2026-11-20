@@ -20,6 +20,9 @@ final class Builder
     public const KEEP_BACKUPS = 20;
     public const MAX_FILES = 2000;
 
+    /** Nur für Tests: wird nach dem Bau und vor der Dateiprüfung aufgerufen (Rennen „Datei wird während des Veröffentlichens privat“). @var (\Closure():void)|null */
+    public ?\Closure $beforeSwitch = null;
+
     public function __construct(
         private readonly Database $db,
         private readonly Config $config,
@@ -67,6 +70,7 @@ final class Builder
         'sperre' => 'Es läuft gerade ein anderes Veröffentlichen. Bitte gleich noch einmal versuchen.',
         'fehler' => 'Vor dem Veröffentlichen sind Fehler zu beheben (Einzelheiten unter „Veröffentlichen“).',
         'zuviele' => 'Die Seite hat mehr als 2000 Dateien; das ist nicht vorgesehen.',
+        'datei' => 'Eine Datei wurde gerade privat gestellt oder gelöscht. Bitte noch einmal veröffentlichen.',
         'technisch' => 'Das Veröffentlichen ist fehlgeschlagen; die bisherige Seite bleibt unverändert.',
     ];
 
@@ -191,8 +195,17 @@ final class Builder
             }
             $d = $r->data();
             $manifest = ['id' => $id, 'at' => $this->clock->now(), 'user' => $userId, 'files' => $hashes, 'labels' => $r->labels,
-                'galleries' => count($d['galleries']), 'photos' => count($r->photoIds()), 'photo_ids' => $r->photoIds()];
+                'galleries' => count($d['galleries']), 'photos' => count($r->photoIds()), 'photo_ids' => $r->photoIds(),
+                'file_ids' => $r->fileIds(), 'file_urls' => $r->fileUrls()];
             file_put_contents($tmp . '/manifest.json', json_encode($manifest, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            if ($this->beforeSwitch !== null) {
+                ($this->beforeSwitch)();
+            }
+            // Frische Prüfung der Dateien VOR dem Umbenennen: bei Abbruch bleibt keine wählbare Fassung zurück (Prüfung 45, B3).
+            if ($r->recheckFiles() !== []) {
+                self::removeDir($tmp);
+                return $fail('datei');
+            }
             if (!rename($tmp, $site . '/releases/' . $id)) {
                 throw new \RuntimeException('Umbenennen fehlgeschlagen');
             }

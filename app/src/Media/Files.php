@@ -208,6 +208,50 @@ HT;
         return is_file($abs) ? $abs : null;
     }
 
+    private const PUBLIC_NAME = '/^[0-9a-f]{8}-[a-z0-9-]*\.(pdf|svg|png|jpg|webp)$/D';
+    private const LEGACY_PATH = '#^dokumente/[A-Za-z0-9][A-Za-z0-9._-]{0,120}\.pdf$#D';
+
+    /**
+     * Öffentliche Adresse für Seiten (Entwurf 44): nur für öffentliche Dateien und nur, wenn der Name aus der Datenbank
+     * streng zum Muster passt (Modifikator D: kein Zeilenumbruch am Ende). Sonst null. Prüft nicht, ob die Kopie auf der Platte liegt.
+     *
+     * @param array<string,mixed> $file
+     */
+    public static function publicUrlOrNull(array $file): ?string
+    {
+        $rel = self::publicRelOrNull($file);
+        return $rel === null ? null : '/media/' . $rel;
+    }
+
+    /** Pfad der öffentlichen Kopie unter media/ („dateien/<name>“ oder „dokumente/<name>“), nach Muster geprüft. @param array<string,mixed> $file */
+    public static function publicRelOrNull(array $file): ?string
+    {
+        if ((int) ($file['public'] ?? 0) !== 1 || ($file['deleted_at'] ?? null) !== null) {
+            return null;
+        }
+        $legacy = (string) ($file['legacy_public_path'] ?? '');
+        if ($legacy !== '') {
+            return preg_match(self::LEGACY_PATH, $legacy) === 1 ? $legacy : null;
+        }
+        $name = (string) ($file['public_name'] ?? '');
+        return preg_match(self::PUBLIC_NAME, $name) === 1 ? 'dateien/' . $name : null;
+    }
+
+    /** „1,2 MB“, „340 KB“, „900 Bytes“: feste Formatierung aus der Größe der Datenbank. */
+    public static function formatBytes(int $bytes): string
+    {
+        if ($bytes >= 1048576) {
+            return str_replace('.', ',', number_format($bytes / 1048576, 1, '.', '')) . ' MB';
+        }
+        return $bytes >= 1024 ? (int) round($bytes / 1024) . ' KB' : max(0, $bytes) . ' Bytes';
+    }
+
+    /** Kurzname der Art für die Anzeige („PDF“, „SVG“, „PNG“ …), aus der Endung der öffentlichen Adresse. */
+    public static function kindLabel(string $url): string
+    {
+        return ['pdf' => 'PDF', 'svg' => 'SVG', 'png' => 'PNG', 'jpg' => 'JPEG', 'webp' => 'WebP'][strtolower(pathinfo($url, PATHINFO_EXTENSION))] ?? 'Datei';
+    }
+
     public function publicUrl(array $file): string
     {
         return (int) $file['public'] === 1 ? ($file['legacy_public_path'] !== '' ? '/media/' . $file['legacy_public_path'] : '/media/dateien/' . $file['public_name']) : '';
@@ -286,7 +330,7 @@ HT;
     private function removeCopy(array $f): void
     {
         $name = (string) $f['public_name'];
-        if ($name !== '' && $f['legacy_public_path'] === '' && preg_match('/^[0-9a-f]{8}-[a-z0-9-]*\.(pdf|svg|png|jpg|webp)$/', $name) === 1) {
+        if ($name !== '' && $f['legacy_public_path'] === '' && preg_match('/^[0-9a-f]{8}-[a-z0-9-]*\.(pdf|svg|png|jpg|webp)$/D', $name) === 1) {
             @unlink($this->mediaDir . '/dateien/' . $name);
         }
     }

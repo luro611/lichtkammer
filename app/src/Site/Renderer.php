@@ -5,6 +5,7 @@ namespace Lichtkammer\Site;
 
 use Lichtkammer\Auth\Database;
 use Lichtkammer\Config;
+use Lichtkammer\Media\Files;
 use Lichtkammer\Media\Galleries;
 use Lichtkammer\Media\MediaException;
 use Lichtkammer\View;
@@ -155,6 +156,7 @@ final class Renderer
                         $this->issue("$label: Foto $pid ist nicht mehr verfügbar (gelöscht oder nicht fertig).", $hard);
                     }
                 }
+                $this->checkFileRefs($list, $label, $hard);
             } elseif (trim((string) $pg['body']) === '') {
                 $this->issue("$label hat keinen Text.", $hard);
             }
@@ -179,6 +181,7 @@ final class Renderer
                     $this->issue("Startseite: Foto $pid ist nicht mehr verfügbar (gelöscht oder nicht fertig).", true);
                 }
             }
+            $this->checkFileRefs($homeList, 'Startseite', true);
         }
         // Hero: gewähltes Foto, wenn es in einer angezeigten Galerie liegt, sonst Titelbild der ersten Galerie.
         $hero = null;
@@ -191,6 +194,30 @@ final class Renderer
         }
         $hero ??= $out[0]['cover'] ?? null;
         return $this->data = ['settings' => $set, 'galleries' => $out, 'pages' => $pages, 'hero' => $hero, 'home' => $homeList];
+    }
+
+    private const FILE_PROBLEM = [
+        'weg' => 'gibt es nicht mehr (gelöscht oder im Papierkorb)',
+        'privat' => 'ist nicht mehr öffentlich (wieder privat gestellt)',
+        'adresse' => 'hat keine gültige öffentliche Adresse',
+        'kopie' => 'fehlt auf dem Server (die öffentliche Kopie wird beim Öffnen von Medien oder beim Veröffentlichen ergänzt)',
+    ];
+
+    /** Meldung zu einer nicht verfügbaren Datei. */
+    private static function fileMessage(string $where, string $pos, int $id, array $st): string
+    {
+        $n = $st['name'] !== '' ? '„' . $st['name'] . '“' : (string) $id;
+        return "$where, $pos: Datei $n " . self::FILE_PROBLEM[$st['problem']] . '.';
+    }
+
+    /** @param list<array<string,mixed>> $blocks */
+    private function checkFileRefs(array $blocks, string $where, bool $hard): void
+    {
+        foreach (Blocks::fileRefs($blocks) as $ref) {
+            if ($this->blockFile($ref['file']) === null) {
+                $this->issue(self::fileMessage($where, $ref['pos'], $ref['file'], $this->blockFiles[$ref['file']]), $hard);
+            }
+        }
     }
 
     private function issue(string $msg, bool $hard): void
@@ -236,6 +263,42 @@ final class Renderer
             }
         }
         return $this->blockPhotos[$id] = $p;
+    }
+
+    /** @var array<int,array{file:?array<string,mixed>,problem:string,name:string}> */
+    private array $blockFiles = [];
+
+    /**
+     * Datei für einen Seitenblock (Entwurf 44), nur wenn sie öffentlich ist, nicht im Papierkorb liegt, eine gültige Adresse hat und die
+     * öffentliche Kopie vorhanden ist; sonst null (nie ein Link). Gemerkt je Renderer; der Bau prüft vor dem Umschalten frisch (recheckFiles).
+     *
+     * @return array{id:int,name:string,url:string,label:string,size:string,bytes:int}|null
+     */
+    public function blockFile(int $id): ?array
+    {
+        return ($this->blockFiles[$id] ??= $this->fileState($id))['file'];
+    }
+
+    /** @return array{file:?array<string,mixed>,problem:string,name:string} problem: '' | weg | privat | adresse | kopie */
+    private function fileState(int $id): array
+    {
+        $row = $this->db->one('SELECT id, name, public, public_name, legacy_public_path, bytes, deleted_at FROM files WHERE id = ?', [$id]);
+        if ($row === null) {
+            return ['file' => null, 'problem' => 'weg', 'name' => ''];
+        }
+        $name = (string) $row['name'];
+        if ($row['deleted_at'] !== null || (int) $row['public'] !== 1) {
+            return ['file' => null, 'problem' => $row['deleted_at'] !== null ? 'weg' : 'privat', 'name' => $name];
+        }
+        $rel = Files::publicRelOrNull($row);
+        if ($rel === null) {
+            return ['file' => null, 'problem' => 'adresse', 'name' => $name];
+        }
+        if (!is_file($this->config->mediaDir() . '/' . $rel)) {
+            return ['file' => null, 'problem' => 'kopie', 'name' => $name];
+        }
+        $url = '/media/' . $rel;
+        return ['file' => ['id' => $id, 'name' => $name, 'url' => $url, 'label' => Files::kindLabel($url), 'size' => Files::formatBytes((int) $row['bytes']), 'bytes' => (int) $row['bytes']], 'problem' => '', 'name' => $name];
     }
 
     // --- Bausteine für die Vorlagen ---
@@ -673,6 +736,51 @@ final class Renderer
         ksort($auto);
         $this->autoRedirects = array_keys($auto);
         return $out;
+    }
+
+    /** Kennungen der in Seiten und auf der Startseite benutzten Dateien (nur veröffentlichte Seiten im Bau). @return list<int> */
+    public function fileIds(): array
+    {
+        $ids = [];
+        foreach ($this->data()['pages'] as $pg) {
+            foreach (Blocks::fileIds($pg['block_list'] ?? []) as $id) {
+                $ids[$id] = $id;
+            }
+        }
+        foreach (Blocks::fileIds($this->data()['home'] ?? []) as $id) {
+            $ids[$id] = $id;
+        }
+        return array_values($ids);
+    }
+
+    /** Adressen der benutzten Dateien (Nummer → /media/…), für das Manifest. @return array<string,string> */
+    public function fileUrls(): array
+    {
+        $out = [];
+        foreach ($this->fileIds() as $id) {
+            $f = $this->blockFile($id);
+            if ($f !== null) {
+                $out[(string) $id] = $f['url'];
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Frische Prüfung aller benutzten Dateien (neue Abfrage, nicht der Zwischenspeicher): kurz vor dem Umschalten der Fassung.
+     *
+     * @return list<string> Meldungen; leer = alles in Ordnung
+     */
+    public function recheckFiles(): array
+    {
+        $bad = [];
+        foreach ($this->fileIds() as $id) {
+            $st = $this->fileState($id);
+            if ($st['file'] === null) {
+                $bad[] = 'Datei ' . ($st['name'] !== '' ? '„' . $st['name'] . '“' : (string) $id) . ' ' . self::FILE_PROBLEM[$st['problem']] . '.';
+            }
+        }
+        return $bad;
     }
 
     /** Kennungen der angezeigten Fotos (für Hinweise beim Löschen). @return list<int> */

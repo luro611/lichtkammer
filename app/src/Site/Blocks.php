@@ -22,7 +22,7 @@ final class Blocks
     public const MIN_INTERVAL = 2; // Sekunden zwischen den Bildern im Karussell
     public const MAX_INTERVAL = 30;
     /** Blöcke, die in Spalten stehen dürfen. */
-    public const SIMPLE = ['heading', 'text', 'image', 'quote', 'button'];
+    public const SIMPLE = ['heading', 'text', 'image', 'quote', 'button', 'download'];
     public const WIDTHS = ['schmal', 'normal', 'voll'];
     /** Stile je Blocktyp (Entwurf 14): erster Eintrag ist die Vorgabe, Unbekanntes wird zur Vorgabe. */
     public const STYLES = [
@@ -30,6 +30,7 @@ final class Blocks
         'text' => ['normal', 'gross', 'mitte', 'flaeche'],
         'quote' => ['normal', 'gross', 'flaeche'],
         'button' => ['normal', 'mitte'],
+        'download' => ['normal', 'flaeche'],
         'imagetext' => ['normal', 'flaeche'],
     ];
     public const RATIOS = ['3-2', '16-9', '21-9', '2-1', '3-1'];
@@ -96,7 +97,7 @@ final class Blocks
             throw new MediaException("$where: Dieser Block geht nur auf der Startseite.");
         }
         if ($inColumn && !in_array($t, self::SIMPLE, true)) {
-            throw new MediaException("$where: In Spalten gehen nur Überschrift, Text, Bild, Zitat und Knopf.");
+            throw new MediaException("$where: In Spalten gehen nur Überschrift, Text, Bild, Zitat, Knopf und Datei-Download.");
         }
         switch ($t) {
             case 'heading':
@@ -113,6 +114,14 @@ final class Blocks
             case 'button':
                 $label = $s('label', 80);
                 $href = $s('href', 500);
+                $file = self::fileId($b['file'] ?? null);
+                if ($file > 0) { // Datei aus Medien (Entwurf 44): nur die Nummer wird gespeichert, die Adresse setzt der Bau
+                    if ($label === '') {
+                        throw new MediaException("$where: Der Knopf braucht eine Beschriftung.");
+                    }
+                    self::fileExists($file, $db, $where);
+                    return ['t' => 'button', 'label' => $label, 'href' => '', 'style' => $style('button'), 'file' => $file];
+                }
                 if ($label === '' && $href === '') {
                     return null;
                 }
@@ -120,6 +129,13 @@ final class Blocks
                     throw new MediaException("$where: Der Knopf braucht eine Beschriftung und eine gültige Adresse (/seite/, https://… oder mailto:…).");
                 }
                 return ['t' => 'button', 'label' => $label, 'href' => $href, 'style' => $style('button')];
+            case 'download':
+                $file = self::fileId($b['file'] ?? null);
+                if ($file <= 0) {
+                    throw new MediaException("$where: Bitte eine Datei auswählen.");
+                }
+                self::fileExists($file, $db, $where);
+                return ['t' => 'download', 'file' => $file, 'title' => $s('title', 120), 'style' => $style('download')];
             case 'image':
                 $photo = self::photoId($b['photo'] ?? null, $db, $where);
                 $href = $s('href', 500);
@@ -255,6 +271,57 @@ final class Blocks
             throw new MediaException("$where: Das Foto gibt es nicht (mehr).");
         }
         return $id;
+    }
+
+    /** Datei-Nummer aus der Eingabe: nur eine ganze Zahl über 0 (oder Ziffernfolge unter 10 Stellen), alles andere zählt als „keine Datei“ (0). */
+    private static function fileId(mixed $v): int
+    {
+        if (is_int($v)) {
+            return $v > 0 && $v < 1_000_000_000 ? $v : 0;
+        }
+        return is_string($v) && ctype_digit($v) && strlen($v) < 10 ? (int) $v : 0;
+    }
+
+    /** Nur Dasein und Papierkorb; „öffentlich“ prüft erst der Bau (sonst ließe sich eine Seite nicht mehr speichern, nur weil jemand eine Datei privat stellt). */
+    private static function fileExists(int $id, ?Database $db, string $where): void
+    {
+        if ($db !== null && $db->value('SELECT 1 FROM files WHERE id = ? AND deleted_at IS NULL', [$id]) === null) {
+            throw new MediaException("$where: Die Datei gibt es nicht (mehr). Bitte eine andere wählen.");
+        }
+    }
+
+    /**
+     * Benutzte Dateien mit Stelle im Text („Block 4“, „Block 3 (links, Eintrag 2)“), jede Verwendung einzeln.
+     *
+     * @param list<array<string,mixed>> $blocks
+     * @return list<array{pos:string,file:int}>
+     */
+    public static function fileRefs(array $blocks, string $prefix = ''): array
+    {
+        $out = [];
+        foreach ($blocks as $i => $b) {
+            $pos = $prefix === '' ? 'Block ' . ($i + 1) : $prefix . ', Eintrag ' . ($i + 1) . ')';
+            if (($b['t'] === 'button' || $b['t'] === 'download') && (int) ($b['file'] ?? 0) > 0) {
+                $out[] = ['pos' => $pos, 'file' => (int) $b['file']];
+            } elseif ($b['t'] === 'columns') {
+                foreach (['left' => 'links', 'right' => 'rechts'] as $k => $name) {
+                    foreach (self::fileRefs($b[$k], 'Block ' . ($i + 1) . ' (' . $name) as $r) {
+                        $out[] = $r;
+                    }
+                }
+            }
+        }
+        return $out;
+    }
+
+    /** @param list<array<string,mixed>> $blocks @return list<int> */
+    public static function fileIds(array $blocks): array
+    {
+        $ids = [];
+        foreach (self::fileRefs($blocks) as $r) {
+            $ids[$r['file']] = $r['file'];
+        }
+        return array_values($ids);
     }
 
     /** Anzahl Bilder ohne Alt-Text (ohne ausdrückliche „Nur Dekoration“). @param list<array<string,mixed>> $blocks */
@@ -424,7 +491,22 @@ final class Blocks
             case 'rule':
                 return "<hr class=\"brule\">\n";
             case 'button':
+                if ((int) ($b['file'] ?? 0) > 0) {
+                    $f = $r->blockFile((int) $b['file']);
+                    if ($f === null) {
+                        return $r->isPreview() ? self::missingFile((string) $b['label'], 'bbtn' . self::cls($b)) : '';
+                    }
+                    return '<p class="bbtn' . self::cls($b) . '"><a class="knopf" href="' . $h($f['url']) . '"><span>' . $h($b['label']) . "</span></a></p>\n";
+                }
                 return '<p class="bbtn' . self::cls($b) . '">' . self::link($b['href'], '<span>' . $h($b['label']) . '</span>', $r, 'knopf') . "</p>\n";
+            case 'download':
+                $f = $r->blockFile((int) $b['file']);
+                if ($f === null) {
+                    return $r->isPreview() ? self::missingFile('', 'bfile' . self::cls($b)) : '';
+                }
+                $title = $b['title'] !== '' ? $b['title'] : $f['name'];
+                return '<p class="bfile' . self::cls($b) . '"><a class="bfile-link" href="' . $h($f['url']) . '"><span class="bfile-title">' . $h($title)
+                    . '</span><span class="bfile-meta">' . $h($f['label'] . ' · ' . $f['size']) . "</span></a></p>\n";
             case 'image':
                 $p = $r->blockPhoto((int) $b['photo']);
                 if ($p === null) {
@@ -532,9 +614,15 @@ final class Blocks
         return $st !== 'normal' && in_array($st, self::STYLES[$b['t']] ?? [], true) ? ' s-' . $st : '';
     }
 
+    /** Platzhalter nur in der Vorschau, ohne Link (nie ein Link auf Privates oder Gelöschtes). */
+    private static function missingFile(string $label, string $class): string
+    {
+        return '<p class="' . $class . ' bfile-missing" role="note">' . ($label !== '' ? Renderer::h($label) . ': ' : '') . 'Datei nicht verfügbar (privat gestellt oder gelöscht). Veröffentlichen ist so nicht möglich.' . "</p>\n";
+    }
+
     private static function link(string $href, string $inner, Renderer $r, string $class): string
     {
-        $internal = str_starts_with($href, '/');
+        $internal = str_starts_with($href, '/') && !str_starts_with($href, '/media/'); // Medien liegen nicht unter dem Vorschau-Präfix
         $url = $internal ? $r->url($href) : $href;
         $external = preg_match('#^https?://#i', $href) === 1;
         return '<a' . ($class !== '' ? ' class="' . $class . '"' : '') . ' href="' . Renderer::h($url) . '"' . ($external ? ' rel="noopener noreferrer"' : '') . '>' . $inner . '</a>';
