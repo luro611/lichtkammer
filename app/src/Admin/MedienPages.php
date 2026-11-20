@@ -84,7 +84,7 @@ trait MedienPages
         $q = trim($req->query('q'));
         $contents = $this->s->browser->contents($folder, $q, $sort, $desc, max(1, (int) $req->query('seite')));
         $edit = preg_match('/^([od])(\d{1,9})$/', $req->query('bearbeiten'), $em) === 1 ? [$em[1], (int) $em[2]] : null;
-        $detail = preg_match('/^([df])([1-9]\d{0,8})$/', $req->query('detail'), $dm) === 1 ? $this->detailData($dm[1] === 'd' ? 'datei' : 'foto', (int) $dm[2]) : null;
+        $detail = preg_match('/^([df])([1-9]\d{0,8})$/D', $req->query('detail'), $dm) === 1 ? $this->detailData($dm[1] === 'd' ? 'datei' : 'foto', (int) $dm[2]) : null;
         $usage = $this->s->browser->usage();
         $engine = $this->s->library->engine();
         $folderRow = $folder > 0 ? $this->s->folders->get($folder) : null;

@@ -120,7 +120,7 @@ final class Settings
         $out = [];
         foreach (self::LOGO_ROLES as $role => $label) {
             $v = (string) ($this->db->value('SELECT v FROM site_settings WHERE k = ?', ['logo_' . $role]) ?? '');
-            if ($this->files !== null && preg_match('/^f[1-9]\d{0,8}$/', $v) === 1 && $this->mediaLogo($v) === null) {
+            if ($this->files !== null && preg_match('/^f[1-9]\d{0,8}$/D', $v) === 1 && $this->mediaLogo($v) === null) {
                 $out[] = $label . ': Die gewählte Datei aus Medien gibt es nicht mehr oder sie ist nicht mehr als Logo geeignet. Es erscheint der Seitenname als Schrift.';
             }
         }
@@ -133,7 +133,7 @@ final class Settings
     /** Datei aus Medien als Logo: `f<Nummer>`; nur svg/png/webp, nicht im Papierkorb, höchstens LOGO_MAX. @return array{id:int,name:string,mime:string,path:string}|null */
     private function mediaLogo(string $v): ?array
     {
-        if ($this->files === null || preg_match('/^f([1-9]\d{0,8})$/', $v, $m) !== 1) {
+        if ($this->files === null || preg_match('/^f([1-9]\d{0,8})$/D', $v, $m) !== 1) {
             return null;
         }
         $f = $this->files->get((int) $m[1]);

@@ -85,7 +85,7 @@ final class Usage
         }
         foreach (Settings::LOGO_ROLES as $role => $label) { // Logo aus Medien (Stufe 5): „f<Nummer>“ in der Einstellung
             $v = (string) ($this->db->value('SELECT v FROM site_settings WHERE k = ?', ['logo_' . $role]) ?? '');
-            if (preg_match('/^f([1-9]\d{0,8})$/', $v, $lm) === 1 && ($want === null || isset($want[(int) $lm[1]]))) {
+            if (preg_match('/^f([1-9]\d{0,8})$/D', $v, $lm) === 1 && ($want === null || isset($want[(int) $lm[1]]))) {
                 $out[(int) $lm[1]][] = ['label' => $label, 'link' => '/admin/logos', 'pos' => '', 'linked' => true];
             }
         }
