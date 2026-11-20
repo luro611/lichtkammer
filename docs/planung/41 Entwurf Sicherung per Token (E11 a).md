@@ -233,3 +233,14 @@ Der zugehörige `.service` startet das Skript als Dienstkonto ohne Anmeldung, `P
 2. **Wann bauen: nach dem Livegang (Empfehlung) oder vorher?** Vorher heißt: Livegang verschiebt sich um etwa eine Woche (Bau, Prüfung durch Opus und Fable, Messung). Nachher heißt: die ersten Wochen sichert Lutz von Hand (nach Livegang eine frische Sicherung ist ohnehin Bedingung).
 3. **Wie soll gemeldet werden, wenn ein Abruf ausbleibt: Hinweisband im Admin plus Wächter-Ping vom Homeserver (Empfehlung) oder zusätzlich E-Mail?** E-Mail aus der App gibt es bisher nicht (neue Baustelle, wäre eigene Prüfung). Hast du schon einen Wächter (z. B. Uptime Kuma) im Heimnetz, an den das Skript einen Ping schicken kann?
 4. **Ohne Ende-zu-Ende-Verschlüsselung und ohne feste Adressbindung starten (Empfehlung)?** Der Homeserver liegt auf einem verschlüsselten Datenträger, die Wege sind nur lesend. Beides lässt sich später nachrüsten, wenn es sich als nötig zeigt.
+
+## 11. Entscheidungen von Lutz (20.11.2026)
+
+Alle vier Fragen aus Abschnitt 10 sind **wie empfohlen** entschieden:
+
+1. Schlüssel in der Datenbank mit Verwaltungsseite (mehrere benannte Schlüssel, Widerruf, „zuletzt benutzt“).
+2. Bauen **nach dem Livegang**; bis dahin Sicherung von Hand.
+3. Hinweisband im Admin plus Wächter-Ping vom Homeserver; keine E-Mail aus der App. Ob ein Wächter (z. B. Uptime Kuma) im Heimnetz vorhanden ist, klärt Lutz beim Bau.
+4. Start ohne Ende-zu-Ende-Verschlüsselung und ohne feste Adressbindung; später nachrüstbar.
+
+Vor dem Bau bleibt eine **Fable-Prüfung des Entwurfs** Pflicht (Abschnitt 9).
