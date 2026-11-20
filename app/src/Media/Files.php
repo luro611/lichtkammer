@@ -459,6 +459,10 @@ HT;
                 $r['no_original']++;
                 continue;
             }
+            if (strtolower(pathinfo($src, PATHINFO_EXTENSION)) !== strtolower(pathinfo((string) $x['rel'], PATHINFO_EXTENSION))) { // Fabrik-Prüfung (Fable 48): Endung der Kopie muss zur Art des Originals passen
+                $r['bad_name']++;
+                continue;
+            }
             if ($row['kind'] === 'svg' || str_ends_with((string) $x['rel'], '.svg')) { // auch nach der Endung: handveränderte Art darf den Schutzkopf-Test nicht umgehen
                 $svgOk ??= $this->svgHeadersWork();
                 if (!$svgOk) {

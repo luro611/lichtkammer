@@ -128,3 +128,8 @@ check('Kopien: die Seite „Veröffentlichen“ zieht die Kopie vorher nach, kei
 unlink($copyA);
 $pub = $svc->builder->publish(1);
 check('Kopien: Veröffentlichen zieht die Kopie selbst nach und klappt', $pub['ok'] === true && is_file($copyA));
+
+// Fable 48: Endung der Kopie passt nicht zur Art des Originals (handveränderte Zeile): nie schreiben
+$db->run("UPDATE files SET public_name = 'aaaaaaaa-falsch.png', public = 1 WHERE id = ?", [$c]);
+$res = $fiOk->repairPublicCopies(100, [$c]);
+check('Kopien: Endung der Kopie passt nicht zum Original (png statt pdf): nichts geschrieben, als „bad_name“ gezählt', $res['bad_name'] === 1 && $res['repaired'] === 0 && !is_file($mediaDir . '/dateien/aaaaaaaa-falsch.png'));
