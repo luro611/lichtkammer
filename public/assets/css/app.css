@@ -411,3 +411,4 @@ body.app{padding-inline:0}
 .bfiletabs .btn[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
 .ematfile .small{white-space:normal;overflow-wrap:anywhere}
 .emgrid.ematfilelist{overflow-x:hidden}
+.epalcard{overflow-wrap:anywhere;hyphens:auto}
