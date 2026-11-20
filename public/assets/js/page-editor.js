@@ -122,7 +122,9 @@
 
   // --- Zustand für Ziehen, Rückgängig, Hinweise ---
   var MIME = 'application/x-lichtkammer'; // nur selbst gesetzte Zieh-Daten gelten, alles andere (z. B. Dateien aus dem Finder) wird ignoriert
-  var drag = null;      // { kind: 'move', list, b } oder { kind: 'new', type }
+  var drag = null;      // { kind: 'move', list, b }, { kind: 'new', type }, { kind: 'photo', photo } oder { kind: 'gallery', load } (die beiden letzten kommen aus dem Seitenstreifen „Material“)
+  var PHOTO_TYPES = ['image', 'imagetext', 'hero']; // Blöcke mit genau einem Foto: ein gezogenes Foto setzt sich dort ein
+  var changeFns = [];   // Rückrufe bei jeder Änderung (Vorschau neben dem Editor)
   var armed = null;     // gewählter Baustein, der an einem Einfügepunkt abgelegt wird (Tastatur, Handy)
   var undoStack = [], UNDO_MAX = 30, barTimer = null, lastHint = '';
 
@@ -220,16 +222,22 @@
   // Welche Ablage ist für das gerade gezogene Ding erlaubt? null = nicht unser Ziehen, 'ok', 'bad'
   function dragStatus(e, allowed) {
     if (!drag || !e.dataTransfer || Array.prototype.indexOf.call(e.dataTransfer.types || [], MIME) < 0) { return null; }
-    var t = drag.kind === 'new' ? drag.type : drag.b.t;
-    return allowed.indexOf(t) >= 0 ? 'ok' : 'bad';
+    return allowed.indexOf(dragType()) >= 0 ? 'ok' : 'bad';
+  }
+  // Welcher Blocktyp entsteht oder wandert gerade? Ein Foto wird ein Bildblock, eine Galerie ein Galerie-Raster.
+  function dragType() {
+    return drag.kind === 'new' ? drag.type : (drag.kind === 'photo' ? 'image' : (drag.kind === 'gallery' ? 'gallery' : drag.b.t));
   }
   function badText() {
-    var t = drag.kind === 'new' ? drag.type : drag.b.t;
+    var t = dragType();
     return 'Das geht nicht in Spalten: „' + (TYPES[t] ? TYPES[t].name : t) + '“ kann nur auf der Hauptseite stehen.';
   }
-  function endDrag() { drag = null; root.classList.remove('is-dragging'); clearDrop(); hint(''); }
+  // Ablehnungs-Hinweis bleibt stehen, auch wenn danach das Ende des Ziehens (dragend) kommt, bis zur nächsten Handlung
+  var stickyHint = '';
+  function endDrag() { drag = null; root.classList.remove('is-dragging'); clearDrop(); hint(stickyHint); }
   function startDrag(e, d, effect) {
     drag = d;
+    stickyHint = '';
     root.classList.add('is-dragging');
     if (e.dataTransfer) { e.dataTransfer.effectAllowed = effect; e.dataTransfer.setData(MIME, d.kind); }
   }
@@ -237,18 +245,22 @@
     Array.prototype.forEach.call(root.querySelectorAll('.drop-before,.drop-after,.drop-on,.drop-bad'), function (n) { n.classList.remove('drop-before', 'drop-after', 'drop-on', 'drop-bad'); });
   }
   // Gemeinsame Ablage-Logik für Karten, Einfügepunkte und Listenende
-  function dropTarget(node, allowed, getIdx, list, mark) {
+  function dropTarget(node, allowed, getIdx, list, mark, blk) {
     var mk = mark && mark !== 'card' ? mark : node;
+    // Ein Foto auf einen Block mit einem Foto: einsetzen statt davor/dahinter einfügen
+    var replaces = function () { return !!(blk && drag && drag.kind === 'photo' && PHOTO_TYPES.indexOf(blk.t) >= 0); };
     node.addEventListener('dragover', function (e) {
       var st = dragStatus(e, allowed);
       if (!st) { return; }
       e.stopPropagation();
       clearDrop();
       // Verbotene Ablage ausdrücklich ablehnen (dropEffect none), sonst fällt sie zur umgebenden Spalten-Karte durch (Prüfung 30, B1)
-      if (st === 'bad') { e.preventDefault(); if (e.dataTransfer) { e.dataTransfer.dropEffect = 'none'; } mk.classList.add('drop-bad'); hint(badText()); return; }
+      if (st === 'bad') { e.preventDefault(); if (e.dataTransfer) { e.dataTransfer.dropEffect = 'none'; } mk.classList.add('drop-bad'); stickyHint = badText(); hint(stickyHint); return; }
       e.preventDefault();
-      if (e.dataTransfer) { e.dataTransfer.dropEffect = drag.kind === 'new' ? 'copy' : 'move'; }
+      if (e.dataTransfer) { e.dataTransfer.dropEffect = drag.kind === 'move' ? 'move' : 'copy'; }
+      stickyHint = '';
       hint('');
+      if (replaces()) { node.classList.add('drop-on'); return; }
       var idx = getIdx(e);
       if (mark === 'card') { node.classList.add(idx.after ? 'drop-after' : 'drop-before'); } else { mk.classList.add('drop-on'); }
     });
@@ -262,10 +274,12 @@
       if (!st) { return; }
       e.preventDefault();
       e.stopPropagation();
-      if (st !== 'ok') { var bad = badText(); endDrag(); hint(bad); return; }
-      var idx = getIdx(e), d = drag;
+      if (st !== 'ok') { var bad = badText(); endDrag(); stickyHint = bad; hint(bad); return; }
+      var rp = replaces(), idx = getIdx(e), d = drag;
       endDrag();
       var at = typeof idx === 'number' ? idx : idx.at;
+      if (d.kind === 'photo') { if (rp) { setPhoto(blk, d.photo); } else { insertPhoto(list, at, d.photo, allowed); } return; }
+      if (d.kind === 'gallery') { insertGalleryLater(list, at, allowed, d); return; }
       if (d.kind === 'new') { insertAt(list, at, d.type, allowed); } else { moveBlock(d.b, d.list, list, at, allowed); }
     });
   }
@@ -273,12 +287,13 @@
   var COL_MAX = 20; // wie im Server (Blocks.php): höchstens 20 Blöcke je Spalte
   function colFull(list) { return list !== state && list.length >= COL_MAX; }
   var FULL_TEXT = 'Diese Spalte ist voll: Es passen höchstens 20 Blöcke hinein.';
-  function insertAt(list, idx, type, allowed) {
+  function insertAt(list, idx, type, allowed, init) {
     if (allowed.indexOf(type) < 0) { hint('Das geht nicht in Spalten: „' + TYPES[type].name + '“ kann nur auf der Hauptseite stehen.'); return; }
     if (colFull(list)) { hint(FULL_TEXT); return; }
     pushUndo();
     var nb = make(type);
     nb._id = ++uid;
+    if (init) { init(nb); }
     list.splice(idx, 0, nb);
     dirty = true;
     focusId = nb._id;
@@ -286,7 +301,54 @@
     setArmed(null);
     say('Block „' + TYPES[type].name + '“ eingefügt auf Position ' + (idx + 1) + '.');
     renderAll();
-    if (type === 'image') { choosePhoto(nb); }
+    if (type === 'image' && !nb.photo) { choosePhoto(nb); }
+  }
+
+  // --- Fotos und Galerien aus dem Seitenstreifen „Material“ (page-material.js) ---
+  function remember(r) { photos[r.id] = { t: r.t, a: r.a, c: r.c, u: r.u, x: 0 }; }
+  function insertPhoto(list, idx, ph, allowed) {
+    insertAt(list, idx, 'image', allowed, function (nb) {
+      remember(ph);
+      nb.photo = ph.id;
+      nb.alt = ph.a || '';
+      nb.caption = ph.c || '';
+    });
+  }
+  // Foto in einen vorhandenen Block einsetzen. Alt-Text und Bildunterschrift folgen dem neuen Foto, wenn sie noch die des alten waren oder leer sind.
+  function setPhoto(b, ph) {
+    if (!b || PHOTO_TYPES.indexOf(b.t) < 0) { return; }
+    pushUndo();
+    var old = photos[b.photo] || null;
+    remember(ph);
+    if (!b.alt || (old && b.alt === old.a)) { b.alt = ph.a || ''; }
+    if (b.t !== 'hero' && (!b.caption || (old && b.caption === old.c))) { b.caption = ph.c || ''; }
+    b.photo = ph.id;
+    dirty = true;
+    focusId = b._id;
+    focusSel = '.bphotoside button';
+    say('Foto „' + (ph.t || ph.id) + '“ eingesetzt.');
+    renderAll();
+  }
+  function insertGallery(list, idx, g, allowed) {
+    var rows = g && g.rows ? g.rows : [];
+    if (!rows.length) { hint('Diese Galerie hat noch keine fertigen Fotos.'); return; }
+    insertAt(list, idx, 'gallery', allowed, function (nb) {
+      rows.slice(0, 12).forEach(function (r) { remember(r); nb.photos.push({ photo: r.id, alt: r.a || '', decor: false }); });
+    });
+    if ((g.total || rows.length) > 12) { say('Die Galerie hat ' + g.total + ' Fotos. Ein Raster fasst höchstens 12: die ersten 12 wurden übernommen.'); }
+  }
+  // Lebt die Liste noch im Zustand? (Nach Rückgängig oder Neuzeichnen gehört eine alte Liste nicht mehr dazu.)
+  function listAlive(list) {
+    if (list === state) { return true; }
+    return state.some(function (o) { return o.t === 'columns' && (o.left === list || o.right === list); });
+  }
+  function insertGalleryLater(list, at, allowed, d) {
+    hint('Galerie wird geladen …');
+    d.load().then(function (g) {
+      hint('');
+      if (!listAlive(list)) { hint('Die Seite hat sich inzwischen geändert. Bitte noch einmal ablegen.'); return; }
+      insertGallery(list, Math.min(at, list.length), g, allowed);
+    }).catch(function () { hint('Die Galerie konnte nicht geladen werden. Bitte noch einmal versuchen.'); });
   }
 
   // Block aus src nach dst auf Platz idx verschieben (auch zwischen Hauptliste und Spalten)
@@ -355,6 +417,12 @@
     });
   }
 
+  function dragEndRestoreFocus() {
+    endDrag();
+    var f = dropFocus; dropFocus = null;
+    if (f) { setTimeout(function () { if (document.body.contains(f)) { try { f.focus({ preventScroll: true }); } catch (x) { f.focus(); } } }, 0); }
+  }
+
   // --- Bausteinleiste (einmal gebaut) ---
   var palette = el('details', 'epal');
   if (window.matchMedia && window.matchMedia('(min-width:1100px)').matches) { palette.open = true; }
@@ -371,11 +439,7 @@
     c.draggable = true;
     c.addEventListener('dragstart', function (e) { dropFocus = null; startDrag(e, { kind: 'new', type: t }, 'copy'); });
     // Chromium setzt den Fokus nach dem Ablegen auf die Karte zurück: ins neue Feld nachziehen (Prüfung 30, N2)
-    c.addEventListener('dragend', function () {
-      endDrag();
-      var f = dropFocus; dropFocus = null;
-      if (f) { setTimeout(function () { if (document.body.contains(f)) { try { f.focus({ preventScroll: true }); } catch (x) { f.focus(); } } }, 0); }
-    });
+    c.addEventListener('dragend', dragEndRestoreFocus);
     var act = function () {
       if (armed === t) { setArmed(null); say('Baustein abgewählt.'); return; }
       setArmed(t);
@@ -389,7 +453,9 @@
 
   var wrapEl = el('div', 'ewrap');
   var mainEl = el('div', 'emain');
-  wrapEl.appendChild(palette);
+  var sideEl = el('div', 'eside');
+  sideEl.appendChild(palette);
+  wrapEl.appendChild(sideEl);
   wrapEl.appendChild(mainEl);
   root.textContent = '';
   root.appendChild(live);
@@ -398,11 +464,13 @@
   root.appendChild(bar);
 
   // --- Liste und Blöcke ---
+  function changed() { changeFns.forEach(function (f) { try { f(); } catch (x) { /* eine Erweiterung darf den Editor nicht stören */ } }); }
   function renderAll() {
     mainEl.textContent = '';
     mainEl.appendChild(renderList(state, ALL));
     setArmed(armed);
     updateUndoBtn();
+    changed();
     if (focusId !== null) {
       var card = root.querySelector('[data-bid="' + focusId + '"]');
       var target = card && (card.querySelector(focusSel || '.bbody input, .bbody textarea, .bbody select, .bbody button') || card.querySelector('.bhead .btitle'));
@@ -572,7 +640,7 @@
       var r = card.getBoundingClientRect();
       var after = e.clientY >= r.top + r.height / 2;
       return { after: after, at: list.indexOf(b) + (after ? 1 : 0) };
-    }, list, 'card');
+    }, list, 'card', b);
     return card;
   }
 
@@ -966,4 +1034,19 @@
   form.addEventListener('submit', function () { undoStack = []; });
   renderAll();
   dirty = false;
+
+  // Erweiterungen (page-material.js, page-preview.js) bekommen nur diese Hilfen; Daten nimmt weiter nur der Server an.
+  var api = {
+    root: root, wrap: wrapEl, side: sideEl, main: mainEl, form: form, toolbar: toolbar, el: el, btn: btn, say: say, hint: hint,
+    pickUrl: pickUrl, TYPES: TYPES, SIMPLE: SIMPLE, PHOTO_TYPES: PHOTO_TYPES, isHome: isHome,
+    state: function () { return state; },
+    json: function () { return JSON.stringify({ v: 1, blocks: state }, replacer); },
+    summary: summary,
+    startDrag: function (e, d) { dropFocus = null; startDrag(e, d, 'copy'); },
+    endDrag: dragEndRestoreFocus,
+    insertPhoto: insertPhoto, setPhoto: setPhoto, insertGallery: insertGallery,
+    colFull: colFull, onChange: function (f) { changeFns.push(f); }
+  };
+  if (typeof window.LKMaterial === 'function') { window.LKMaterial(api); }
+  if (typeof window.LKPreview === 'function') { window.LKPreview(api); }
 })();

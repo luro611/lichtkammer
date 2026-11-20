@@ -15,7 +15,7 @@
     <label class="field"><span>Adresse (Teil der Web-Adresse)</span><input name="slug" value="<?= $e((string) $pg['slug']) ?>" maxlength="60"><small class="small muted">Wird die Adresse einer online stehenden Seite geändert, leitet die alte Adresse nach dem Veröffentlichen automatisch hierher weiter.</small></label>
     <input type="hidden" name="blocks" id="blocks-field" value="<?= $e($blocksField) ?>">
     <div class="field"><span id="editor-label">Inhalt</span>
-      <div id="page-editor" class="editor" role="group" aria-labelledby="editor-label" data-pick-url="/admin/fotos/auswahl"></div>
+      <div id="page-editor" class="editor" role="group" aria-labelledby="editor-label" data-pick-url="/admin/fotos/auswahl" data-gal-url="/admin/fotos/auswahl-galerien" data-gal-photos-url="/admin/fotos/auswahl-galerie"></div>
       <noscript><p class="notice error">Der Seiten-Editor braucht JavaScript. Ohne JavaScript lässt sich der Inhalt nicht bearbeiten. Speichern ändert nur Titel, Adresse, Status und Verlinkung; ein alter Text wird dabei in Blöcke übernommen.</p></noscript>
       <p class="small muted">Jeder Block ist ein Baustein der Seite. Neue Blöcke kommen aus der Bausteinleiste (ziehen) oder über „+ hier einfügen“ an die gewünschte Stelle. Mit den Pfeilen, „Verschieben nach …“ oder durch Ziehen am Griff ändert sich die Reihenfolge, auch zwischen Seite und Spalten. „Rückgängig“ holt Gelöschtes und Verschobenes zurück, solange du nicht gespeichert hast. Leere Blöcke werden beim Speichern entfernt.</p>
     </div>
@@ -46,4 +46,5 @@
   <form method="post" action="/admin/seiten/<?= (int) $pg['id'] ?>/loeschen"><input type="hidden" name="_csrf" value="<?= $e($csrf) ?>"><button class="btn small ghost" type="submit" data-confirm="Seite „<?= $e((string) $pg['title']) ?>“ löschen?">Seite löschen</button></form>
 </section>
 <script type="application/json" id="editor-data"><?= $editor ?></script>
+<script src="<?= $e($asset('/assets/js/page-material.js')) ?>" defer></script>
 <script src="<?= $e($asset('/assets/js/page-editor.js')) ?>" defer></script>

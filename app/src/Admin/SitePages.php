@@ -237,14 +237,67 @@ trait SitePages
     /** Fotoauswahl für den Seiten-Editor (JSON). */
     public function photoPick(Request $req, array $p, ?array $sess): Response
     {
-        $r = $this->s->catalog->pick($req->query('q'), (int) $req->query('seite'));
+        $n = $req->query('n') === '60' ? 60 : 24; // Seitenstreifen „Material“ holt 60 Kacheln, der Dialog 24
+        $r = $this->s->catalog->pick($req->query('q'), (int) $req->query('seite'), $n);
         $rows = [];
         foreach ($r['rows'] as $row) {
             if ($row['thumb']) {
-                $rows[] = ['id' => (int) $row['id'], 't' => (string) ($row['title'] !== '' ? $row['title'] : $row['original_name']), 'a' => (string) $row['alt_text'], 'c' => (string) $row['caption'], 'u' => '/media/' . $row['thumb']];
+                $rows[] = $this->pickRow($row);
             }
         }
         return Response::json(['rows' => $rows, 'more' => $r['more'], 'page' => $r['page']]);
+    }
+
+    /** @param array<string,mixed> $row @return array{id:int,t:string,a:string,c:string,u:string} */
+    private function pickRow(array $row): array
+    {
+        return ['id' => (int) $row['id'], 't' => (string) ($row['title'] !== '' ? $row['title'] : $row['original_name']), 'a' => (string) $row['alt_text'], 'c' => (string) ($row['caption'] ?? ''), 'u' => '/media/' . $row['thumb']];
+    }
+
+    /** Galerien für den Seitenstreifen „Material“ (JSON): Titel, Zahl der Fotos, Titelbild. Gestaffelt zu 60. */
+    public function galleryPick(Request $req, array $p, ?array $sess): Response
+    {
+        $q = trim(mb_substr($req->query('q'), 0, 100));
+        $page = max(1, min(100000, (int) $req->query('seite')));
+        $args = [];
+        $w = '1=1';
+        if ($q !== '') {
+            $w = "g.title LIKE :q ESCAPE '\\'";
+            $args[':q'] = '%' . strtr($q, ['\\' => '\\\\', '%' => '\\%', '_' => '\\_']) . '%';
+        }
+        $rows = $this->s->db->all(
+            "SELECT g.id, g.title, (SELECT COUNT(*) FROM gallery_photos gp JOIN photos p ON p.id = gp.photo_id WHERE gp.gallery_id = g.id AND p.deleted_at IS NULL AND p.status = 'ready') AS n FROM galleries g WHERE $w ORDER BY g.sort_order, g.id LIMIT 61 OFFSET " . (($page - 1) * 60),
+            $args,
+        );
+        $more = count($rows) > 60;
+        $out = [];
+        foreach (array_slice($rows, 0, 60) as $g) {
+            $cover = $this->s->galleries->effectiveCover((int) $g['id']);
+            $thumb = $cover !== null ? $this->s->db->value('SELECT ' . \Lichtkammer\Media\Galleries::THUMB . ' FROM photos p WHERE p.id = ?', [$cover]) : null;
+            $out[] = ['id' => (int) $g['id'], 't' => (string) $g['title'], 'n' => (int) $g['n'], 'u' => $thumb ? '/media/' . $thumb : ''];
+        }
+        return Response::json(['rows' => $out, 'more' => $more, 'page' => $page]);
+    }
+
+    /** Die Fotos einer Galerie (höchstens so viele, wie ein Galerie-Raster fasst) für das Ziehen einer Galerie auf die Seite. */
+    public function galleryPickPhotos(Request $req, array $p, ?array $sess): Response
+    {
+        $id = (int) $p['id'];
+        if ($this->s->galleries->get($id) === null) {
+            return Response::json(['rows' => [], 'total' => 0], 404);
+        }
+        $rows = [];
+        $total = 0;
+        foreach ($this->s->galleries->photos($id) as $row) {
+            if ($row['status'] !== 'ready' || !$row['thumb']) {
+                continue;
+            }
+            $total++;
+            if (count($rows) < Blocks::MAX_PHOTOS) {
+                $rows[] = $this->pickRow($row);
+            }
+        }
+        return Response::json(['rows' => $rows, 'total' => $total]);
     }
 
     public function pageEdit(Request $req, array $p, ?array $sess): Response

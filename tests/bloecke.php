@@ -118,7 +118,7 @@ check('Speichern (Blöcke): Weiterleitung mit Bestätigung, Blöcke gespeichert,
 $stored = Blocks::decode((string) $db->value('SELECT blocks FROM pages WHERE id = ?', [$pid]));
 check('Speichern (Blöcke): gespeichert wird die geprüfte Form (Typen, Reihenfolge)', array_column($stored, 't') === ['heading', 'text', 'image', 'gallery', 'quote', 'rule', 'button', 'columns']);
 $ed2 = $b->get("/admin/seiten/$pid");
-check('Editor: Text mit </script> bricht nicht aus dem Datenblock aus', substr_count($ed2->body, '<script') === 4 && substr_count($ed2->body, '</script>') === 4 && !str_contains($ed2->body, '</script><script>x') && str_contains($ed2->body, '<'));
+check('Editor: Text mit </script> bricht nicht aus dem Datenblock aus', substr_count($ed2->body, '<script') === 5 && substr_count($ed2->body, '</script>') === 5 && !str_contains($ed2->body, '</script><script>x') && str_contains($ed2->body, '<'));
 check('Editor: Fotos des Seiteninhalts mit Vorschaubild im Datenblock', str_contains($ed2->body, '"photos":{"' . $q1 . '"') && str_contains($ed2->body, '/media/'));
 
 // Vorschau

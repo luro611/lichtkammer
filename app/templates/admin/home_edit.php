@@ -11,7 +11,7 @@
     <input type="hidden" name="_csrf" value="<?= $e($csrf) ?>">
     <input type="hidden" name="blocks" id="blocks-field" value="<?= $e($blocksField) ?>">
     <div class="field"><span id="editor-label">Inhalt der Startseite</span>
-      <div id="page-editor" class="editor" role="group" aria-labelledby="editor-label" data-pick-url="/admin/fotos/auswahl"></div>
+      <div id="page-editor" class="editor" role="group" aria-labelledby="editor-label" data-pick-url="/admin/fotos/auswahl" data-gal-url="/admin/fotos/auswahl-galerien" data-gal-photos-url="/admin/fotos/auswahl-galerie"></div>
       <noscript><p class="notice error">Der Editor braucht JavaScript.</p></noscript>
       <p class="small muted">Neue Blöcke kommen aus der Bausteinleiste (ziehen) oder über „+ hier einfügen“ an die gewünschte Stelle. Mit den Pfeilen, „Verschieben nach …“ oder durch Ziehen am Griff ändert sich die Reihenfolge. „Rückgängig“ gilt nur, solange du nicht gespeichert hast. Das Titelbild gibt es nur auf der Startseite.</p>
     </div>
@@ -28,4 +28,5 @@
 <?php endif; ?>
 </section>
 <script type="application/json" id="editor-data"><?= $editor ?></script>
+<script src="<?= $e($asset('/assets/js/page-material.js')) ?>" defer></script>
 <script src="<?= $e($asset('/assets/js/page-editor.js')) ?>" defer></script>

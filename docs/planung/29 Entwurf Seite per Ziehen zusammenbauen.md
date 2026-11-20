@@ -148,3 +148,14 @@ Gebaut in `page-editor.js`/`app.css`, Datenformat und `Blocks::parse` unverände
 - **A:** Einfügepunkt öffnet Menü an der Stelle und legt dort an (ok); Baustein antippen, dann Einfügepunkt (ok, Esc wählt ab); Bausteinleiste per Ziehen auf Einfügepunkt (ok, simulierte Zieh-Ereignisse); Leiste einklappbar, auf breitem Fenster offen und mitlaufend, Handy ohne seitliches Scrollen (ok). **Nicht geprüft:** echtes Ziehen mit der Maus in Safari/Firefox, Neuer Bildblock mit echtem Fotodialog (Testseite ohne Fotoliste).
 - **B:** Knopf und Strg/Cmd+Z (nicht in Textfeldern), Leiste nach dem Löschen, Stapel nach Speichern leer (ok). Nach dem Einfügen steht der Fokus im neuen Feld, dort gilt Strg+Z des Browsers; der Knopf „Rückgängig“ geht immer.
 - **C:** Block in leere Spalte ziehen (ok), Trennlinie in Spalte abgelehnt mit Hinweis (ok), Fremd-Ziehen ignoriert (ok), „Verschieben nach …“ (ok, Hauptseite „hinter dem Spalten-Block“, Spalten „ans Ende“).
+
+## 8. Stand Umsetzung (20.11.2026): Teil D gebaut (Fotos und Galerien, ohne Dateien)
+
+Neu: `public/assets/js/page-material.js` (Seitenstreifen), Erweiterungen in `page-editor.js` (Ziehen von Foto und Galerie, Einsetzen, Erweiterungs-Schnittstelle), `app.css`, `/admin/fotos/auswahl?n=60`, `/admin/fotos/auswahl-galerien`, `/admin/fotos/auswahl-galerie/{id}`. Teil E (Dateien, Feld `file`) ist **nicht** gebaut. Tests: `tests/material.php` (Quellen, Grenzen, Redaktion, Server nimmt nur geprüfte Fotos an).
+
+Browserprüfung (lokal in Docker, Chromium im eingebauten Browser, **echtes Mausziehen** mit der Maus, kein simuliertes Ereignis):
+
+- Foto auf einen Bildblock ziehen: Foto und Alt-Text wechseln (ok). Galerie auf Einfügepunkt zwischen zwei Blöcken: Galerie-Raster mit 12 von 14 Fotos (ok). Galerie in eine Spalte ziehen: wird abgelehnt (Ablegen nicht erlaubt, Hinweis „Das geht nicht in Spalten“ solange der Zeiger darüber ist und danach stehen bleibend), nichts eingefügt (ok).
+- „Wohin?“ mit Tastatur/Enter auf der Kachel: Liste der Ziele, Auswahl legt den Bildblock an der Stelle an, Fokus im neuen Block, Dialog weg (ok). Mehr laden ist ausgeblendet, wenn nichts mehr kommt (ok).
+- 375 px Breite: Streifen eingeklappt, kein seitliches Scrollen (ok).
+- **Nicht geprüft:** Safari und Firefox (nur Chromium), Touch-Ziehen (HTML5-Ziehen am Handy ist nicht Teil der Fassung, dort gilt „Wohin?“), Screenreader (nur Aria-Beschriftungen und Ansage über `say()` gebaut), Foto auf einen Block ziehen, der kein Bild hat (fügt davor/dahinter ein, nur über Tests der gemeinsamen Ablage-Logik belegt), Galerie mit 0 Fotos im Browser (nur Server-Antwort geprüft).

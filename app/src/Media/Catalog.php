@@ -79,7 +79,7 @@ final class Catalog
      *
      * @return array{rows:list<array<string,mixed>>,page:int,more:bool}
      */
-    public function pick(string $q, int $page): array
+    public function pick(string $q, int $page, int $per = 24): array
     {
         $args = [];
         $w = "p.deleted_at IS NULL AND p.status = 'ready'";
@@ -88,13 +88,14 @@ final class Catalog
             $w .= " AND (p.title LIKE :q ESCAPE '\\' OR p.alt_text LIKE :q ESCAPE '\\' OR p.place LIKE :q ESCAPE '\\' OR p.caption LIKE :q ESCAPE '\\' OR p.original_name LIKE :q ESCAPE '\\')";
             $args[':q'] = '%' . strtr(mb_substr($q, 0, 100), ['\\' => '\\\\', '%' => '\\%', '_' => '\\_']) . '%';
         }
-        $page = max(1, $page);
+        $page = max(1, min(100000, $page));
+        $per = max(1, min(60, $per));
         $rows = $this->db->all(
-            'SELECT p.id, p.title, p.caption, p.alt_text, p.original_name, ' . Galleries::THUMB . " AS thumb FROM photos p WHERE $w ORDER BY p.id DESC LIMIT 25 OFFSET " . (($page - 1) * 24),
+            'SELECT p.id, p.title, p.caption, p.alt_text, p.original_name, ' . Galleries::THUMB . " AS thumb FROM photos p WHERE $w ORDER BY p.id DESC LIMIT " . ($per + 1) . ' OFFSET ' . (($page - 1) * $per),
             $args,
         );
-        $more = count($rows) > 24;
-        return ['rows' => array_slice($rows, 0, 24), 'page' => $page, 'more' => $more];
+        $more = count($rows) > $per;
+        return ['rows' => array_slice($rows, 0, $per), 'page' => $page, 'more' => $more];
     }
 
     /** Fotos, die noch in keiner Galerie liegen und kein Foto der angegebenen Galerie sind (zum Hinzufügen). */
